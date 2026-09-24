@@ -12,6 +12,11 @@
 source: browser
 name: 'Method Fantasy League'
 leagueKey: '477.l.48535'
+teamKey: '477.l.48535.t.6'
+rounds: 17
+# Our seat in round one, 1-indexed. Unknown until Yahoo assigns the draft order;
+# `fha draft init` will refuse rather than guess.
+draftSlot: null
 numTeams: 8
 scoringType: head
 

@@ -489,7 +489,30 @@ undone once waivers process) and runs it through the normal pipeline.
 
 ## 10. Yahoo integration (`libs/yahoo`)
 
-### 10.1 Access status: the biggest project risk [R]
+### 10.1 Access status [R], and the website-session route [V]
+
+> **Updated 2026-09-24.** A second route was found and verified, so developer-app
+> provisioning is **no longer the largest project risk for reads**. See
+> `docs/investigations/2026-09-24-yahoo-integration.md` and the prototype in
+> `prototypes/yahoo-web/`.
+>
+> **`WebSessionReader` [V]:** the Yahoo website is itself a client of the Fantasy v2 API.
+> `GET https://pub-api-ro.fantasysports.yahoo.com/fantasy/v2/<resource>?format=json_f`
+> authenticates with **browser session cookies alone** — minimum set `T` + `Y`, no OAuth
+> bearer token and no crumb on GETs — and works from a plain headless Node process.
+> Nine read resources returned 200: user discovery, settings, teams, roster, players (with
+> `draft_analysis` and ownership), draftresults, transactions, scoreboard, standings.
+> `format=json_f` is flat JSON and much easier to parse than `format=json`.
+>
+> **Still unknown:** how writes authenticate (`pub-api-rw`, possibly a crumb) and how the
+> live draft room submits a pick. Nothing has been written to Yahoo.
+>
+> **The session file is a credential** granting full account access. Store 0600, never log
+> it, never commit it, and treat copying it to another machine as a deliberate decision.
+> Using the website's backend is not the documented developer path; the account at risk is
+> Ben's, so adopting this route is **his** decision (roadmap Q-002).
+
+#### The official developer-app route [R]
 - **What Yahoo says:** `https://sports.yahoo.com/developer/access/` states: *"The Yahoo Fantasy Sports API currently provides read access
   only. Write access is not available at this time."* Every application is reviewed by hand, with no stated
   turnaround. An application must describe the product, the data needed and the user base, including where access is
@@ -661,6 +684,7 @@ type ExecResult = { status: 'done' | 'submitted' | 'needsHuman' | 'failed'; deta
 | Implementation | Reads | Writes | Notes |
 |---|---|---|---|
 | `YahooApiReader` / `YahooApiExecutor` | ✔ | ✔ if write scope granted | §10.3–10.4. Start here if Yahoo grants access. |
+| `WebSessionReader` | ✔ | ✘ by construction | §10.1. Reads `pub-api-ro` with the user's session cookies; no developer app. Verified 2026-09-24 and implemented in `prototypes/yahoo-web`. **Read-only: it has no write methods.** Writes through `pub-api-rw` are unverified. |
 | `BrowserReader` / `BrowserExecutor` | ✔ | ✔ | Playwright against Ben's logged-in session. The session state is stored in `data/browser-state.json`, **encrypted**. Rules: act on the **row just read** (select by the element containing the player's Yahoo ID or link, **never by visible name text**), take a screenshot before and after each action and save it to `data/artifacts/`, and have a kill switch (`fha stop`). The terms of service are unconfirmed: this is Ben's decision (§25). |
 | `ManualExecutor` | n/a | prints the exact action, then waits for `fha confirm <planId>` | The draft-night fallback [T]. It returns `needsHuman`. |
 | `DryRunExecutor` | n/a | logs only | Used in tests, evals and the first days in season. |

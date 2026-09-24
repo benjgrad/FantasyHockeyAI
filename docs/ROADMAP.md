@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 15:30 ET**
+Last updated: **2026-09-24 16:30 ET**
 
 ---
 
@@ -102,7 +102,9 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 |---|---|---|---|---|
 | **Q-001** | Does the Yahoo app-creation form still offer Fantasy Sports? (§10.1) | Ben | Reads, and every in-season write | **MOOT for reads (D-005).** `prototypes/yahoo-web` reads the league through Yahoo's own website API with session cookies, no developer app. Still open for **writes** |
 | **Q-007** | Does Ben authorise **writes** through the website API (`pub-api-rw`)? Untested, may need a crumb token | Ben | M5 lineup automation, M6 waivers, M7 trades | OPEN — not needed tonight |
-| **Q-008** | What is Ben's **draft seat** (1-8)? | Ben | `fha draft init`, and every scarcity calculation | **OPEN — needed before 21:00** |
+| **Q-008** | What is Ben's **draft seat** (1-8)? | Ben / Yahoo | `fha draft init`, and every scarcity calculation | **OPEN — needed before 21:00.** Yahoo assigns the order shortly before the draft; `draft init` refuses rather than guess |
+| **Q-009** | Copy the Yahoo session to **this server**, or run reads from Ben's PC and pass JSON? | Ben | Whether the draft board auto-syncs from here | OPEN — **recommend PC + JSON bridge**: this box runs internet-facing services, and the JSON dumps carry no credentials |
+| **Q-010** | Join a Yahoo **mock draft** before 21:00 to capture the pick protocol (U2)? | Ben | Whether picks could ever be submitted programmatically | OPEN — `is_live_draft_lobby_active: 1`, so it is possible. **Recommend skipping tonight**: manual clicking already works and the board sync is the bigger win |
 | **Q-002** | Is Playwright acting in Ben's logged-in Yahoo account acceptable? ToS for automating the *website UI* is unconfirmed; the API terms prohibit reverse-engineering the API and require the attribution "Fantasy data provided by Yahoo Fantasy" | Ben | The Browser adapter, and every write if the API stays unprovisioned | OPEN — not needed before M5 |
 | **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | OPEN — not needed before M4b |
 | **Q-004** | Is n8n wanted at all, given the built-in scheduler plus systemd? | Ben | M8 | OPEN — leaning no; scheduler + systemd is sufficient |
@@ -146,6 +148,15 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 Newest first. Each entry says what was decided, why, and what it supersedes.
 
 <a id="d-005"></a>
+### D-007 — 2026-09-24 — The Yahoo bridge is a file interface, not a code dependency
+`prototypes/yahoo-web` needs a Yahoo session, which is a full-account credential;
+`apps/gm` needs the data. They are joined by JSON files (`data/yahoo/pool.json`,
+`data/yahoo/draft.json`) written by the prototype's `dump` and `draft-watch`, and read by
+`fha yahoo map` / `fha draft sync`. **Those files carry league data only, never the
+session**, so the prototype can run on Ben's PC while the ranking runs on the server. The
+prototype also keeps its own package and toolchain (vitest 5 vs 3), which merging into the
+workspace would have forced together on draft day.
+
 ### D-005 — 2026-09-24 — Yahoo reads go through the website API, not a developer app
 §10.1's provisioning risk is sidestepped: `prototypes/yahoo-web` reads the league from
 `pub-api-ro.fantasysports.yahoo.com/fantasy/v2/...?format=json_f` authenticated by Ben's own

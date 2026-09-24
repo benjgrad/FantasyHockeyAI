@@ -14,6 +14,7 @@ import {
   type DraftState,
 } from '@fha/model';
 import { buildRanking } from './rank.js';
+import { readDraft, readPlayerMap } from './yahoo.js';
 import { loadLeague } from '../config.js';
 
 const STATE_PATH = 'data/draft-state.json';
@@ -137,14 +138,22 @@ export function registerDraftCommands(program: Command): void {
 
   draft
     .command('init')
-    .description('start a new draft')
-    .requiredOption('-t, --teams <n>', 'number of teams')
-    .requiredOption('-s, --slot <n>', 'our seat in round one, 1-indexed')
-    .option('-r, --rounds <n>', 'number of rounds', '16')
-    .action((o: { teams: string; slot: string; rounds: string }) => {
-      const numTeams = Number.parseInt(o.teams, 10);
-      const slot = Number.parseInt(o.slot, 10);
-      const rounds = Number.parseInt(o.rounds, 10);
+    .description('start a new draft (team count and rounds default to config/league.yaml)')
+    .option('-t, --teams <n>', 'number of teams')
+    .option('-s, --slot <n>', 'our seat in round one, 1-indexed')
+    .option('-r, --rounds <n>', 'number of rounds')
+    .action((o: { teams?: string; slot?: string; rounds?: string }) => {
+      const cfg = loadLeague();
+      const numTeams = o.teams === undefined ? cfg.settings.numTeams : Number.parseInt(o.teams, 10);
+      const rounds = o.rounds === undefined ? (cfg.rounds ?? 16) : Number.parseInt(o.rounds, 10);
+      const slot = o.slot === undefined ? cfg.draftSlot : Number.parseInt(o.slot, 10);
+      if (slot === undefined) {
+        throw new Error(
+          'our draft seat is unknown. Pass --slot <n>, or set draftSlot in config/league.yaml.\n' +
+            '  Yahoo assigns the order shortly before the draft; guessing it would corrupt every\n' +
+            '  scarcity calculation, so this refuses rather than assume.',
+        );
+      }
       if (!Number.isInteger(numTeams) || numTeams < 2) throw new Error('--teams must be >= 2');
       if (!Number.isInteger(slot) || slot < 1 || slot > numTeams) {
         throw new Error(`--slot must be between 1 and ${numTeams}`);
@@ -169,6 +178,63 @@ export function registerDraftCommands(program: Command): void {
     .description('we drafted this player')
     .action((name: string[]) => {
       record(name.join(' '), true);
+    });
+
+  draft
+    .command('sync')
+    .description('replace local draft state from Yahoo draftresults (authoritative)')
+    .action(() => {
+      const yd = readDraft();
+      if (!yd) {
+        throw new Error(
+          'no Yahoo draft data at data/yahoo/draft.json.\n' +
+            '  Run "npm run fha -- draft-watch" in prototypes/yahoo-web (needs the Yahoo session),\n' +
+            '  or keep marking picks by hand with "fha draft taken".',
+        );
+      }
+      const map = readPlayerMap();
+      if (!map) throw new Error('no player map; run "fha yahoo map" first');
+
+      const { settings, teamKey } = loadLeague();
+      const { valuations } = buildRanking();
+      const byNhlId = new Map(valuations.map((v) => [v.nhlId, v]));
+      const state = readState();
+
+      const picks: DraftPick[] = [];
+      const unresolved: { pick: number; playerKey: string }[] = [];
+      for (const p of [...yd.picks].sort((a, b) => a.pick - b.pick)) {
+        if (!p.playerKey) continue;
+        const nhlId = map.get(p.playerKey);
+        const v = nhlId === undefined ? undefined : byNhlId.get(nhlId);
+        if (!v || nhlId === undefined) {
+          unresolved.push({ pick: p.pick, playerKey: p.playerKey });
+          continue;
+        }
+        picks.push({
+          pick: p.pick,
+          nhlId,
+          name: v.name,
+          position: v.position,
+          mine: teamKey !== undefined && p.teamKey === teamKey,
+        });
+      }
+
+      state.picks = picks;
+      writeState(state);
+      console.log(
+        `synced ${picks.length} picks from Yahoo (status=${yd.draftStatus}), ` +
+          `${picks.filter((p) => p.mine).length} ours`,
+      );
+      if (unresolved.length > 0) {
+        // A pick we cannot resolve means the board would still offer a drafted player.
+        console.log(
+          `\n  !! ${unresolved.length} pick(s) could not be resolved to a known player.\n` +
+            `     Those players will WRONGLY still appear as available on the board.\n` +
+            `     Mark them by hand with "fha draft taken <name>":`,
+        );
+        for (const u of unresolved) console.log(`       pick ${u.pick}: ${u.playerKey}`);
+      }
+      void settings;
     });
 
   draft

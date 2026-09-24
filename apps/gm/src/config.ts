@@ -16,6 +16,9 @@ const LeagueFile = z.object({
   source: z.enum(['yahooApi', 'configOverride', 'browser']),
   name: z.string().min(1),
   leagueKey: z.string().min(1),
+  teamKey: z.string().min(1).optional(),
+  rounds: z.number().int().positive().optional(),
+  draftSlot: z.number().int().positive().nullable().optional(),
   numTeams: z.number().int().positive(),
   scoringType: z.string().min(1),
   categories: z.object({ skater: z.array(z.string()).min(1), goalie: z.array(z.string()) }),
@@ -26,6 +29,9 @@ const LeagueFile = z.object({
 export interface LoadedLeague {
   settings: LeagueSettings;
   categoryWeights: Record<string, number>;
+  teamKey?: string;
+  rounds?: number;
+  draftSlot?: number;
 }
 
 /** Load hand-entered league settings. Unknown YAML keys are an error, not a warning. */
@@ -64,5 +70,10 @@ export function loadLeague(path = 'config/league.yaml'): LoadedLeague {
       source: file.source,
     },
     categoryWeights: file.categoryWeights,
+    ...(file.teamKey === undefined ? {} : { teamKey: file.teamKey }),
+    ...(file.rounds === undefined ? {} : { rounds: file.rounds }),
+    ...(file.draftSlot === undefined || file.draftSlot === null
+      ? {}
+      : { draftSlot: file.draftSlot }),
   };
 }

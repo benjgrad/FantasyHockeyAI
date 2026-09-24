@@ -7,6 +7,7 @@
 //   npm run fha -- players [leagueKey] [n]    available players by Yahoo rank, with ADP
 //   npm run fha -- prerank-csv [leagueKey] [n] [file]   CSV for Yahoo's pre-rank Import
 //   npm run fha -- draft-watch [leagueKey]    poll draftresults (60s predraft, 5s drafting)
+//   npm run fha -- dump [leagueKey] [n] [dir]  JSON bridge for the main app: pool.json + draft.json
 //   npm run fha -- capture [leagueKey] [teamKey] [dir]  save raw responses as fixtures
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -125,11 +126,58 @@ async function main() {
       );
       return;
     }
+    // JSON bridge to the main app. These files contain league data only, NEVER the
+    // session, so they are safe to copy between machines (unlike ~/.config/fha).
+    case 'dump': {
+      const lk = args[0] ?? (await defaultKeys(c)).leagueKey;
+      const n = Number(args[1] ?? 500);
+      const dir = args[2] ?? '../../data/yahoo';
+      await mkdir(dir, { recursive: true });
+
+      const ps = await c.players(
+        lk,
+        { status: 'A', sort: 'OR', out: ['draft_analysis', 'percent_owned', 'ownership'] },
+        n,
+      );
+      const pool = {
+        leagueKey: lk,
+        fetchedAt: new Date().toISOString(),
+        players: ps.map((p, i) => ({
+          yahooRank: i + 1,
+          playerKey: p.playerKey,
+          name: p.name,
+          team: p.nhlTeam ?? '',
+          eligible: p.eligible,
+          positionType: p.positionType ?? 'P',
+          adp: p.adp,
+          percentDrafted: p.percentDrafted,
+          percentOwned: p.percentOwned,
+          status: p.status,
+        })),
+      };
+      await writeFile(join(dir, 'pool.json'), JSON.stringify(pool));
+      console.log(`Wrote ${pool.players.length} players to ${join(dir, 'pool.json')}`);
+
+      const d = await c.draftResults(lk);
+      await writeFile(
+        join(dir, 'draft.json'),
+        JSON.stringify({ leagueKey: lk, fetchedAt: new Date().toISOString(), ...d }),
+      );
+      console.log(`Wrote draft status=${d.draftStatus}, ${d.picks.length} picks to ${join(dir, 'draft.json')}`);
+      return;
+    }
     case 'draft-watch': {
       const lk = args[0] ?? (await defaultKeys(c)).leagueKey;
+      const outDir = args[1] ?? '../../data/yahoo';
+      await mkdir(outDir, { recursive: true });
       const seen = new Set<number>();
       for (;;) {
         const d = await c.draftResults(lk);
+        // Rewrite the bridge file every poll so the main app always sees current state.
+        await writeFile(
+          join(outDir, 'draft.json'),
+          JSON.stringify({ leagueKey: lk, fetchedAt: new Date().toISOString(), ...d }),
+        );
         for (const p of d.picks) {
           if (p.playerKey && !seen.has(p.pick)) {
             seen.add(p.pick);
