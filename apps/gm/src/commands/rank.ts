@@ -13,7 +13,8 @@ import {
 import { readSeason, recentSeasons } from '@fha/nhl';
 import { loadLeague } from '../config.js';
 import { compareToMarket, sanityReport } from './diagnose.js';
-import { indexMarket, lookupMarket, readMarket } from './market.js';
+import { buildSheet } from './sheet.js';
+import { indexMarket, lookupMarket, preferredMarket } from './market.js';
 
 const DATA_DIR = 'data';
 const LATEST_COMPLETE_SEASON_START = 2025;
@@ -46,7 +47,8 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
   });
 
   // A market prior is optional: if the scrape failed we still rank, and say so (P9).
-  const snap = readMarket();
+  const preferred = preferredMarket();
+  const snap = preferred?.snapshot;
   const market = snap ? indexMarket(snap) : undefined;
   let matched = 0;
   const enriched = projections.map((p) => {
@@ -173,6 +175,22 @@ export function registerRankCommands(program: Command): void {
       );
       const csvPath = `${opts.out}/prerank.csv`;
       writeFileSync(csvPath, [header, ...rows].join('\n'), 'utf-8');
+
+      // Yahoo's pre-rank Import wants exactly "rank,name,team,position".
+      const yahooCsv = [
+        'rank,name,team,position',
+        ...r.valuations
+          .slice(0, 300)
+          .map((v, i) => `${i + 1},${v.name.replace(/,/g, '')},${v.team},${v.position}`),
+      ].join('\n');
+      const yahooPath = `${opts.out}/yahoo-prerank.csv`;
+      writeFileSync(yahooPath, yahooCsv, 'utf-8');
+
+      const sheetPath = `${opts.out}/cheat-sheet.txt`;
+      writeFileSync(sheetPath, buildSheet(r.valuations, r.leagueName), 'utf-8');
+
       console.log(`\nwrote ${csvPath} (${rows.length} rows)`);
+      console.log(`wrote ${yahooPath} (top 300, for Yahoo's pre-rank Import)`);
+      console.log(`wrote ${sheetPath} (printable)`);
     });
 }

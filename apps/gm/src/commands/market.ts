@@ -2,12 +2,47 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { CONSENSUS_SOURCES, MarketSnapshot, fetchConsensus, type MarketPlayer } from '@fha/market';
 import { normalizeName } from '@fha/model';
+import { readPool } from './yahooFiles.js';
 
 const PATH = 'data/market/consensus.json';
 
 export function readMarket(): MarketSnapshot | undefined {
   if (!existsSync(PATH)) return undefined;
   return MarketSnapshot.parse(JSON.parse(readFileSync(PATH, 'utf-8')));
+}
+
+/**
+ * The market prior to rank against, best source first.
+ *
+ * Yahoo's own pool wins when it is available: its ADP is drawn from drafts on the very
+ * platform this league drafts on, and it carries Yahoo's real multi-position eligibility.
+ * The scraped public consensus is the fallback, and no prior at all is still workable
+ * (P9) -- the ranking then simply has nothing to cross-check against.
+ */
+export function preferredMarket(): { snapshot: MarketSnapshot; origin: string } | undefined {
+  const pool = readPool();
+  if (pool) {
+    const players = pool.players
+      .map((p) => {
+        const positions = p.eligible.filter((e) => e !== 'Util' && e !== 'UTIL' && e !== 'IR');
+        return {
+          rank: p.yahooRank,
+          name: p.name,
+          team: p.team === '' ? 'UNK' : p.team.toUpperCase(),
+          positions: positions.length > 0 ? positions : ['Util'],
+          ...(p.adp === undefined ? {} : { adp: p.adp }),
+        };
+      })
+      .filter((p) => p.name !== '');
+    if (players.length > 0) {
+      return {
+        snapshot: { source: `yahoo:${pool.leagueKey}`, fetchedAt: pool.fetchedAt, players },
+        origin: 'yahoo',
+      };
+    }
+  }
+  const snap = readMarket();
+  return snap ? { snapshot: snap, origin: 'consensus' } : undefined;
 }
 
 export interface MarketIndex {

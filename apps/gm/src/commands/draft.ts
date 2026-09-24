@@ -14,7 +14,7 @@ import {
   type DraftState,
 } from '@fha/model';
 import { buildRanking } from './rank.js';
-import { readDraft, readPlayerMap } from './yahoo.js';
+import { readDraft, readPlayerMap } from './yahooFiles.js';
 import { loadLeague } from '../config.js';
 
 const STATE_PATH = 'data/draft-state.json';
