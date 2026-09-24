@@ -1,7 +1,7 @@
 // Service worker: exists to receive push while the page is closed, and to make the app
 // installable. It deliberately does not cache API responses — a stale draft board is worse
 // than no board.
-self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (event) => {

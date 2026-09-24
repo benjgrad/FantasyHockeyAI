@@ -119,7 +119,7 @@ async function tick() {
     const res = await fetch('/api/state', { cache: 'no-store' });
     if (!res.ok) throw new Error(String(res.status));
     render(await res.json());
-  } catch (e) {
+  } catch {
     $('sub').textContent = 'connection lost — retrying…';
   }
 }
