@@ -61,7 +61,10 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
 | **M1b** | Yahoo reads via the website API (`prototypes/yahoo-web`) | `done` — session on server, reads live |
 | **M1c** | Yahoo **writes**: pre-draft ranking upload, all 300 saved and verified | `done` 15:50 |
-| **M1d** | Live draft-room client: tested protocol, our valuation, human input window, gated submit | `done` 16:30 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
+| **M1d** | Live draft-room client: tested protocol, our valuation, human input window, gated submit | `done` 16:30 |
+| **M1e** | Unattended operation: systemd units for the client and board, pre-flight timer at 20:30 | `done` 16:00 |
+| **M1f** | Draft board web app at draft.gradyserver.com: phone view, override button, Web Push (verified on iPhone + FCM) | `done` 16:20 |
+| **M1g** | Narrative explainer — first LLM use; explains the pick and why not the alternatives, never decides | `done` 16:25 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
 | **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
 | **M3** | **Safety net:** `fha rank` → `prerank.csv`, `yahoo-prerank.csv`, printable `cheat-sheet.txt` | `done` 17:30 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
 | **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `done` 14:10 | A mock run marking 20 picks behaves correctly | §12.5 |
