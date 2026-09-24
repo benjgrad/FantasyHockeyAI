@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 14:10 ET**
+Last updated: **2026-09-24 15:30 ET**
 
 ---
 
@@ -57,7 +57,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0a** | Docs restructure: this file, `CLAUDE.md`, pointers in the spec | `done` 12:35 | This file exists with every open question and unknown listed | — |
 | **M0b** | Minimal scaffold: npm workspaces, tsconfig, vitest, eslint, `fha` CLI entry | `done` 12:33 | `npm run validate` passes on an empty skeleton | §4 |
 | **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
-| **M1b** | `libs/yahoo` read attempt — **timeboxed, hard 40-minute stop** | `blocked` on Q-001 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
+| **M1b** | Yahoo reads — **solved via the website API, not a developer app** (`prototypes/yahoo-web`) | `done` — needs `login` | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
 | **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
 | **M3** | **Safety net:** `fha rank` → `prerank.csv` (cheat sheet pending) | `done` 13:35 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
 | **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `done` 14:10 | A mock run marking 20 picks behaves correctly | §12.5 |
@@ -100,12 +100,14 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 <a id="q-001"></a>
 | ID | Question | Owner | Blocks | Status |
 |---|---|---|---|---|
-| **Q-001** | Does the Yahoo app-creation form still offer Fantasy Sports, and Read or Read/Write? (§10.1) | Ben | The entire data path: settings, ADP, eligibility, and every in-season write | **OPEN — asked 12:30, blocking M1b** |
+| **Q-001** | Does the Yahoo app-creation form still offer Fantasy Sports? (§10.1) | Ben | Reads, and every in-season write | **MOOT for reads (D-005).** `prototypes/yahoo-web` reads the league through Yahoo's own website API with session cookies, no developer app. Still open for **writes** |
+| **Q-007** | Does Ben authorise **writes** through the website API (`pub-api-rw`)? Untested, may need a crumb token | Ben | M5 lineup automation, M6 waivers, M7 trades | OPEN — not needed tonight |
+| **Q-008** | What is Ben's **draft seat** (1-8)? | Ben | `fha draft init`, and every scarcity calculation | **OPEN — needed before 21:00** |
 | **Q-002** | Is Playwright acting in Ben's logged-in Yahoo account acceptable? ToS for automating the *website UI* is unconfirmed; the API terms prohibit reverse-engineering the API and require the attribution "Fantasy data provided by Yahoo Fantasy" | Ben | The Browser adapter, and every write if the API stays unprovisioned | OPEN — not needed before M5 |
 | **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | OPEN — not needed before M4b |
 | **Q-004** | Is n8n wanted at all, given the built-in scheduler plus systemd? | Ben | M8 | OPEN — leaning no; scheduler + systemd is sufficient |
-| **Q-005** | If Yahoo reads fail, where does ADP come from? Ben pasting Yahoo's rankings, aggregated public sources, or pseudo-ADP from our own VORP rank? | us | §12.2 step 7 (rookie fallback), §12.5 step 3 (scarcity), §12.2 step 8 (sanity check) | PARTIAL — decided to aggregate public sources (D-003); exact sources TBD |
-| **Q-006** | What are the actual league settings — categories, roster slots, team count, scoring type? Ben was unsure of the format | Ben / API | Valuation pool sizes, replacement levels, the entire ranking | OPEN — from the API if Q-001 allows, else hand-entered |
+| **Q-005** | Where does ADP come from? | us | §12.5 scarcity, §12.2 step 8 sanity check | **ANSWERED 14:45.** A public consensus board with ADP and multi-position eligibility, in `libs/market`; 252 players joined. Yahoo's own `draft_analysis` is also reachable via the website API if we want it |
+| **Q-006** | What are the actual league settings? | — | Everything | **ANSWERED 15:20.** 8 teams, H2H categories, 17 rounds, 90 s/pick. Skaters: G A +/- PIM PPP SHP GWG SOG HIT. Goalies: W GAA SV% SHO. Roster C2 LW2 RW2 D4 Util1 G2 BN4 IR2. Intraday lock, rolling waivers, no FAAB, max 3 adds/week |
 
 ---
 
@@ -142,6 +144,22 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+<a id="d-005"></a>
+### D-005 — 2026-09-24 — Yahoo reads go through the website API, not a developer app
+§10.1's provisioning risk is sidestepped: `prototypes/yahoo-web` reads the league from
+`pub-api-ro.fantasysports.yahoo.com/fantasy/v2/...?format=json_f` authenticated by Ben's own
+browser session cookies (`T` + `Y`), with no OAuth and no crumb on GETs. Verified from headless
+Node for settings, teams, players with `draft_analysis`, `draftresults`, `transactions`,
+`scoreboard`, `standings` and roster. **The session file is a credential** granting full account
+access; it is stored 0600 and must never be logged or committed. Read-only by construction.
+*Supersedes the assumption that no Yahoo access was likely.*
+
+### D-006 — 2026-09-24 — Cross-position scale is calibrated against the market
+Our within-position ordering is the edge; the between-position scale is an artefact of summing 9
+skater z-scores against 4 goalie z-scores. One additive offset per position, fitted so each
+position's mean rank matches consensus, cannot reorder players within a position. Skew fell from
+±37 to under 4 places and Spearman rose 0.658 → 0.703. *See the sanity findings below.*
 
 <a id="d-004"></a>
 ### D-004 — 2026-09-24 — Cut draft night to one vertical slice
@@ -203,6 +221,18 @@ bugs and were not.
 - **Fixed — an ambiguous name silently resolved** once all but one candidate was drafted. Typing
   "Makar" quietly selected *Taylor* Makar after Cale was gone. It still resolves, because only one
   is available, but it now announces the disambiguation so a wrong pick is caught immediately.
+- **Fixed — systematic positional skew of about ±37 places** against the consensus board,
+  addressed by cross-position calibration (D-006). An earlier hypothesis — that a forward-heavy
+  pool left the defence replacement bar outside the pool — was **measured and rejected**:
+  composing the pool positionally moved the bar from −7.44 to −5.56 and barely changed the skew.
+  The positional pool was kept anyway because it is more correct.
+- **Known limitation — the projection is backward-looking and cannot see improvement curves.**
+  It has Macklin Celebrini around 20th against a consensus 4th, and fades Kirill Kaprizov. Young
+  ascending players are systematically under-rated; this is where human judgement is needed at the
+  draft, and it will not be fixed by more data cleaning.
+- **Genuine edge, not error — hits-heavy players rank far above consensus** (Kiefer Sherwood 68 vs
+  230, Tom Wilson ~10 vs 103). The league scores HIT and PIM and most consensus boards underweight
+  them. Verified as category-driven rather than a bug by checking it survives calibration.
 - **Open — `+/-` is treated as a stable per-game rate.** It is the noisiest category in hockey and
   is team-dependent, so players on strong teams (COL, EDM, TBL, WPG) are systematically favoured.
   Shrinking it harder than other categories is a candidate improvement.
