@@ -1,0 +1,9 @@
+[Unit]
+Description=FantasyHockeyAI draft pre-flight (refresh pool, rebuild board)
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Documents/Projects/FantasyHockeyAI
+ExecStart=%h/Documents/Projects/FantasyHockeyAI/deploy/preflight.sh
+StandardOutput=append:%h/Documents/Projects/FantasyHockeyAI/data/preflight.log
+StandardError=append:%h/Documents/Projects/FantasyHockeyAI/data/preflight.log

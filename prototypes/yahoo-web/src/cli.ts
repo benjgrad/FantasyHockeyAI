@@ -7,7 +7,7 @@
 //   npm run fha -- players [leagueKey] [n]    available players by Yahoo rank, with ADP
 //   npm run fha -- prerank-csv [leagueKey] [n] [file]   CSV for Yahoo's pre-rank Import
 //   npm run fha -- draft-watch [leagueKey]    poll draftresults (60s predraft, 5s drafting)
-//   npm run fha -- dump [leagueKey] [n] [dir]  JSON bridge for the main app: pool.json + draft.json
+//   npm run fha -- dump [leagueKey] [n] [dir] [--pool-only]  JSON bridge: pool.json (+ draft.json)
 //   npm run fha -- capture [leagueKey] [teamKey] [dir]  save raw responses as fixtures
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -158,6 +158,15 @@ async function main() {
       await writeFile(join(dir, 'pool.json'), JSON.stringify(pool));
       console.log(`Wrote ${pool.players.length} players to ${join(dir, 'pool.json')}`);
 
+      /*
+       * draft.json has two writers: this command and the live draft client. During a draft the
+       * client's board is authoritative and far fresher, so overwriting it here would throw away
+       * live state. --pool-only exists for exactly that case, and the pre-flight uses it.
+       */
+      if (args.includes('--pool-only')) {
+        console.log('--pool-only: leaving draft.json untouched');
+        return;
+      }
       const d = await c.draftResults(lk);
       await writeFile(
         join(dir, 'draft.json'),

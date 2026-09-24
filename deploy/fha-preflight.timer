@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the draft pre-flight before the draft
+
+[Timer]
+# 20:30 local time on draft day. Persistent so a reboot shortly before does not skip it.
+OnCalendar=2026-09-24 20:30:00
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
