@@ -24,6 +24,7 @@ export interface RankOutput {
   valuations: Valuation[];
   replacement: Record<string, number>;
   leagueName: string;
+  leagueKey: string;
   source: string;
   iterations: number;
   /** How many players were joined to the public consensus board, and out of how many. */
@@ -108,6 +109,7 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
     valuations,
     replacement: res.replacement,
     leagueName: settings.name,
+    leagueKey: settings.leagueKey,
     source: settings.source,
     iterations: res.iterations,
     ...(snap ? { market: { source: snap.source, matched, size: snap.players.length } } : {}),
@@ -217,6 +219,38 @@ export function registerRankCommands(program: Command): void {
       ].join('\n');
       const yahooPath = `${opts.out}/yahoo-prerank.csv`;
       writeFileSync(yahooPath, yahooCsv, 'utf-8');
+
+      /*
+       * Our ranking as Yahoo player ids, in order, for the pre-draft ranking upload.
+       * Yahoo's own default order is what autodrafts on a disconnect and it is poor for
+       * this league (it has Bouchard 4th, Chychrun 8th, Raddysh 12th), so loading ours is
+       * real insurance. Ids come from the verified player map — never from name matching
+       * at upload time.
+       */
+      const map = readPlayerMap();
+      if (map) {
+        const keyByNhlId = new Map<number, string>();
+        for (const [playerKey, nhlId] of map) keyByNhlId.set(nhlId, playerKey);
+        const ranked = r.valuations
+          .map((v) => ({ v, playerKey: keyByNhlId.get(v.nhlId) }))
+          .filter((x): x is { v: Valuation; playerKey: string } => x.playerKey !== undefined)
+          .map((x, i) => ({
+            rank: i + 1,
+            playerId: x.playerKey.split('.p.')[1] ?? '',
+            playerKey: x.playerKey,
+            name: x.v.name,
+            position: x.v.position,
+          }))
+          .filter((x) => x.playerId !== '');
+        const idsPath = `${opts.out}/yahoo/prerank-ids.json`;
+        mkdirSync(`${opts.out}/yahoo`, { recursive: true });
+        writeFileSync(
+          idsPath,
+          JSON.stringify({ leagueKey: r.leagueKey, generatedAt: new Date().toISOString(), ranked }),
+          'utf-8',
+        );
+        console.log(`wrote ${idsPath} (${ranked.length} Yahoo ids in our order)`);
+      }
 
       const sheetPath = `${opts.out}/cheat-sheet.txt`;
       writeFileSync(sheetPath, buildSheet(r.valuations, r.leagueName), 'utf-8');

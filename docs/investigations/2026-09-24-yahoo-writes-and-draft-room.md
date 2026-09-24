@@ -15,7 +15,7 @@
 3. **The live draft room is a WebSocket speaking a pipe-delimited text protocol.** The server address comes from a cookie-authenticated REST call, and the room token comes from the draft-room URL [OBS].
 4. **A pick is a single WebSocket message carrying Yahoo's numeric player ID.** There is no confirmation step [OBS].
 5. **A Node client with no browser joined a mock draft room, received the full board state, and submitted a pick** [EXEC].
-   That pick named a player who had already been drafted, and the server **rejected** it (`X|29`) [EXEC]. The client has been fixed. A **successful** headless pick has **not yet** been observed.
+   That pick named a player who had already been drafted, and the server **rejected** it (`X|29`) [EXEC]. The client has been fixed. **Superseded at 13:45 ET: see §8.** The fixed client made two successful headless picks (#84, #85) in a public mock, both confirmed by the server [EXEC].
 6. The account's saved session is now on gradyserver, so reads, page scripts and the draft client can all run headless there [EXEC].
 
 ---
@@ -135,7 +135,7 @@ Transport: `wss://{draft_server}:443/`. Messages are text frames, and fields are
   standard room from the lobby did not go through.
 
 ### 4.4 Not yet established
-- **The main gap:** a successful pick made by the Node client alone.
+- ~~A successful pick made by the Node client alone.~~ **Done: see §8.**
 - Whether the real league's room token and draft id follow the mock's pattern.
 - Whether two simultaneous connections for the same team (browser plus Node) interfere. During the Node attempt the browser tab
   had also connected at one point.
@@ -235,3 +235,23 @@ token worked. The instant mock had a non-empty token. For the real league, check
 - **Pick order:** replace the ADP `POOL` with the main app's valuation and draft board (need, scarcity), recomputed on each `D|` for our team.
 - **Ben's input:** decide whether Ben can override a pick. The spec's draft agent takes his suggestions; the client needs an input channel.
 - **One client per team:** the browser tab was disconnected during the test, and the effect of two connections for one team is still unknown.
+
+---
+
+## 9. Update 14:05 ET: automatic draft-room discovery
+**`tools/draft-discover.ts` finds everything needed to join the room from the signed-in session alone** [EXEC, for league 48535]:
+
+| Value | Source | Status |
+|---|---|---|
+| teamId | v2 `users;use_login=1/games;game_keys=nhl/teams`, the team owned by the signed-in user | `6` [EXEC] |
+| draftId | the league id | `48535`. `v3/draftstatus/nhl/48535` exists and says `predraft` [EXEC] |
+| WebSocket host and port | `v3/draftstatus/nhl/{leagueId}` → `draft_server`, `draft_port` | **empty now**. Populated once the room opens, as seen in both mocks [OBS]. `--wait` polls every 30 s |
+| room token | none for league rooms | The real room page `/draftclient/hockey/48535/6` returns 200 with no token and no redirect [EXEC]. A public mock room joined with an empty token [EXEC]. **Confirm when the real room opens** [INF] |
+
+```bash
+npx tsx tools/draft-discover.ts            # one-shot JSON (token masked)
+npx tsx tools/draft-discover.ts --wait     # block until the room has a server
+(ws-pick.ts --auto exists in the PC copy only; the server copy was left untouched because ws-watch/draft-protocol are being edited)
+```
+`discoverDraftRoom()` and `waitForDraftRoom()` are exported, so `ws-watch.ts` can use them the same way. Environment variables
+still override discovery, e.g. for mock rooms, which don't appear in the user's team list.

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import type { LeagueSettings, Valuation } from '@fha/core';
 import {
@@ -18,6 +18,7 @@ import { readDraft, readPlayerMap } from './yahooFiles.js';
 import { loadLeague } from '../config.js';
 
 const STATE_PATH = 'data/draft-state.json';
+const PREFER_PATH = 'data/draft-prefer.json';
 
 function readState(): DraftState {
   if (!existsSync(STATE_PATH)) {
@@ -37,6 +38,8 @@ interface Context {
   all: Valuation[];
   available: Valuation[];
   myRoster: Valuation[];
+  /** NHL id -> Yahoo player key, so a recommendation can name what the draft room needs. */
+  keyByNhlId: Map<number, string>;
 }
 
 function context(): Context {
@@ -45,12 +48,17 @@ function context(): Context {
   const { valuations } = buildRanking();
   const takenIds = new Set(state.picks.map((p) => p.nhlId));
   const mineIds = new Set(state.picks.filter((p) => p.mine).map((p) => p.nhlId));
+  const map = readPlayerMap();
+  const keyByNhlId = new Map<number, string>();
+  if (map) for (const [playerKey, nhlId] of map) keyByNhlId.set(nhlId, playerKey);
+
   return {
     state,
     settings,
     all: valuations,
     available: valuations.filter((v) => !takenIds.has(v.nhlId)),
     myRoster: valuations.filter((v) => mineIds.has(v.nhlId)),
+    keyByNhlId,
   };
 }
 
@@ -178,6 +186,98 @@ export function registerDraftCommands(program: Command): void {
     .description('we drafted this player')
     .action((name: string[]) => {
       record(name.join(' '), true);
+    });
+
+  draft
+    .command('prefer <name...>')
+    .description('steer the next recommendation to a specific player (one shot)')
+    .action((name: string[]) => {
+      const ctx = context();
+      const v = resolveOne(name.join(' '), ctx.all, ctx.state);
+      mkdirSync('data', { recursive: true });
+      writeFileSync(PREFER_PATH, JSON.stringify({ nhlId: v.nhlId, name: v.name }), 'utf-8');
+      console.log(`  next recommendation will be ${v.name} (${v.position}, ${v.team})`);
+    });
+
+  draft
+    .command('unprefer')
+    .description('clear a pending preference')
+    .action(() => {
+      if (existsSync(PREFER_PATH)) rmSync(PREFER_PATH);
+      console.log('  cleared');
+    });
+
+  draft
+    .command('recommend')
+    .description('the single pick to make right now')
+    .option('--json', 'machine-readable, for the draft-room client', false)
+    .action((o: { json: boolean }) => {
+      const ctx = context();
+      const onClock = ctx.state.picks.length + 1;
+      const ours = pickNumbersFor(ctx.state.slot, ctx.state.numTeams, ctx.state.rounds);
+      const next = nextOwnPick(ctx.state, onClock);
+      const scoredCategories = ctx.settings.categories
+        .filter((c) => !c.isDisplayOnly)
+        .map((c) => c.abbr);
+
+      const board = scoreBoard({
+        available: ctx.available,
+        myRoster: ctx.myRoster,
+        settings: ctx.settings,
+        categories: scoredCategories,
+        picksRemaining: ours.filter((p) => p >= onClock).length,
+        ...(next === undefined ? {} : { nextPick: next }),
+      });
+
+      // A one-shot human override always wins, and is consumed so it cannot linger.
+      let chosen = board[0];
+      let overridden = false;
+      if (existsSync(PREFER_PATH)) {
+        const want = JSON.parse(readFileSync(PREFER_PATH, 'utf-8')) as { nhlId: number };
+        const hit = board.find((b) => b.valuation.nhlId === want.nhlId);
+        if (hit) {
+          chosen = hit;
+          overridden = true;
+        }
+        rmSync(PREFER_PATH);
+      }
+      if (!chosen) throw new Error('no available players to recommend');
+
+      const v = chosen.valuation;
+      const playerKey = ctx.keyByNhlId.get(v.nhlId);
+      if (o.json) {
+        console.log(
+          JSON.stringify({
+            pick: onClock,
+            isOurPick: ours.includes(onClock),
+            nhlId: v.nhlId,
+            playerKey: playerKey ?? null,
+            playerId: playerKey?.split('.p.')[1] ?? null,
+            name: v.name,
+            position: v.position,
+            team: v.team,
+            score: Number(chosen.score.toFixed(3)),
+            vorp: Number(v.vorp.toFixed(3)),
+            fit: Number(chosen.fit.toFixed(3)),
+            urgency: Number(chosen.urgency.toFixed(3)),
+            lowConfidence: v.lowConfidence,
+            overridden,
+          }),
+        );
+        return;
+      }
+      console.log(
+        `PICK: ${v.name} (${v.position}, ${v.team})` +
+          `${overridden ? '   [your override]' : ''}${v.lowConfidence ? '   [thin data]' : ''}`,
+      );
+      console.log(
+        `  score ${chosen.score.toFixed(2)}  vorp ${v.vorp.toFixed(2)}  ` +
+          `fit ${chosen.fit >= 0 ? '+' : ''}${chosen.fit.toFixed(2)}  urgency ${chosen.urgency.toFixed(2)}`,
+      );
+      const open = slotsOpen(ctx.myRoster, ctx.settings);
+      console.log(
+        `  fills: ${v.vorpPosition}   still open after: ${open.filter((x) => x !== v.vorpPosition).join(', ') || 'none'}`,
+      );
     });
 
   draft
