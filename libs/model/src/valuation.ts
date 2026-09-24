@@ -110,17 +110,27 @@ function converge(
   weights: CategoryWeights | undefined,
   poolSize: number,
   seedMetric: (p: Projection) => number,
+  /** Composes the pool from current values. Skaters compose positionally; goalies don't. */
+  compose?: (
+    candidates: readonly Projection[],
+    valueOf: (p: Projection) => number,
+    size: number,
+  ) => Projection[],
 ): { scores: Map<number, { value: number; z: Record<string, number> }>; iterations: number } {
   const size = Math.min(Math.max(1, poolSize), candidates.length);
-  let pool = [...candidates].sort((a, b) => seedMetric(b) - seedMetric(a)).slice(0, size);
+  const build = (valueOf: (p: Projection) => number): Projection[] =>
+    compose
+      ? compose(candidates, valueOf, size)
+      : [...candidates].sort((a, b) => valueOf(b) - valueOf(a)).slice(0, size);
+
+  let pool = build(seedMetric);
   let scores = scorePool(pool, candidates, categories, weights);
   let iterations = 1;
 
   for (; iterations <= MAX_POOL_ITERATIONS; iterations++) {
-    const next = [...candidates]
-      .sort((a, b) => (scores.get(b.nhlId)?.value ?? 0) - (scores.get(a.nhlId)?.value ?? 0))
-      .slice(0, size);
-    const same = next.length === pool.length && next.every((p, i) => p.nhlId === pool[i]?.nhlId);
+    const next = build((p) => scores.get(p.nhlId)?.value ?? 0);
+    const sameIds = new Set(pool.map((p) => p.nhlId));
+    const same = next.length === pool.length && next.every((p) => sameIds.has(p.nhlId));
     if (same) break;
     pool = next;
     scores = scorePool(pool, candidates, categories, weights);
@@ -132,6 +142,57 @@ function slotCount(slots: readonly RosterSlot[], position: string): number {
   return slots
     .filter((s) => s.isStarting && s.position === position)
     .reduce((n, s) => n + s.count, 0);
+}
+
+/**
+ * Compose the draftable pool position by position rather than by taking the top N
+ * skaters outright.
+ *
+ * Taking the top N by value produces a forward-heavy pool, because forwards out-score
+ * defencemen on the categories most leagues count. In a league starting four
+ * defencemen, 48 of them really are rostered, so a value-ranked top 120 both misstates
+ * each category's spread and — worse — leaves the defence replacement bar sitting
+ * *outside* the pool, which silently inflates every defenceman.
+ *
+ * Filling each position to `numTeams * slots` first, then topping up with the best
+ * remaining players for the flex slots, makes the pool the set a league would actually
+ * roster.
+ */
+function buildPositionalPool(
+  candidates: readonly Projection[],
+  settings: LeagueSettings,
+  valueOf: (p: Projection) => number,
+  targetSize: number,
+): Projection[] {
+  const slots = settings.rosterSlots;
+  const ranked = [...candidates].sort((a, b) => valueOf(b) - valueOf(a));
+  const chosen = new Set<number>();
+  const pool: Projection[] = [];
+
+  for (const pos of PRIMARY_SKATER_SLOTS) {
+    const want = settings.numTeams * slotCount(slots, pos);
+    if (want === 0) continue;
+    let taken = 0;
+    for (const p of ranked) {
+      if (taken >= want) break;
+      if (chosen.has(p.nhlId)) continue;
+      if (!eligibleSlots(nhlPos(p), slots, p.eligible ?? []).includes(pos) && p.position !== pos) {
+        continue;
+      }
+      chosen.add(p.nhlId);
+      pool.push(p);
+      taken++;
+    }
+  }
+
+  // Flex slots, and any shortfall where a position lacked enough eligible players.
+  for (const p of ranked) {
+    if (pool.length >= targetSize) break;
+    if (chosen.has(p.nhlId)) continue;
+    chosen.add(p.nhlId);
+    pool.push(p);
+  }
+  return pool;
 }
 
 /**
@@ -153,7 +214,10 @@ function replacementLevels(
 
   for (const pos of positions) {
     const eligible = players
-      .filter((p) => eligibleSlots(nhlPos(p), slots).includes(pos) || p.position === pos)
+      .filter(
+        (p) =>
+          eligibleSlots(nhlPos(p), slots, p.eligible ?? []).includes(pos) || p.position === pos,
+      )
       .sort((a, b) => valueOf(b) - valueOf(a));
     byPosition.set(pos, eligible);
   }
@@ -218,7 +282,14 @@ export function valuePlayers(opts: ValuationOptions): ValuationResult {
   const skaterPoolSize = settings.numTeams * startingSkaterSlotCount(settings.rosterSlots);
   const goaliePoolSize = settings.numTeams * startingGoalieSlotCount(settings.rosterSlots);
 
-  const sk = converge(skaters, cats.skater, weights, skaterPoolSize, (p) => p.totals['P'] ?? 0);
+  const sk = converge(
+    skaters,
+    cats.skater,
+    weights,
+    skaterPoolSize,
+    (p) => p.totals['P'] ?? 0,
+    (cands, valueOf, size) => buildPositionalPool(cands, settings, valueOf, size),
+  );
   const go = converge(goalies, cats.goalie, weights, goaliePoolSize, (p) => p.totals['W'] ?? 0);
 
   const valueOfSkater = (p: Projection): number => sk.scores.get(p.nhlId)?.value ?? 0;
@@ -235,7 +306,7 @@ export function valuePlayers(opts: ValuationOptions): ValuationResult {
   ): Valuation[] =>
     list.map((p) => {
       const s = scores.get(p.nhlId) ?? { value: 0, z: {} };
-      const slots = eligibleSlots(nhlPos(p), settings.rosterSlots);
+      const slots = eligibleSlots(nhlPos(p), settings.rosterSlots, p.eligible ?? []);
       const candidates = slots.filter((x) => replacement[x] !== undefined);
       // The scarcest eligible position is the one with the LOWEST replacement value:
       // scarce means the marginal starter there is weak, so the surplus is largest.
@@ -252,6 +323,7 @@ export function valuePlayers(opts: ValuationOptions): ValuationResult {
         nhlId: p.nhlId,
         name: p.name,
         position: p.position,
+        ...(p.eligible === undefined ? {} : { eligible: p.eligible }),
         team: p.team,
         positionType: p.positionType,
         z: s.z,

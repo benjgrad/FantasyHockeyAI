@@ -91,7 +91,11 @@ export function needMultiplier(
     return 0.2;
   }
 
-  const eligible = eligibleSlots(nhlPositionOf(player.position), settings.rosterSlots);
+  const eligible = eligibleSlots(
+    nhlPositionOf(player.position),
+    settings.rosterSlots,
+    player.eligible ?? [],
+  );
   const primaries = eligible.filter((s) => s !== 'Util' && s !== 'UTIL');
   const hasOpenStarting = primaries.some((pos) => mineAt(pos) < slotCount(settings, pos));
   if (hasOpenStarting) return 1.0;

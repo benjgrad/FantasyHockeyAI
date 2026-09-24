@@ -2,14 +2,18 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import type { Valuation } from '@fha/core';
 import {
+  applyOffsets,
+  calibratePositions,
   projectAll,
   startingGoalieSlotCount,
   startingSkaterSlotCount,
   valuePlayers,
+  type CalibrationResult,
 } from '@fha/model';
 import { readSeason, recentSeasons } from '@fha/nhl';
 import { loadLeague } from '../config.js';
-import { sanityReport } from './diagnose.js';
+import { compareToMarket, sanityReport } from './diagnose.js';
+import { indexMarket, lookupMarket, readMarket } from './market.js';
 
 const DATA_DIR = 'data';
 const LATEST_COMPLETE_SEASON_START = 2025;
@@ -20,9 +24,13 @@ export interface RankOutput {
   leagueName: string;
   source: string;
   iterations: number;
+  /** How many players were joined to the public consensus board, and out of how many. */
+  market?: { source: string; matched: number; size: number };
+  /** Cross-position offsets fitted against the market board, if one was available. */
+  calibration?: CalibrationResult;
 }
 
-export function buildRanking(seasonsBack = 3): RankOutput {
+export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
   const { settings, categoryWeights } = loadLeague();
   const seasonIds = recentSeasons(LATEST_COMPLETE_SEASON_START, seasonsBack);
   const seasons = seasonIds.map((id) => {
@@ -37,13 +45,51 @@ export function buildRanking(seasonsBack = 3): RankOutput {
     goaliePoolSize: settings.numTeams * startingGoalieSlotCount(settings.rosterSlots),
   });
 
-  const res = valuePlayers({ settings, projections, weights: categoryWeights });
+  // A market prior is optional: if the scrape failed we still rank, and say so (P9).
+  const snap = readMarket();
+  const market = snap ? indexMarket(snap) : undefined;
+  let matched = 0;
+  const enriched = projections.map((p) => {
+    if (!market) return p;
+    const m = lookupMarket(market, p.name, p.team);
+    if (!m) return p;
+    matched++;
+    return { ...p, eligible: m.positions };
+  });
+
+  const res = valuePlayers({ settings, projections: enriched, weights: categoryWeights });
+
+  const withMarket = res.valuations.map((v) => {
+    if (!market) return v;
+    const m = lookupMarket(market, v.name, v.team);
+    if (!m) return v;
+    return {
+      ...v,
+      marketRank: m.rank,
+      ...(m.adp === undefined ? {} : { adp: m.adp }),
+    };
+  });
+
+  // Anchor the cross-position scale to the market. Within-position order is untouched.
+  const joined = withMarket
+    .filter((v): v is typeof v & { marketRank: number } => v.marketRank !== undefined)
+    .map((v) => ({ position: v.position, vorp: v.vorp, marketRank: v.marketRank }));
+
+  let valuations = withMarket;
+  let calibration: CalibrationResult | undefined;
+  if (calibrate && joined.length >= 40) {
+    calibration = calibratePositions({ joined });
+    valuations = applyOffsets(withMarket, calibration.offsets);
+  }
+
   return {
-    valuations: res.valuations,
+    valuations,
     replacement: res.replacement,
     leagueName: settings.name,
     source: settings.source,
     iterations: res.iterations,
+    ...(snap ? { market: { source: snap.source, matched, size: snap.players.length } } : {}),
+    ...(calibration ? { calibration } : {}),
   };
 }
 
@@ -58,10 +104,28 @@ export function registerRankCommands(program: Command): void {
     .option('-n, --top <n>', 'how many rows to print', '50')
     .option('-o, --out <dir>', 'directory for prerank.csv and the cheat sheet', 'data')
     .option('-d, --diagnose', 'print the §12.2 sanity report instead of the board', false)
-    .action((opts: { top: string; out: string; diagnose: boolean }) => {
+    .option('--no-calibrate', 'skip cross-position calibration against the market board')
+    .action((opts: { top: string; out: string; diagnose: boolean; calibrate: boolean }) => {
       const top = Number.parseInt(opts.top, 10);
-      const r = buildRanking();
+      const r = buildRanking(3, opts.calibrate);
 
+      if (r.calibration) {
+        const o = Object.entries(r.calibration.offsets)
+          .sort((a, b) => b[1] - a[1])
+          .map(([p, v]) => `${p} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
+          .join('  ');
+        console.log(
+          `  cross-position calibration (${r.calibration.converged ? 'converged' : 'NOT converged'} ` +
+            `in ${r.calibration.iterations} iters): ${o}`,
+        );
+      }
+      if (r.market) {
+        console.log(
+          `  market prior: ${r.market.source}, joined ${r.market.matched}/${r.market.size}\n`,
+        );
+      } else {
+        console.log('  no market prior cached; run "fha market pull" for ADP and eligibility\n');
+      }
       if (r.source !== 'yahooApi') {
         console.log(
           `\n  !! league settings came from ${r.source}, not the Yahoo API.\n` +
@@ -74,6 +138,8 @@ export function registerRankCommands(program: Command): void {
 
       if (opts.diagnose) {
         console.log(sanityReport(r.valuations, r.replacement).join('\n'));
+        console.log('');
+        console.log(compareToMarket(r.valuations).lines.join('\n'));
         return;
       }
 

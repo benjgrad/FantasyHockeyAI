@@ -13,6 +13,7 @@
     "@fha/yahoo": "*",
     "commander": "*",
     "yaml": "*",
-    "zod": "*"
+    "zod": "*",
+    "@fha/market": "*"
   }
 }

@@ -1,0 +1,25 @@
+{
+  "name": "fha-yahoo-proto",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype: read a Yahoo Fantasy NHL league via the website's own session-authenticated v2 API",
+  "scripts": {
+    "fha": "tsx src/cli.ts",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.15",
+    "typescript": "5.9",
+    "vitest": "^5.0.1"
+  }
+}

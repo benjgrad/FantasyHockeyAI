@@ -1,0 +1,6 @@
+node_modules/
+captures/
+prerank.csv
+*.session.json
+yahoo-session.json
+.env

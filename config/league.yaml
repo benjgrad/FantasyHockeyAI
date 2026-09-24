@@ -1,33 +1,35 @@
 # League configuration.
 #
-# `source: configOverride` means these settings were entered by hand, NOT read from
-# Yahoo. They are Yahoo's DEFAULT NHL head-to-head categories league and are a guess
-# until Q-001/Q-006 in docs/ROADMAP.md are answered. Everything downstream -- pool
-# sizes, replacement levels, the entire ranking -- depends on getting these right.
+# Read from Yahoo's website API on 2026-09-24 by prototypes/yahoo-web (see its README).
+# Source is `browser` rather than `yahooApi`: these are real settings from Ben's league,
+# obtained through the website's own backend rather than a Yahoo developer app.
 #
-# To correct them: open your league's Settings page and edit the two lists below.
+# League: Method Fantasy League (477.l.48535), Ben's team 477.l.48535.t.6
+# Live snake draft 2026-09-24 21:00 ET, 17 rounds, 90 s per pick.
+# Lineup lock: intraday, per game. Waivers: rolling 2 days, no FAAB, max 3 adds/week,
+# goalie minimum 3 GP/week. Trade deadline 2027-03-03 (league vote).
 
-source: configOverride
-name: 'Unconfirmed League'
-leagueKey: '465.l.00000'
-numTeams: 12
+source: browser
+name: 'Method Fantasy League'
+leagueKey: '477.l.48535'
+numTeams: 8
 scoringType: head
 
-# Yahoo abbreviations. Supported set is in libs/model/src/categories.ts; an unknown
-# abbreviation fails loudly rather than being silently dropped (§11.3).
+# Scored categories. Display-only categories (GA, SV, SA) are deliberately absent:
+# they are shown in Yahoo but not scored, so they must not enter the valuation.
 categories:
-  skater: [G, A, '+/-', PIM, PPP, SOG, FW]
+  skater: [G, A, '+/-', PIM, PPP, SHP, GWG, SOG, HIT]
   goalie: [W, GAA, 'SV%', SHO]
 
-# Starting slots size the draftable pool. BN/IR/IR+/NA are not starting slots.
 rosterSlots:
   - { position: C, count: 2 }
   - { position: LW, count: 2 }
   - { position: RW, count: 2 }
   - { position: D, count: 4 }
+  - { position: Util, count: 1 }
   - { position: G, count: 2 }
   - { position: BN, count: 4, isStarting: false }
-  - { position: 'IR+', count: 2, isStarting: false }
+  - { position: IR, count: 2, isStarting: false }
 
 # Season-long category punts: set a weight to 0 to remove a category entirely.
 categoryWeights: {}

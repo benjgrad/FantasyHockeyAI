@@ -74,6 +74,11 @@ export const Projection = z.object({
   name: z.string(),
   positionType: PositionType,
   position: z.string(),
+  /**
+   * Yahoo-style eligible positions where known (e.g. ['C','LW']). The NHL API gives only
+   * a primary position, so this arrives from a market source and stays optional.
+   */
+  eligible: z.array(z.string()).optional(),
   team: z.string(),
   gp: z.number().nonnegative(),
   perGame: z.record(z.string(), z.number()),
@@ -89,9 +94,12 @@ export const Valuation = z.object({
   nhlId: z.number().int(),
   name: z.string(),
   position: z.string(),
+  eligible: z.array(z.string()).optional(),
   team: z.string(),
   positionType: PositionType,
   z: z.record(z.string(), z.number()),
+  adp: z.number().optional(),
+  marketRank: z.number().optional(),
   value: z.number(),
   vorp: z.number(),
   vorpPosition: z.string(),
