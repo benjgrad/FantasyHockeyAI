@@ -20,7 +20,9 @@ Working on **M0 / Part A** (documentation restructure), then the draft-night ver
 Tonight's scope was deliberately cut from the spec's §23 plan — see
 [Decision D-004](#d-004) and the [cut list](#deferred-from-tonight).
 
-**Next acceptance gate:** the 20:00 full-draft rehearsal.
+**Next acceptance gate:** the live room at ~20:45 — discovery, then `--submit --dry-run`.
+
+**Draft night procedure: `docs/DRAFT-NIGHT.md`.**
 
 Done: **M0a** docs restructure · **M0b** scaffold · **M1** NHL stats client (3 seasons cached) ·
 **M2** projections + valuation, **63 tests, 98% statements / 80% branches on `libs/model`** ·
@@ -57,7 +59,9 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0a** | Docs restructure: this file, `CLAUDE.md`, pointers in the spec | `done` 12:35 | This file exists with every open question and unknown listed | — |
 | **M0b** | Minimal scaffold: npm workspaces, tsconfig, vitest, eslint, `fha` CLI entry | `done` 12:33 | `npm run validate` passes on an empty skeleton | §4 |
 | **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
-| **M1b** | Yahoo reads — **solved via the website API, not a developer app** (`prototypes/yahoo-web`) | `done` — needs `login` | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
+| **M1b** | Yahoo reads via the website API (`prototypes/yahoo-web`) | `done` — session on server, reads live |
+| **M1c** | Yahoo **writes**: pre-draft ranking upload, all 300 saved and verified | `done` 15:50 |
+| **M1d** | Live draft-room client: tested protocol, our valuation, human input window, gated submit | `done` 16:30 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
 | **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
 | **M3** | **Safety net:** `fha rank` → `prerank.csv`, `yahoo-prerank.csv`, printable `cheat-sheet.txt` | `done` 17:30 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
 | **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `done` 14:10 | A mock run marking 20 picks behaves correctly | §12.5 |
@@ -101,8 +105,8 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 | ID | Question | Owner | Blocks | Status |
 |---|---|---|---|---|
 | **Q-001** | Does the Yahoo app-creation form still offer Fantasy Sports? (§10.1) | Ben | Reads, and every in-season write | **MOOT for reads (D-005).** `prototypes/yahoo-web` reads the league through Yahoo's own website API with session cookies, no developer app. Still open for **writes** |
-| **Q-007** | How do writes authenticate through `pub-api-rw` — crumb, different endpoint? | Ben (spiking) | M5 lineup automation, M6 waivers, M7 trades | IN PROGRESS on Ben's PC |
-| **Q-008** | What is Ben's **draft seat** (1-8)? | Ben / Yahoo | `fha draft init`, and every scarcity calculation | **OPEN — needed before 21:00.** Yahoo assigns the order shortly before the draft; `draft init` refuses rather than guess |
+| **Q-007** | How do writes authenticate? | — | M5 lineup automation, M6 waivers, M7 trades | **PARTLY ANSWERED.** The *website* takes a form POST with a `crumb` from the editor page's inline config, and requires **headless Chrome** — the session does not authenticate website pages via plain fetch (a bare fetch redirects to login and returns 200). Whether `pub-api-rw` accepts roster/transaction writes with the same cookies is still untested |
+| **Q-008** | What is Ben's **draft seat** (1-8)? | — | Every scarcity and urgency calculation | **ANSWERED — self-resolving.** The draft room's `R|` frame carries the full order; `draft sync` derives the seat and corrects a mismatched config value |
 | **Q-009** | Copy the Yahoo session to **this server**? | Ben | Whether the draft board auto-syncs from here | **ANSWERED 17:25 — yes.** Claude advised against it on exposure grounds; Ben overruled with better information: the Yahoo account is effectively throwaway, so the exposure is acceptable. The JSON bridge still exists and still works, but the session can live here, which means `dump` and `draft-watch` run on this box and the board fully auto-syncs |
 | **Q-010** | Join a Yahoo **mock draft** before 21:00 to capture the pick protocol (U2)? | Ben | Whether picks could ever be submitted programmatically | **ANSWERED 17:25 — proceeding**, on Ben's PC, in parallel. Off the critical path |
 | **Q-007b** | Spike a low-risk **write** to learn how writes authenticate (U1)? | Ben | M5–M7 | **ANSWERED 17:25 — proceeding**, on Ben's PC. Claude advised deferring it; Ben's call, and it runs in parallel so it costs nothing here |
