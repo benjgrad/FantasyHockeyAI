@@ -15,6 +15,7 @@ import { loadLeague } from '../config.js';
 import { compareToMarket, sanityReport } from './diagnose.js';
 import { buildSheet } from './sheet.js';
 import { indexMarket, lookupMarket, preferredMarket } from './market.js';
+import { readPlayerMap } from './yahooFiles.js';
 
 const DATA_DIR = 'data';
 const LATEST_COMPLETE_SEASON_START = 2025;
@@ -29,6 +30,8 @@ export interface RankOutput {
   market?: { source: string; matched: number; size: number };
   /** Cross-position offsets fitted against the market board, if one was available. */
   calibration?: CalibrationResult;
+  /** Whether the board was restricted to Yahoo's pool, and how many were excluded. */
+  draftable?: { size: number; excluded: number };
 }
 
 export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
@@ -59,7 +62,21 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
     return { ...p, eligible: m.positions };
   });
 
-  const res = valuePlayers({ settings, projections: enriched, weights: categoryWeights });
+  /*
+   * Restrict to players Yahoo lists in this league's pool.
+   *
+   * Historical NHL seasons contain players who are no longer in the league: rehearsals
+   * happily drafted Joe Pavelski and Torey Krug, and Johnny Gaudreau appeared in the top
+   * 100. Yahoo's pool is the authoritative availability list, so joining against it turns
+   * a list of *values* into an actual draft board. Without the pool we rank everyone and
+   * say so, rather than silently pretending the list is draftable (P9).
+   */
+  const playerMap = readPlayerMap();
+  const draftable = playerMap === undefined ? undefined : new Set(playerMap.values());
+  const pool = draftable === undefined ? enriched : enriched.filter((p) => draftable.has(p.nhlId));
+  const excluded = enriched.length - pool.length;
+
+  const res = valuePlayers({ settings, projections: pool, weights: categoryWeights });
 
   const withMarket = res.valuations.map((v) => {
     if (!market) return v;
@@ -73,8 +90,11 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
   });
 
   // Anchor the cross-position scale to the market. Within-position order is untouched.
+  // Fit only on players the market actually prices. A player with no ADP has no market
+  // opinion to calibrate against, and including them fits to noise.
   const joined = withMarket
     .filter((v): v is typeof v & { marketRank: number } => v.marketRank !== undefined)
+    .filter((v) => v.adp !== undefined)
     .map((v) => ({ position: v.position, vorp: v.vorp, marketRank: v.marketRank }));
 
   let valuations = withMarket;
@@ -92,6 +112,7 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
     iterations: res.iterations,
     ...(snap ? { market: { source: snap.source, matched, size: snap.players.length } } : {}),
     ...(calibration ? { calibration } : {}),
+    ...(draftable === undefined ? {} : { draftable: { size: pool.length, excluded } }),
   };
 }
 
@@ -111,6 +132,17 @@ export function registerRankCommands(program: Command): void {
       const top = Number.parseInt(opts.top, 10);
       const r = buildRanking(3, opts.calibrate);
 
+      if (r.draftable) {
+        console.log(
+          `  restricted to Yahoo's pool: ${r.draftable.size} draftable, ` +
+            `${r.draftable.excluded} excluded (not in this league's player list)`,
+        );
+      } else {
+        console.log(
+          '  !! not restricted to Yahoo\'s pool — run "fha yahoo map".\n' +
+            '     The board may list players who are no longer in the NHL.',
+        );
+      }
       if (r.calibration) {
         const o = Object.entries(r.calibration.offsets)
           .sort((a, b) => b[1] - a[1])

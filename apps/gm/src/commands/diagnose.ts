@@ -85,6 +85,7 @@ export function compareToMarket(
     name: string;
     position: string;
     marketRank?: number;
+    adp?: number;
     lowConfidence: boolean;
   }[],
   topN = 100,
@@ -92,11 +93,14 @@ export function compareToMarket(
   const ourRankById = new Map<string, number>();
   valuations.forEach((v, i) => ourRankById.set(v.name, i + 1));
 
+  // Only players the market actually prices. A player Yahoo has no ADP for has no market
+  // opinion to disagree with, and including them measures residual over a different
+  // population than the calibration was fitted on — which reads as a phantom skew.
   const paired = valuations
     .map((v, i) => ({ v, ourRank: i + 1 }))
     .filter(
       (x): x is { v: (typeof valuations)[number] & { marketRank: number }; ourRank: number } =>
-        x.v.marketRank !== undefined,
+        x.v.marketRank !== undefined && x.v.adp !== undefined,
     );
 
   const lines: string[] = [];

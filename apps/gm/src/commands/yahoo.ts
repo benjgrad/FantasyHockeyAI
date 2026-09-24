@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { buildPlayerMap } from '@fha/model';
 import { buildRanking } from './rank.js';
+import { loadPlayerOverrides } from '../config.js';
 import {
   POOL_PATH,
   MAP_PATH,
@@ -37,10 +38,12 @@ export function registerYahooCommands(program: Command): void {
         position: v.position,
       }));
 
-      const res = buildPlayerMap(pool.players, nhl);
+      const overrides = loadPlayerOverrides();
+      const res = buildPlayerMap(pool.players, nhl, overrides);
       writePlayerMap(res);
 
       const pct = ((100 * res.mapped.length) / pool.players.length).toFixed(1);
+      console.log(`applied ${Object.keys(overrides).length} hand-verified override(s)`);
       console.log(
         `joined ${res.mapped.length}/${pool.players.length} Yahoo players to NHL ids (${pct}%)`,
       );

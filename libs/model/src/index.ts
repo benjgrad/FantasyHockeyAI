@@ -4,6 +4,7 @@ export * from './categories.js';
 export * from './projections.js';
 export * from './valuation.js';
 export * from './names.js';
+export * from './teams.js';
 export * from './draft.js';
 export * from './calibrate.js';
 export * from './playerMap.js';

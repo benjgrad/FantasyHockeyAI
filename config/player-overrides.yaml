@@ -1,0 +1,30 @@
+# Manual Yahoo -> NHL player id fixes (§10.5).
+#
+# The matcher refuses to guess: an ambiguous or weak name match is left unmapped rather
+# than resolved to the closest candidate, because a wrong join does not look like a
+# failure — it looks like a confident, wrong valuation for a whole season. This file is
+# where a human resolves what the matcher correctly declined.
+#
+# An override always wins. Verify each one by hand before adding it.
+#
+# Confirmed 2026-09-24 against data/nhl/20252026.json.
+
+overrides:
+  # Two Elias Petterssons on Vancouver. Yahoo's is C-eligible, so it is the forward
+  # (74 GP, 51 points), not the defenceman (70 GP, 10 points).
+  '477.p.7520': 8480012
+
+  # Yahoo uses the nickname; the NHL API uses his full legal name "John-Jason Peterka".
+  # Also traded, so the teams disagree (Yahoo BOS, NHL data UTA).
+  '477.p.8674': 8482175
+
+  # NHL API carries the full surname "Mats Zuccarello Aasen"; Yahoo drops "Aasen".
+  # Also traded (Yahoo LA, NHL data MIN).
+  '477.p.4921': 8475692
+
+# Deliberately NOT overridden — these have no NHL history to project from, so any
+# mapping would invent a value. They stay flagged and get human judgement at the draft:
+#   477.p.33811  Gavin McKenna (TOR, adp 93.8)  — prospect, no NHL games
+#   477.p.33913  Ivar Stenberg (SJ,  adp 135.1) — prospect, no NHL games
+#     (note: the NHL data has an unrelated "Otto Stenberg" — surname-only matching
+#      would have silently joined two different players. It correctly did not.)

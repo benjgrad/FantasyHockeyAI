@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { z } from 'zod';
 import { BENCH_POSITIONS, type LeagueSettings } from '@fha/core';
@@ -25,6 +25,20 @@ const LeagueFile = z.object({
   rosterSlots: z.array(SlotSpec).min(1),
   categoryWeights: z.record(z.string(), z.number()).default({}),
 });
+
+const OverridesFile = z.object({
+  overrides: z.record(z.string(), z.number().int().positive()).default({}),
+});
+
+/**
+ * Hand-verified Yahoo -> NHL id fixes (§10.5). Missing file is fine; a malformed one is
+ * an error, because silently ignoring it would reintroduce the wrong joins it exists to fix.
+ */
+export function loadPlayerOverrides(path = 'config/player-overrides.yaml'): Record<string, number> {
+  if (!existsSync(path)) return {};
+  const raw: unknown = parse(readFileSync(path, 'utf-8'));
+  return OverridesFile.parse(raw ?? {}).overrides;
+}
 
 export interface LoadedLeague {
   settings: LeagueSettings;

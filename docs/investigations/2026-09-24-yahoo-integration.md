@@ -242,3 +242,7 @@ Fetch/XHR by `fantasysports.yahoo.com/fantasy`, and inspect any `pub-api-*` requ
 | Session (credential) | `C:\Users\Benjamin Grady\.config\fha\yahoo-session.json` (PC only) | **Yes. It's a credential.** |
 | Prototype's Chrome profile | `C:\Users\Benjamin Grady\.config\fha\chrome-profile` (PC only) | **Yes (signed-in profile)** |
 | Raw captures | deleted after sanitizing | n/a |
+
+---
+
+**Addendum (13:40 ET):** writes and the live draft room are covered in `2026-09-24-yahoo-writes-and-draft-room.md`. That covers the pre-rank write, the draft-room protocol, the headless tools, and where the session now lives (decisions 2–4 resolved).

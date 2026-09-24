@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { CONSENSUS_SOURCES, MarketSnapshot, fetchConsensus, type MarketPlayer } from '@fha/market';
-import { normalizeName } from '@fha/model';
+import { normalizeName, normalizeTeam, sameTeam } from '@fha/model';
 import { readPool } from './yahooFiles.js';
 
 const PATH = 'data/market/consensus.json';
@@ -22,18 +22,32 @@ export function readMarket(): MarketSnapshot | undefined {
 export function preferredMarket(): { snapshot: MarketSnapshot; origin: string } | undefined {
   const pool = readPool();
   if (pool) {
-    const players = pool.players
-      .map((p) => {
-        const positions = p.eligible.filter((e) => e !== 'Util' && e !== 'UTIL' && e !== 'IR');
-        return {
-          rank: p.yahooRank,
-          name: p.name,
-          team: p.team === '' ? 'UNK' : p.team.toUpperCase(),
-          positions: positions.length > 0 ? positions : ['Util'],
-          ...(p.adp === undefined ? {} : { adp: p.adp }),
-        };
-      })
-      .filter((p) => p.name !== '');
+    /*
+     * `rank` must mean "where the market drafts him", and Yahoo's own OR ordering is not
+     * that: it is Yahoo's projection rank, and it interleaves the 247 players who have no
+     * ADP at all (Seth Jarvis sits at OR 325 with an ADP of 123). Ordering by ADP first,
+     * and only then by OR for the players Yahoo has no ADP for, makes the rank an actual
+     * market signal — which matters because the cross-position calibration is fitted
+     * against it.
+     */
+    const ordered = [...pool.players]
+      .filter((p) => p.name !== '')
+      .sort((a, b) => {
+        const aa = a.adp ?? Number.POSITIVE_INFINITY;
+        const ba = b.adp ?? Number.POSITIVE_INFINITY;
+        if (aa !== ba) return aa - ba;
+        return a.yahooRank - b.yahooRank;
+      });
+    const players = ordered.map((p, i) => {
+      const positions = p.eligible.filter((e) => e !== 'Util' && e !== 'UTIL' && e !== 'IR');
+      return {
+        rank: i + 1,
+        name: p.name,
+        team: normalizeTeam(p.team),
+        positions: positions.length > 0 ? positions : ['Util'],
+        ...(p.adp === undefined ? {} : { adp: p.adp }),
+      };
+    });
     if (players.length > 0) {
       return {
         snapshot: { source: `yahoo:${pool.leagueKey}`, fetchedAt: pool.fetchedAt, players },
@@ -87,8 +101,8 @@ export function lookupMarket(
   const parts = n.split(' ');
   if (parts.length < 2) return undefined;
   const candidates = index.bySurname.get(parts.slice(1).join(' ')) ?? [];
-  const sameTeam = candidates.filter((c) => c.team.toUpperCase() === team.toUpperCase());
-  return sameTeam.length === 1 ? sameTeam[0] : undefined;
+  const onTeam = candidates.filter((c) => sameTeam(c.team, team));
+  return onTeam.length === 1 ? onTeam[0] : undefined;
 }
 
 export function registerMarketCommands(program: Command): void {

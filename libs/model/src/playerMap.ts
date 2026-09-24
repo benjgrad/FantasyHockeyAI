@@ -1,4 +1,5 @@
 import { matchPlayer, normalizeName, type Candidate } from './names.js';
+import { sameTeam } from './teams.js';
 
 /**
  * Join Yahoo players to NHL players (§10.5).
@@ -80,8 +81,8 @@ export function buildPlayerMap(
     }
 
     const res = matchPlayer(y.name, candidates);
-    const teamAgrees = (c: Candidate): boolean =>
-      c.team.toUpperCase() === y.team.toUpperCase() || y.team === '' || c.team === 'UNK';
+    // Tolerates Yahoo's spellings (TB vs TBL). An absent team is not a wildcard.
+    const teamAgrees = (c: Candidate): boolean => sameTeam(c.team, y.team);
 
     if (res.kind === 'exact' || res.kind === 'fuzzy') {
       const c = res.candidate;
