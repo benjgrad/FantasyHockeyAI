@@ -195,3 +195,43 @@ persistent profile. It is **not** needed on the server; the tools above replace 
 2. **Validate a successful headless pick** once a new mock can be started (finish or leave the current instant mock first).
 3. **Decide the draft-night pick path:** Ben clicks, the browser clicks, or `ws-pick`. §4.4 lists what is unproven for the Node path.
 4. **Record the findings in the spec** (`KNOWLEDGE_TRANSFER.md` §10): the write mechanism and the draft-room protocol.
+
+---
+
+## 8. Update 13:45 ET: headless picks confirmed, and autopick control
+**Headless drafting works [EXEC].** In the public mock room "Center Ice" (draft 2331382, seat 1, 14 teams), with the browser tab
+disconnected, `tools/ws-pick.ts --picks 2` joined and made both of our back-to-back picks:
+```
+17:45:16 << replay: 83 already drafted
+17:45:16 << ON THE CLOCK: pick 84 (20s)
+17:45:16 >> 0|2331382|1|84|7626        (Jeremy Swayman)
+17:45:16 << OUR pick 84: 7626 … G (CONFIRMED - ours)
+17:45:16 << ON THE CLOCK: pick 85 (30s)
+17:45:16 >> 0|2331382|1|85|30154       (Jackson LaCombe)
+17:45:16 << OUR pick 85: 30154 … D (CONFIRMED - ours)
+```
+
+**Autopick messages, now decoded [OBS]:**
+
+| Dir | Message | Meaning |
+|---|---|---|
+| → | `5\|{draftId}\|{teamId}` | turn autopick **on** (the room's "Autodraft" button) |
+| ← | `5\|{teamId}` | autopick is on for that team. Also sent by the server when a pick is missed ("put into autopick mode due to inactivity") |
+| → | `6\|{draftId}\|{teamId}` | turn autopick **off** |
+| ← | `6\|{teamId}` | autopick is off for that team |
+
+`ws-pick.ts` now answers `5|{ourTeam}` by sending `6|…` straight away.
+
+**What happens on a missed pick [OBS]:** if the clock expires, Yahoo picks for the team and switches it to autopick until it's turned off.
+Autopick draws from the room queue first, then the pre-draft rankings ("Autodraft will pick from queue").
+**Loading our ranking into Yahoo (§3) is therefore the fallback if the client misses a pick.**
+
+**Public mock rooms have an empty room token.** The room URL was `…/draftclient/hockey/2331382/1?auth=`, and joining with an empty
+token worked. The instant mock had a non-empty token. For the real league, check the room URL when the room opens [INF].
+
+**Still to do for draft night:**
+- **Room details:** get the real room's `draftId`, `teamId` and token when it opens.
+  The draft id is expected to be 48535 and the team id 6 [INF], and `v3/draftstatus/nhl/48535` gives the server.
+- **Pick order:** replace the ADP `POOL` with the main app's valuation and draft board (need, scarcity), recomputed on each `D|` for our team.
+- **Ben's input:** decide whether Ben can override a pick. The spec's draft agent takes his suggestions; the client needs an input channel.
+- **One client per team:** the browser tab was disconnected during the test, and the effect of two connections for one team is still unknown.

@@ -37,6 +37,9 @@ export const YahooDraft = z.object({
   leagueKey: z.string(),
   fetchedAt: z.string(),
   draftStatus: z.string(),
+  /** Full snake pick order as Yahoo team ids, from the draft room's R| frame. */
+  pickOrder: z.array(z.string()).optional(),
+  onClock: z.object({ pick: z.number().int(), teamId: z.string(), secs: z.number() }).optional(),
   picks: z.array(
     z.object({
       pick: z.number().int(),

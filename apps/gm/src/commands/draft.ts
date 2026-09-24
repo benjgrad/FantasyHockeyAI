@@ -196,6 +196,9 @@ export function registerDraftCommands(program: Command): void {
       if (!map) throw new Error('no player map; run "fha yahoo map" first');
 
       const { settings, teamKey } = loadLeague();
+      if (teamKey === undefined) {
+        throw new Error('config/league.yaml has no teamKey; cannot tell which picks are ours');
+      }
       const { valuations } = buildRanking();
       const byNhlId = new Map(valuations.map((v) => [v.nhlId, v]));
       const state = readState();
@@ -217,6 +220,30 @@ export function registerDraftCommands(program: Command): void {
           position: v.position,
           mine: teamKey !== undefined && p.teamKey === teamKey,
         });
+      }
+
+      /*
+       * Derive our seat from Yahoo's own pick order when the watcher captured it.
+       *
+       * `sync` decides which picks are ours from teamKey, while `board` decides when our
+       * turn comes from the seat. If those two disagree the board lies about when we pick,
+       * which corrupts every scarcity and urgency number — so prefer Yahoo's order over a
+       * hand-entered seat, and say so when they differ.
+       */
+      const ourTeamId = teamKey.split('.t.')[1];
+      if (yd.pickOrder && ourTeamId !== undefined) {
+        const seat = yd.pickOrder.indexOf(ourTeamId) + 1;
+        if (seat > 0 && seat !== state.slot) {
+          console.log(
+            `\n  !! seat corrected from ${state.slot} to ${seat} using Yahoo's pick order.\n` +
+              `     Update draftSlot in config/league.yaml to ${seat} to keep them in step.`,
+          );
+          state.slot = seat;
+        } else if (seat === 0) {
+          console.log(
+            `\n  !! our team id ${ourTeamId} is absent from Yahoo's pick order; keeping seat ${state.slot}`,
+          );
+        }
       }
 
       state.picks = picks;
