@@ -280,6 +280,7 @@ export function buildView(): DraftView {
     ? (JSON.parse(readFileSync(preferPath, 'utf-8')) as { nhlId: number; name: string })
     : undefined;
 
+  const drafting = (yd?.draftStatus ?? '') === 'drafting';
   const isOurs = Boolean(
     yd?.onClock && teamKey && `${settings.leagueKey}.t.${yd.onClock.teamId}` === teamKey,
   );
@@ -331,13 +332,22 @@ export function buildView(): DraftView {
     categoryStrength: strength,
     recentPicks: recentPicks.slice(-12).reverse(),
     lowerIsBetter: cats.filter((c) => lowerIsBetter(c)),
-    narrative: recCard
-      ? narrativeFor(onClockPick, recCard, altCards, {
-          openSlots,
-          weakest: strength.slice(0, 3),
-          roster: myRoster.map((v) => `${v.name} (${v.position})`),
-        })
-      : { status: 'off' },
+    /*
+     * Explain our picks, not everyone's.
+     *
+     * The cache key includes the pick number, so left alone this would regenerate on all 136
+     * picks in the draft rather than our 17 — and the recommendation between our turns is
+     * hypothetical anyway. It still generates before the draft starts, so the board is never
+     * blank while Ben is looking at it, and FHA_EXPLAIN_ALWAYS=1 forces the old behaviour.
+     */
+    narrative:
+      recCard && (isOurs || !drafting || process.env.FHA_EXPLAIN_ALWAYS === '1')
+        ? narrativeFor(onClockPick, recCard, altCards, {
+            openSlots,
+            weakest: strength.slice(0, 3),
+            roster: myRoster.map((v) => `${v.name} (${v.position})`),
+          })
+        : { status: 'idle' },
     ...(pending ? { pendingOverride: pending } : {}),
     warnings,
   };

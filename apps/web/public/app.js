@@ -193,9 +193,11 @@ function render(s) {
             ? `<div class="narr">${esc(n.text)}</div>`
             : n.status === 'generating'
               ? `<div class="narr gen">thinking through the alternatives…</div>`
-              : n.status === 'failed'
-                ? `<div class="narr muted">explainer unavailable (${esc(n.detail || 'error')}) — the reasons above still apply</div>`
-                : '';
+              : n.status === 'idle'
+                ? `<div class="narr muted">explained when it is our pick</div>`
+                : n.status === 'failed'
+                  ? `<div class="narr muted">explainer unavailable (${esc(n.detail || 'error')}) — the reasons above still apply</div>`
+                  : '';
         return `<div class="card ${isOv ? 'ovcard' : ''}">${head}${playerCard(s.recommendation, true)}${note}</div>`;
       })(),
     );

@@ -14,7 +14,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { PlayerCard } from './state.js';
 
-export type NarrativeStatus = 'off' | 'generating' | 'ready' | 'failed';
+export type NarrativeStatus = 'off' | 'idle' | 'generating' | 'ready' | 'failed';
 
 export interface Narrative {
   status: NarrativeStatus;
