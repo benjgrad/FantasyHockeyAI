@@ -1,0 +1,72 @@
+import type { AgentName, LeagueSettings, Permissions, Plan, PlanKind } from '@fha/core';
+import type { AnyToolSpec, ToolContext, ToolResult, ToolSpec } from '@fha/llm';
+import type { SubmitOutcome } from '@fha/pipeline';
+import type { Store } from '@fha/store';
+import type { LeagueView } from './view.js';
+
+/**
+ * Everything a tool may touch during one agent run (§6.2).
+ *
+ * Dependencies arrive here, never through closures captured at registration (§24.12), so the
+ * same tool objects serve every run and a test swaps any service by building a different
+ * context. Identity (our team, our league) comes only from `view`, which comes from config (P8):
+ * no tool input carries a teamKey or leagueKey.
+ */
+export interface RunContext {
+  runId: string;
+  /** ISO instant. Every "is his game started?" decision reads this, never the wall clock. */
+  now: string;
+  agent: AgentName;
+  view: LeagueView;
+  settings: LeagueSettings;
+  permissions: Permissions;
+  store: Store;
+  /** The action pipeline, injected. Propose tools hand it plans; they never execute anything. */
+  submit: (plan: Plan) => Promise<SubmitOutcome>;
+  log?: (event: ToolEvent) => void;
+  state: RunState;
+}
+
+export interface ToolEvent {
+  tool: string;
+  event: string;
+  detail?: unknown;
+}
+
+/** What an invalid-attempt counter is keyed by: a plan kind, or the category-weights write. */
+export type AttemptKind = PlanKind | 'strategy';
+
+export type FinishKind = 'abstain' | 'askBen' | 'proposed';
+
+/** Per-run mutable record. The agent reads it after the loop to know how the run ended. */
+export interface RunState {
+  plans: { planId: string; kind: PlanKind; outcome: SubmitOutcome }[];
+  /**
+   * Invalid proposals per plan kind (and for the weekly strategy): the second one ends the run
+   * (§9.1, one fix attempt).
+   */
+  invalidAttempts: Map<AttemptKind, number>;
+  finished?: { kind: FinishKind; reason: string };
+}
+
+export function newRunState(): RunState {
+  return { plans: [], invalidAttempts: new Map() };
+}
+
+export type Tool<I, O> = ToolSpec<I, O, RunContext>;
+export type AnyTool = AnyToolSpec<RunContext>;
+export type Ctx = ToolContext<RunContext>;
+
+/** Identity function that pins the context type, so specs infer `I` from their zod input. */
+export function defineTool<I, O>(spec: Tool<I, O>): Tool<I, O> {
+  return spec;
+}
+
+/** A failure the model can fix: the text says what is wrong and what to do next (§6.2). */
+export function fail(error: string, retryable = true): ToolResult<never> {
+  return { ok: false, error, retryable };
+}
+
+export function ok<O>(data: O, summary: string): ToolResult<O> {
+  return { ok: true, data, summary };
+}
