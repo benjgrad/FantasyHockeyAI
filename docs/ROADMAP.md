@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 13:35 ET**
+Last updated: **2026-09-24 14:10 ET**
 
 ---
 
@@ -20,11 +20,15 @@ Working on **M0 / Part A** (documentation restructure), then the draft-night ver
 Tonight's scope was deliberately cut from the spec's §23 plan — see
 [Decision D-004](#d-004) and the [cut list](#deferred-from-tonight).
 
-**Next acceptance gate:** `fha draft board` behaves correctly across a 20-pick mock (M4).
+**Next acceptance gate:** the 20:00 full-draft rehearsal.
 
 Done: **M0a** docs restructure · **M0b** scaffold · **M1** NHL stats client (3 seasons cached) ·
 **M2** projections + valuation, **63 tests, 98% statements / 80% branches on `libs/model`** ·
-**M3** `fha rank` producing `data/prerank.csv` for 1328 players, converging in 5 iterations.
+**M3** `fha rank` producing `data/prerank.csv` for 1328 players · **M4** draft board with §12.5
+scoring, snake pick maths and safe name resolution. **106 tests.**
+
+Remaining before the draft: the printable cheat sheet, the Yahoo read attempt (blocked on Q-001),
+and the rehearsal. **Everything draft-critical is already in place** roughly seven hours early.
 
 Three unknowns verified (U-03, U-04, U-07). The six required §12.2 tests all pass, and were
 **mutation-tested**: stripping SV% volume weighting, flipping the GAA sign, or ignoring category
@@ -56,7 +60,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M1b** | `libs/yahoo` read attempt — **timeboxed, hard 40-minute stop** | `blocked` on Q-001 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
 | **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
 | **M3** | **Safety net:** `fha rank` → `prerank.csv` (cheat sheet pending) | `done` 13:35 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
-| **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `wip` | A mock run marking 20 picks behaves correctly | §12.5 |
+| **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `done` 14:10 | A mock run marking 20 picks behaves correctly | §12.5 |
 | — | Rehearsal, then **code freeze at 20:45** | `todo` | A full mock draft driven with the real tool | — |
 
 ### After the draft
@@ -191,6 +195,14 @@ bugs and were not.
 - **Open — players no longer in the NHL still appear** (Johnny Gaudreau at #98), because they
   exist in historical seasons. Harmless for the draft since they are not in Yahoo's pool, but the
   ranking should not be read as an availability list.
+- **Fixed — a name already drafted reported "no confident match"** with a list of unrelated
+  suggestions, instead of saying he was gone. Found during the mock: typing "Rasmus Dahlin" after
+  he had been taken produced five wrong suggestions. Resolution now runs over the whole pool and
+  reports the pick number he went at. A misleading explanation under a draft clock is nearly as
+  costly as a wrong pick.
+- **Fixed — an ambiguous name silently resolved** once all but one candidate was drafted. Typing
+  "Makar" quietly selected *Taylor* Makar after Cale was gone. It still resolves, because only one
+  is available, but it now announces the disambiguation so a wrong pick is caught immediately.
 - **Open — `+/-` is treated as a stable per-game rate.** It is the noisiest category in hockey and
   is team-dependent, so players on strong teams (COL, EDM, TBL, WPG) are systematically favoured.
   Shrinking it harder than other categories is a candidate improvement.
