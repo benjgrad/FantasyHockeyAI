@@ -142,7 +142,12 @@ const room = fullyOverridden
       roomUrl: '(overridden)',
     }
   : WAIT
-    ? await waitForDraftRoom({ leagueKey: LEAGUE_KEY, log: (m) => console.log(`  ${m}`) })
+    ? await waitForDraftRoom({
+        leagueKey: LEAGUE_KEY,
+        // The unattended wrapper already timestamps every line; the discovery callback
+        // supplies its own, so strip it rather than print two.
+        log: (m) => console.log(`  ${m.replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z\s*/, '')}`),
+      })
     : await discoverDraftRoom({ leagueKey: LEAGUE_KEY });
 
 const DRAFT_ID = process.env.DRAFT_ID ?? room.draftId;

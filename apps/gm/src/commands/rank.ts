@@ -15,7 +15,7 @@ import { loadDraftOverrides, loadLeague } from '../config.js';
 import { compareToMarket, sanityReport } from './diagnose.js';
 import { buildSheet } from './sheet.js';
 import { indexMarket, lookupMarket, preferredMarket } from './market.js';
-import { readPlayerMap } from './yahooFiles.js';
+import { readPlayerMap, writeAtomic } from './yahooFiles.js';
 
 const DATA_DIR = 'data';
 const LATEST_COMPLETE_SEASON_START = 2025;
@@ -260,10 +260,10 @@ export function registerRankCommands(program: Command): void {
 
         const idsPath = `${opts.out}/yahoo/prerank-ids.json`;
         mkdirSync(`${opts.out}/yahoo`, { recursive: true });
-        writeFileSync(
+        // Read by the pre-rank writer; swapped atomically for the same reason as the map.
+        writeAtomic(
           idsPath,
           JSON.stringify({ leagueKey: r.leagueKey, generatedAt: new Date().toISOString(), ranked }),
-          'utf-8',
         );
         console.log(`wrote ${idsPath} (${ranked.length} Yahoo ids in our order)`);
       }

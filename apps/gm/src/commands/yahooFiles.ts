@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import type { PlayerMapResult } from '@fha/model';
 
@@ -72,14 +72,26 @@ export function readPlayerMap(): Map<string, number> | undefined {
   return new Map(Object.entries(raw.byPlayerKey));
 }
 
+/**
+ * Atomic write.
+ *
+ * The live draft client reads this file on every one of our turns, and the pre-flight
+ * rewrites it. A half-written file read mid-draft would throw at the worst possible moment,
+ * so the swap is a rename, which is atomic on the same filesystem.
+ */
+export function writeAtomic(path: string, body: string): void {
+  const tmp = `${path}.tmp`;
+  writeFileSync(tmp, body, 'utf-8');
+  renameSync(tmp, path);
+}
+
 export function writePlayerMap(res: PlayerMapResult): void {
   mkdirSync('data/yahoo', { recursive: true });
-  writeFileSync(
+  writeAtomic(
     MAP_PATH,
     JSON.stringify({
       builtAt: new Date().toISOString(),
       byPlayerKey: Object.fromEntries(res.byPlayerKey),
     }),
-    'utf-8',
   );
 }
