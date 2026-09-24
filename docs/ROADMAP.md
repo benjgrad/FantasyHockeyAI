@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 12:36 ET**
+Last updated: **2026-09-24 12:50 ET**
 
 ---
 
@@ -20,10 +20,16 @@ Working on **M0 / Part A** (documentation restructure), then the draft-night ver
 Tonight's scope was deliberately cut from the spec's §23 plan — see
 [Decision D-004](#d-004) and the [cut list](#deferred-from-tonight).
 
-**Next acceptance gate:** `fha nhl pull` caches three seasons (M1).
+**Next acceptance gate:** the six required valuation tests of §12.2 (M2).
 
-Done so far: **M0a** docs restructure, **M0b** scaffold (`npm run validate` green: prettier, eslint
-strict, tsc project references across 5 workspaces, vitest with 6 passing tests).
+Done: **M0a** docs restructure · **M0b** scaffold (`npm run validate` green across 5 workspaces) ·
+**M1** NHL stats client — three seasons cached, 19 tests passing.
+
+Three unknowns verified along the way (U-03, U-04, U-07). Merge integrity spot-checked: a winger
+shows 0 faceoff wins, and reported GAA reconciles exactly with `GA×60/TOI`.
+
+**M1b (Yahoo) is blocked on Q-001 and has been reordered behind M2** — the model determines draft
+quality, Yahoo only adds ADP polish, so the model gets the fresh hours.
 
 **Blocking on Ben:** [Q-001](#q-001) — what the Yahoo app-creation form offers. Everything about
 the data path depends on it.
@@ -40,9 +46,9 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 |---|---|---|---|---|
 | **M0a** | Docs restructure: this file, `CLAUDE.md`, pointers in the spec | `done` 12:35 | This file exists with every open question and unknown listed | — |
 | **M0b** | Minimal scaffold: npm workspaces, tsconfig, vitest, eslint, `fha` CLI entry | `done` 12:33 | `npm run validate` passes on an empty skeleton | §4 |
-| **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `wip` | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
-| **M1b** | `libs/yahoo` read attempt — **timeboxed, hard 40-minute stop** | `todo` | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
-| **M2** | `libs/model`: projections + valuation, TDD | `todo` | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
+| **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
+| **M1b** | `libs/yahoo` read attempt — **timeboxed, hard 40-minute stop** | `blocked` on Q-001 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
+| **M2** | `libs/model`: projections + valuation, TDD | `wip` | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
 | **M3** | **Safety net:** `fha rank` → `prerank.csv` + printable cheat sheet | `todo` | **Required.** The files exist and the top 100 survives review | §14.1(6) |
 | **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `todo` | A mock run marking 20 picks behaves correctly | §12.5 |
 | — | Rehearsal, then **code freeze at 20:45** | `todo` | A full mock draft driven with the real tool | — |
@@ -102,11 +108,11 @@ first use and update the row.
 |---|---|---|---|---|
 | **U-01** | Yahoo `?format=json` output is irregular (collections as numerically keyed objects), so we use XML | §10.3 | Request one collection both ways and compare | UNVERIFIED |
 | **U-02** | Settings field names for the lineup-edit / lock setting | §10.3, §12.4 | Log raw settings on first run and map them | UNVERIFIED — blocked by Q-001 |
-| **U-03** | `limit=-1` may return all NHL rows at once | §11.1 | Try it; fall back to `start`/`limit` pagination | UNVERIFIED — test during M1 |
-| **U-04** | `/goalie/summary` field names beyond W/GAA/SV%/SO (saves, shotsAgainst, goalsAgainst, timeOnIce, gamesStarted) | §11.1 | Log one row and confirm | UNVERIFIED — test during M1 |
+| **U-03** | `limit=-1` may return all NHL rows at once | §11.1 | Try it; fall back to `start`/`limit` pagination | **VERIFIED 12:42** — returns all 940 rows in one response. No pagination implemented |
+| **U-04** | `/goalie/summary` field names beyond W/GAA/SV%/SO | §11.1 | Log one row and confirm | **VERIFIED 12:42** — all present: `gamesStarted`, `wins`, `losses`, `otLosses`, `goalsAgainst`, `goalsAgainstAverage`, `savePct`, `saves`, `shotsAgainst`, `shutouts`, `timeOnIce` (**seconds**) |
 | **U-05** | `api-web.nhle.com/v1/schedule/{date}` response shape (`gameWeek[].games[]` with `startTimeUTC`, `homeTeam.abbrev`) | §11.2 | Fetch one date and inspect | UNVERIFIED — HTTP 200 confirmed, shape not |
 | **U-06** | Yahoo stat IDs differ by season/game, so categories must be mapped by `display_name` | §11.3 | Compare stat IDs across two seasons | UNVERIFIED |
-| **U-07** | Whether SHP and GWG appear in the NHL skater summary endpoint | §11.3 | Inspect the field list | UNVERIFIED — test during M1 |
+| **U-07** | Whether SHP and GWG appear in the NHL skater summary endpoint | §11.3 | Inspect the field list | **VERIFIED 12:42** — yes: `shPoints` and `gameWinningGoals`. `penaltyMinutes` is also on summary, so the `/skater/penalties` call is unnecessary |
 | **U-08** | DailyFaceoff (or equivalent) starting-goalie page structure, and its terms | §11.4 | Fetch and inspect; read the terms | UNVERIFIED — not needed before M5 |
 | **U-09** | Yahoo NHL lineup lock: by game time or daily, and the field name/values | §12.4 | Read raw settings | UNVERIFIED — **safe default: lock each player at his game's `startTimeUTC`** |
 
