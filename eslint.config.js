@@ -1,7 +1,7 @@
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', 'coverage/**', 'data/**', 'prototypes/**'] },
+  { ignores: ['**/dist/**', 'coverage/**', 'data/**', 'prototypes/**', 'tools/**'] },
   ...tseslint.configs.strict,
   {
     rules: {

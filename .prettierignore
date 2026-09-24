@@ -5,3 +5,4 @@ docs/
 *.md
 .claude/
 prototypes/
+tools/

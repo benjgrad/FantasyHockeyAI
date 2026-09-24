@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 16:30 ET**
+Last updated: **2026-09-24 18:00 ET**
 
 ---
 
@@ -59,7 +59,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
 | **M1b** | Yahoo reads — **solved via the website API, not a developer app** (`prototypes/yahoo-web`) | `done` — needs `login` | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
 | **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
-| **M3** | **Safety net:** `fha rank` → `prerank.csv` (cheat sheet pending) | `done` 13:35 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
+| **M3** | **Safety net:** `fha rank` → `prerank.csv`, `yahoo-prerank.csv`, printable `cheat-sheet.txt` | `done` 17:30 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
 | **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `done` 14:10 | A mock run marking 20 picks behaves correctly | §12.5 |
 | — | Rehearsal, then **code freeze at 20:45** | `todo` | A full mock draft driven with the real tool | — |
 
@@ -101,10 +101,11 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 | ID | Question | Owner | Blocks | Status |
 |---|---|---|---|---|
 | **Q-001** | Does the Yahoo app-creation form still offer Fantasy Sports? (§10.1) | Ben | Reads, and every in-season write | **MOOT for reads (D-005).** `prototypes/yahoo-web` reads the league through Yahoo's own website API with session cookies, no developer app. Still open for **writes** |
-| **Q-007** | Does Ben authorise **writes** through the website API (`pub-api-rw`)? Untested, may need a crumb token | Ben | M5 lineup automation, M6 waivers, M7 trades | OPEN — not needed tonight |
+| **Q-007** | How do writes authenticate through `pub-api-rw` — crumb, different endpoint? | Ben (spiking) | M5 lineup automation, M6 waivers, M7 trades | IN PROGRESS on Ben's PC |
 | **Q-008** | What is Ben's **draft seat** (1-8)? | Ben / Yahoo | `fha draft init`, and every scarcity calculation | **OPEN — needed before 21:00.** Yahoo assigns the order shortly before the draft; `draft init` refuses rather than guess |
-| **Q-009** | Copy the Yahoo session to **this server**, or run reads from Ben's PC and pass JSON? | Ben | Whether the draft board auto-syncs from here | OPEN — **recommend PC + JSON bridge**: this box runs internet-facing services, and the JSON dumps carry no credentials |
-| **Q-010** | Join a Yahoo **mock draft** before 21:00 to capture the pick protocol (U2)? | Ben | Whether picks could ever be submitted programmatically | OPEN — `is_live_draft_lobby_active: 1`, so it is possible. **Recommend skipping tonight**: manual clicking already works and the board sync is the bigger win |
+| **Q-009** | Copy the Yahoo session to **this server**? | Ben | Whether the draft board auto-syncs from here | **ANSWERED 17:25 — yes.** Claude advised against it on exposure grounds; Ben overruled with better information: the Yahoo account is effectively throwaway, so the exposure is acceptable. The JSON bridge still exists and still works, but the session can live here, which means `dump` and `draft-watch` run on this box and the board fully auto-syncs |
+| **Q-010** | Join a Yahoo **mock draft** before 21:00 to capture the pick protocol (U2)? | Ben | Whether picks could ever be submitted programmatically | **ANSWERED 17:25 — proceeding**, on Ben's PC, in parallel. Off the critical path |
+| **Q-007b** | Spike a low-risk **write** to learn how writes authenticate (U1)? | Ben | M5–M7 | **ANSWERED 17:25 — proceeding**, on Ben's PC. Claude advised deferring it; Ben's call, and it runs in parallel so it costs nothing here |
 | **Q-002** | Is Playwright acting in Ben's logged-in Yahoo account acceptable? ToS for automating the *website UI* is unconfirmed; the API terms prohibit reverse-engineering the API and require the attribution "Fantasy data provided by Yahoo Fantasy" | Ben | The Browser adapter, and every write if the API stays unprovisioned | OPEN — not needed before M5 |
 | **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | OPEN — not needed before M4b |
 | **Q-004** | Is n8n wanted at all, given the built-in scheduler plus systemd? | Ben | M8 | OPEN — leaning no; scheduler + systemd is sufficient |
@@ -204,6 +205,36 @@ were state living inside a spec, which is why the §23 timeline went stale withi
 
 ---
 
+## The rehearsal finding (17:45) — the most important fix of the day
+
+A full 17-round rehearsal from seat 4, with other teams drafting near ADP, produced a roster
+that would probably have lost:
+
+| Category | Before the fix | After |
+|---|---|---|
+| HIT | **+17.6** | +4.8 |
+| PIM | **+17.0** | +6.5 |
+| SHP | **+14.6** | +4.4 |
+| A | **−6.0** | +0.2 |
+| PPP | **−7.8** | +0.9 |
+
+Seven right wingers and two centres, dominating three categories and losing two.
+
+**Why:** summing z-scores maximises *total* strength, but a head-to-head category is **won,
+not accumulated**. +17 in hits wins hits by a mile and would have won it at +5; the surplus
+bought nothing while assists and power-play points were being lost. The valuation was
+working exactly as specified — the specification optimises the wrong objective at the draft.
+
+**The fix** (`categoryNeedWeights` / `categoryFit` in `libs/model/src/draft.ts`): category
+weights that fall as a category saturates and rise where the roster is behind, normalised to
+average 1 so the board is rebalanced rather than deflated. A player's fit — how well his
+profile lands on our gaps — is added to VORP in the same units, so the positional
+replacement structure is untouched. After the fix **all 13 categories are positive** and
+none is wastefully dominant.
+
+§12.6 specifies this for weekly in-season strategy but nothing covered it at the draft.
+**This is why the rehearsal was scheduled before the draft rather than after.**
+
 ## Sanity findings from the first real ranking (13:35)
 
 Recorded because they shape how the board should be read, and because two of them looked like
@@ -221,9 +252,10 @@ bugs and were not.
 - **Fixed — `lowConfidence` only fired below 10 career games**, so a rookie with one full season
   (Matthew Schaefer, #19) was indistinguishable from a three-season veteran. Now any player with
   fewer than two seasons of data is flagged.
-- **Open — players no longer in the NHL still appear** (Johnny Gaudreau at #98), because they
-  exist in historical seasons. Harmless for the draft since they are not in Yahoo's pool, but the
-  ranking should not be read as an availability list.
+- **Open — players no longer in the NHL still appear** (Johnny Gaudreau; the rehearsal drafted
+  Joe Pavelski and Torey Krug), because they exist in historical seasons. Fixed in practice as
+  soon as `data/yahoo/pool.json` is loaded, since the board can then be restricted to players
+  Yahoo actually lists as available. Until then the ranking is not an availability list.
 - **Fixed — a name already drafted reported "no confident match"** with a list of unrelated
   suggestions, instead of saying he was gone. Found during the mock: typing "Rasmus Dahlin" after
   he had been taken produced five wrong suggestions. Resolution now runs over the whole pool and

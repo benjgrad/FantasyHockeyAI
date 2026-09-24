@@ -144,6 +144,8 @@ export interface ScoredPlayer {
   valuation: Valuation;
   need: number;
   nextBest: number;
+  /** Category-balance adjustment in VORP units; negative means redundant strength. */
+  fit: number;
   score: number;
 }
 
@@ -151,6 +153,10 @@ export interface BoardOptions {
   available: readonly Valuation[];
   myRoster: readonly Valuation[];
   settings: LeagueSettings;
+  /** Scored category abbreviations. Enables the category-balance term when provided. */
+  categories?: readonly string[];
+  /** Summed-z strength at which a category stops needing more. */
+  saturation?: number;
   /** Overall pick number of our next selection after this one, if any. */
   nextPick?: number;
   /** Expected draft position by player. Falls back to VORP rank when absent (no ADP). */
@@ -180,12 +186,22 @@ export function scoreBoard(opts: BoardOptions): ScoredPlayer[] {
     }
   }
 
+  const categories = opts.categories ?? [];
+  const needWeights =
+    categories.length > 0
+      ? categoryNeedWeights(myRoster, categories, {
+          ...(opts.saturation === undefined ? {} : { saturation: opts.saturation }),
+        })
+      : {};
+
   return available
     .map((valuation) => {
       const need = needMultiplier(valuation, myRoster, settings);
       const nextBest = nextBestBySlot.get(valuation.vorpPosition) ?? valuation.vorp;
-      const score = need * valuation.vorp + lambda * (valuation.vorp - nextBest);
-      return { valuation, need, nextBest, score };
+      const fit = categories.length > 0 ? categoryFit(valuation, needWeights, categories) : 0;
+      const adjusted = valuation.vorp + fit;
+      const score = need * adjusted + lambda * (adjusted - nextBest);
+      return { valuation, need, nextBest, fit, score };
     })
     .sort((a, b) => b.score - a.score);
 }
@@ -199,4 +215,64 @@ export function positionRuns(picks: readonly DraftPick[]): { position: string; c
     .filter(([, n]) => n >= RUN_THRESHOLD)
     .map(([position, count]) => ({ position, count }))
     .sort((a, b) => b.count - a.count);
+}
+
+/** Category strength beyond which more of it stops helping (in summed-z units). */
+export const CATEGORY_SATURATION = 6;
+const NEED_FLOOR = 0.25;
+const NEED_CEILING = 2;
+
+/**
+ * How much our roster still needs each category.
+ *
+ * Summing z-scores across categories maximises *total* strength, which is the wrong
+ * objective in head-to-head categories: a category is won, not accumulated. A roster
+ * measured at +17 in hits wins hits by a mile and would have won it at +5, so the
+ * remaining +12 bought nothing while assists and power-play points were being lost.
+ *
+ * Weights fall as a category saturates and rise where we are behind, then are normalised
+ * to average 1 so this re-balances the board rather than deflating it.
+ */
+export function categoryNeedWeights(
+  roster: readonly Valuation[],
+  categories: readonly string[],
+  opts: { saturation?: number } = {},
+): Record<string, number> {
+  const saturation = opts.saturation ?? CATEGORY_SATURATION;
+  if (categories.length === 0) return {};
+
+  const raw: Record<string, number> = {};
+  for (const c of categories) {
+    const current = roster.reduce((a, p) => a + (p.z[c] ?? 0), 0);
+    const want = 1 - current / saturation;
+    raw[c] = Math.min(NEED_CEILING, Math.max(NEED_FLOOR, want));
+  }
+  const mean = Object.values(raw).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(raw).length);
+  if (mean <= 0) return Object.fromEntries(categories.map((c) => [c, 1]));
+
+  const out: Record<string, number> = {};
+  for (const c of categories) out[c] = (raw[c] ?? 1) / mean;
+  return out;
+}
+
+/**
+ * How well a player's category profile fits what the roster still needs, in VORP units.
+ *
+ * Positive means his strengths land where we are weak; negative means he piles into
+ * categories we have already won. Adding this to VORP preserves the positional
+ * replacement structure while steering the draft towards a balanced roster.
+ */
+export function categoryFit(
+  player: Valuation,
+  weights: Readonly<Record<string, number>>,
+  categories: readonly string[],
+): number {
+  let weighted = 0;
+  let plain = 0;
+  for (const c of categories) {
+    const z = player.z[c] ?? 0;
+    weighted += (weights[c] ?? 1) * z;
+    plain += z;
+  }
+  return weighted - plain;
 }

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { LeagueSettings, Valuation } from '@fha/core';
 import { league } from './fixtures.js';
 import {
+  categoryFit,
+  categoryNeedWeights,
   expectedNextBest,
   needMultiplier,
   nextOwnPick,
@@ -210,5 +212,105 @@ describe('positionRuns', () => {
       pick('RW', 9),
     ];
     expect(positionRuns([...old, ...recent])).toEqual([]);
+  });
+});
+
+describe('categoryNeedWeights', () => {
+  const cats = ['G', 'A', 'HIT'];
+  const withZ = (z: Record<string, number>): Valuation => ({
+    ...val('C', 1),
+    z,
+  });
+
+  it('should weight every category equally for an empty roster', () => {
+    const w = categoryNeedWeights([], cats);
+    expect(w['G']).toBeCloseTo(1, 6);
+    expect(w['A']).toBeCloseTo(1, 6);
+    expect(w['HIT']).toBeCloseTo(1, 6);
+  });
+
+  it('should down-weight a category the roster has already saturated', () => {
+    const roster = [withZ({ G: 0, A: 0, HIT: 12 })];
+    const w = categoryNeedWeights(roster, cats, { saturation: 6 });
+    expect(w['HIT'] ?? 0).toBeLessThan(w['G'] ?? 0);
+    expect(w['HIT'] ?? 0).toBeLessThan(w['A'] ?? 0);
+  });
+
+  it('should up-weight a category the roster is behind in', () => {
+    const roster = [withZ({ G: 5, A: -5, HIT: 0 })];
+    const w = categoryNeedWeights(roster, cats, { saturation: 6 });
+    expect(w['A'] ?? 0).toBeGreaterThan(w['G'] ?? 0);
+  });
+
+  it('should normalise to an average of one so the board is rebalanced, not deflated', () => {
+    const roster = [withZ({ G: 10, A: -4, HIT: 3 })];
+    const w = categoryNeedWeights(roster, cats, { saturation: 6 });
+    const mean = cats.reduce((a, c) => a + (w[c] ?? 0), 0) / cats.length;
+    expect(mean).toBeCloseTo(1, 6);
+  });
+
+  it('should return nothing when there are no categories', () => {
+    expect(categoryNeedWeights([], [])).toEqual({});
+  });
+});
+
+describe('categoryFit', () => {
+  const cats = ['G', 'A', 'HIT'];
+
+  it('should be positive for a player strong where the roster is weak', () => {
+    const roster = [{ ...val('C', 1), z: { G: 0, A: -6, HIT: 10 } }];
+    const w = categoryNeedWeights(roster, cats, { saturation: 6 });
+    const assistMan = { ...val('C', 5), z: { G: 0, A: 3, HIT: 0 } };
+    expect(categoryFit(assistMan, w, cats)).toBeGreaterThan(0);
+  });
+
+  it('should be negative for a player piling into a category already won', () => {
+    const roster = [{ ...val('C', 1), z: { G: 0, A: -6, HIT: 10 } }];
+    const w = categoryNeedWeights(roster, cats, { saturation: 6 });
+    const hitter = { ...val('C', 5), z: { G: 0, A: 0, HIT: 3 } };
+    expect(categoryFit(hitter, w, cats)).toBeLessThan(0);
+  });
+
+  it('should be about zero when weights are uniform', () => {
+    const w = categoryNeedWeights([], cats);
+    const p = { ...val('C', 5), z: { G: 2, A: 1, HIT: 1 } };
+    expect(Math.abs(categoryFit(p, w, cats))).toBeLessThan(1e-6);
+  });
+});
+
+describe('scoreBoard category balance', () => {
+  const settings = league();
+  const cats = ['G', 'A', 'HIT'];
+
+  it('should prefer the player who fills a gap over an equal one who does not', () => {
+    // Roster has run away with hits and is losing assists.
+    const roster = [{ ...val('C', 1), z: { G: 0, A: -8, HIT: 14 } }];
+    const moreHits = { ...val('D', 6), z: { G: 0, A: 0, HIT: 4 }, name: 'More Hits' };
+    const assists = { ...val('D', 6), z: { G: 0, A: 4, HIT: 0 }, name: 'Assists' };
+
+    const balanced = scoreBoard({
+      available: [moreHits, assists],
+      myRoster: roster,
+      settings,
+      categories: cats,
+    });
+    expect(balanced[0]?.valuation.name).toBe('Assists');
+
+    // Without the category term the two are indistinguishable on VORP.
+    const unbalanced = scoreBoard({ available: [moreHits, assists], myRoster: roster, settings });
+    expect(unbalanced[0]?.fit).toBe(0);
+    expect(unbalanced[0]?.valuation.vorp).toBe(unbalanced[1]?.valuation.vorp);
+  });
+
+  it('should report a negative fit for a redundant player', () => {
+    const roster = [{ ...val('C', 1), z: { G: 0, A: -8, HIT: 14 } }];
+    const moreHits = { ...val('D', 6), z: { G: 0, A: 0, HIT: 4 } };
+    const board = scoreBoard({
+      available: [moreHits],
+      myRoster: roster,
+      settings,
+      categories: cats,
+    });
+    expect(board[0]?.fit).toBeLessThan(0);
   });
 });
