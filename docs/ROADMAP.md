@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 18:00 ET**
+Last updated: **2026-09-24 18:15 ET**
 
 ---
 
@@ -279,6 +279,44 @@ bugs and were not.
 - **Open — `+/-` is treated as a stable per-game rate.** It is the noisiest category in hockey and
   is team-dependent, so players on strong teams (COL, EDM, TBL, WPG) are systematically favoured.
   Shrinking it harder than other categories is a candidate improvement.
+
+## Agent-layer findings (M-S research, verified 18:15)
+
+Background research for the prompting skill landed in `docs/research/prompting.md` (1165 lines).
+Its headline claims were **checked against the bundled `claude-api` reference**, not taken on
+trust. All post-draft; nothing here changes tonight.
+
+- **P4 needs to become model-dependent, but is NOT broken today.** Forced tool choice
+  (`tool_choice: {type:"any"}` / `{type:"tool"}`) returns **400 on Claude Opus 5.5, Fable 5.1 and
+  Mythos 5.1** — *confirmed*. It still works on **Claude Opus 5 and Sonnet 5**, which is what we
+  would target, so this is a forward-compatibility liability rather than a live bug. Action:
+  make `tool_choice` a per-model config value, never a constant.
+- **The documented replacement is `tool_choice: auto` + `strict: true`** on the tool definition
+  (a top-level field on the tool, *not* on `tool_choice`; needs `additionalProperties: false`
+  plus `required`). It guarantees `tool_use.input` validates. **Verified.**
+- **Native structured outputs exist**: `output_config: {format: …}`; the older `output_format`
+  is deprecated. So forced tool calls are no longer the only route to schema-valid JSON.
+  **Verified.**
+- **P3 can be enforced at the decoding layer.** Put the legal `playerKey`s in the schema as a
+  JSON-Schema `enum` under `strict: true`, and a fabricated key becomes *undrawable* rather than
+  merely detectable. Keep index resolution as the second layer — defence in depth, since the
+  enum only covers keys we listed.
+- **P5 wants an explicit `abstain`/`noop` tool**, not a prose escape hatch — and forced `any`
+  actively fights it, because the model must call something.
+- **P6's stop-reason list**: the reference documents **six** (`end_turn`, `max_tokens`,
+  `stop_sequence`, `tool_use`, `pause_turn`, `refusal`). The research claimed seven including
+  `model_context_window_exceeded`; **that seventh is unconfirmed**, so handle unknown values as
+  a named failure rather than branching on a value we cannot verify. `stop_details` is populated
+  **only** for `refusal`, and its `category` is an **open string set** — do not branch on it.
+- **Thinking tokens count against `max_tokens`** even when the thinking text is not returned
+  (`display: "omitted"` is the default on current models).
+- **Prompts written for older models over-prompt.** Delete "CRITICAL: you MUST…" phrasing and
+  "double-check your work" instructions; on current models they cause over-verification and
+  waste tokens without improving quality.
+- **Assistant prefill is a 400** on every current model — worth knowing because Anthropic's own
+  Console prompt improver still suggests it.
+- **Default model for this project is `claude-opus-5`** with adaptive thinking, per the
+  reference's standing instruction.
 
 ## Risks
 
