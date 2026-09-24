@@ -1,13 +1,29 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "outDir": "dist" },
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
   "include": ["src/**/*.ts"],
   "exclude": ["src/**/*.test.ts"],
   "references": [
-    { "path": "../../libs/core" },
-    { "path": "../../libs/nhl" },
-    { "path": "../../libs/model" },
-    { "path": "../../libs/market" },
-    { "path": "../../libs/yahoo" }
+    {
+      "path": "../../libs/core"
+    },
+    {
+      "path": "../../libs/nhl"
+    },
+    {
+      "path": "../../libs/model"
+    },
+    {
+      "path": "../../libs/market"
+    },
+    {
+      "path": "../../libs/yahoo"
+    },
+    {
+      "path": "../../libs/pipeline"
+    }
   ]
 }

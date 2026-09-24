@@ -14,6 +14,7 @@
     "commander": "*",
     "yaml": "*",
     "zod": "*",
-    "@fha/market": "*"
+    "@fha/market": "*",
+    "@fha/pipeline": "*"
   }
 }

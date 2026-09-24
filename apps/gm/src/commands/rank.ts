@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import type { Valuation } from '@fha/core';
+import type { Projection, Valuation } from '@fha/core';
 import {
   applyOffsets,
   calibratePositions,
@@ -22,6 +22,8 @@ const LATEST_COMPLETE_SEASON_START = 2025;
 
 export interface RankOutput {
   valuations: Valuation[];
+  /** The projections the valuations were computed from, restricted to the same pool. */
+  projections: Projection[];
   replacement: Record<string, number>;
   leagueName: string;
   leagueKey: string;
@@ -107,6 +109,7 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
 
   return {
     valuations,
+    projections: pool,
     replacement: res.replacement,
     leagueName: settings.name,
     leagueKey: settings.leagueKey,
