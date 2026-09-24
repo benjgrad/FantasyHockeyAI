@@ -9,7 +9,8 @@
     "@fha/nhl": "*",
     "@fha/market": "*",
     "web-push": "^3.6.7",
-    "zod": "*"
+    "zod": "*",
+    "@anthropic-ai/sdk": "^0.128.0"
   },
   "devDependencies": {
     "@types/web-push": "^3.6.4"

@@ -12,6 +12,7 @@ import {
 } from '@fha/model';
 import { lowerIsBetter } from '@fha/model';
 import { readSeason, recentSeasons } from '@fha/nhl';
+import { narrativeFor, type Narrative } from './explain.js';
 import { buildRanking } from '../../gm/src/commands/rank.js';
 import { loadLeague } from '../../gm/src/config.js';
 import { readDraft, readPlayerMap } from '../../gm/src/commands/yahooFiles.js';
@@ -64,6 +65,8 @@ export interface DraftView {
   /** Categories where a lower number is better, so the UI colours a delta correctly. */
   lowerIsBetter: string[];
   pendingOverride?: { nhlId: number; name: string };
+  /** Prose explanation of the pick, generated in the background. Always optional. */
+  narrative: Narrative;
   warnings: string[];
 }
 
@@ -300,6 +303,9 @@ export function buildView(): DraftView {
     warnings.push(`Override "${pending.name}" is no longer on the board — it will be ignored.`);
   }
 
+  const recCard = ordered[0] ? { ...card(ordered[0]), isOverride: overrideIdx > 0 } : undefined;
+  const altCards = ordered.slice(1, 9).map(card);
+
   return {
     now: new Date().toISOString(),
     draftStatus: yd?.draftStatus ?? 'unknown',
@@ -309,9 +315,9 @@ export function buildView(): DraftView {
     ...(nextOurPick === undefined ? {} : { nextOurPick }),
     picksMade: yd?.picks?.length ?? 0,
     totalPicks: numTeams * rounds,
-    ...(ordered[0] ? { recommendation: { ...card(ordered[0]), isOverride: overrideIdx > 0 } } : {}),
+    ...(recCard ? { recommendation: recCard } : {}),
     ...(modelPick ? { modelPick } : {}),
-    alternates: ordered.slice(1, 9).map(card),
+    alternates: altCards,
     roster: myRoster
       .slice()
       .sort((a, b) => b.vorp - a.vorp)
@@ -325,6 +331,13 @@ export function buildView(): DraftView {
     categoryStrength: strength,
     recentPicks: recentPicks.slice(-12).reverse(),
     lowerIsBetter: cats.filter((c) => lowerIsBetter(c)),
+    narrative: recCard
+      ? narrativeFor(onClockPick, recCard, altCards, {
+          openSlots,
+          weakest: strength.slice(0, 3),
+          roster: myRoster.map((v) => `${v.name} (${v.position})`),
+        })
+      : { status: 'off' },
     ...(pending ? { pendingOverride: pending } : {}),
     warnings,
   };

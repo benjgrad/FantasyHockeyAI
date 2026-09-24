@@ -187,7 +187,16 @@ function render(s) {
               ? `<div class="muted" style="margin-bottom:6px">model wanted <b>${esc(s.modelPick.name)}</b> · <button id="clear" class="linkish">revert to it</button></div>`
               : '')
           : `<div class="tag">recommended pick</div>`;
-        return `<div class="card ${isOv ? 'ovcard' : ''}">${head}${playerCard(s.recommendation, true)}</div>`;
+        const n = s.narrative || { status: 'off' };
+        const note =
+          n.status === 'ready'
+            ? `<div class="narr">${esc(n.text)}</div>`
+            : n.status === 'generating'
+              ? `<div class="narr gen">thinking through the alternatives…</div>`
+              : n.status === 'failed'
+                ? `<div class="narr muted">explainer unavailable (${esc(n.detail || 'error')}) — the reasons above still apply</div>`
+                : '';
+        return `<div class="card ${isOv ? 'ovcard' : ''}">${head}${playerCard(s.recommendation, true)}${note}</div>`;
       })(),
     );
   } else {
