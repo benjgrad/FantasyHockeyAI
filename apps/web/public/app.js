@@ -25,8 +25,26 @@ function fmt(cat, n) {
   return Math.round(n).toString();
 }
 
+/**
+ * A goalie and a skater are scored in different categories, so differencing them is noise:
+ * it renders as "-324 SOG" against a goalie who never takes a shot. Across position types we
+ * show the player's own numbers instead, and say why.
+ */
+const comparable = (alt, rec) => Boolean(rec) && alt.positionType === rec.positionType;
+
+function ownSummary(alt) {
+  return alt.cats
+    .slice(0, 4)
+    .map((c) => {
+      const t = alt.stats.find((x) => x.cat === c.cat);
+      return `<span class="d own">${fmt(c.cat, t ? t.total : 0)} ${esc(c.cat)}</span>`;
+    })
+    .join('');
+}
+
 function deltaSummary(alt, rec) {
   if (!rec) return '';
+  if (!comparable(alt, rec)) return ownSummary(alt);
   const rs = new Map(rec.stats.map((x) => [x.cat, x.total]));
   const deltas = alt.stats
     .map((x) => ({ cat: x.cat, d: x.total - (rs.get(x.cat) ?? 0) }))
@@ -39,7 +57,21 @@ function deltaSummary(alt, rec) {
   return up.map((x) => chip(x, 'up')).join('') + down.map((x) => chip(x, 'down')).join('');
 }
 
+function ownTable(alt, rec) {
+  const rows = alt.stats
+    .filter((x) => Math.abs(x.total) > 0.0005)
+    .map((x) => {
+      const z = alt.cats.find((c) => c.cat === x.cat);
+      return `<tr><td>${esc(x.cat)}</td><td>${fmt(x.cat, x.total)}</td><td class="muted" colspan="2">${sign(z ? z.z : 0)}z</td><td></td></tr>`;
+    })
+    .join('');
+  const kinds = `${alt.positionType === 'G' ? 'goalie' : 'skater'} vs ${rec.positionType === 'G' ? 'goalie' : 'skater'}`;
+  return `<div class="muted" style="margin-bottom:4px">Different categories (${esc(kinds)}) — showing his own numbers, not a difference.</div>
+    <table class="cmp"><tr><th>cat</th><th>${esc(alt.name.split(' ').pop())}</th><th colspan="2">z</th><th></th></tr>${rows}</table>`;
+}
+
 function deltaTable(alt, rec) {
+  if (!comparable(alt, rec)) return ownTable(alt, rec);
   const rs = new Map(rec.stats.map((x) => [x.cat, x.total]));
   const zs = new Map(rec.cats.map((x) => [x.cat, x.z]));
   const rows = alt.stats
@@ -123,7 +155,7 @@ function playerCard(p, isRec) {
     </div>
     <div class="nums">${cats}</div>
     ${p.reasons.length ? `<ul class="why">${p.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-    <details><summary class="tag">all 13 projected categories</summary><div class="nums">${allStats}</div></details>
+    <details data-key="cats-${p.nhlId}"><summary class="tag">all 13 projected categories</summary><div class="nums">${allStats}</div></details>
     ${isRec ? `<button class="pick" data-id="${p.nhlId}">Lock in ${esc(p.name)}</button>` : ''}`;
 }
 
@@ -167,7 +199,7 @@ function render(s) {
     parts.push(
       `<div class="card"><div class="tag">alternatives — difference from ${esc(rec ? rec.name : 'the pick')}</div>${s.alternates
         .map(
-          (a) => `<details class="alt">
+          (a) => `<details class="alt" data-key="alt-${a.nhlId}">
           <summary>
             <div><b>${esc(a.name)}</b> <span class="muted">${esc(a.position)} · ${esc(a.team)} · score ${a.score.toFixed(2)}${a.lowConfidence ? ' · <span class="thin">thin</span>' : ''}</span>
               <div class="chips">${deltaSummary(a, rec)}</div></div>
@@ -193,7 +225,24 @@ function render(s) {
   parts.push(`<div class="card"><div class="tag">recent picks</div>
     <table>${s.recentPicks.map((p) => `<tr><td class="${p.mine ? 'mine' : ''}">${p.pick}. ${esc(p.name)} <span class="muted">${esc(p.position)}</span>${p.mine ? ' ←' : ''}</td><td></td></tr>`).join('') || '<tr><td class="muted">none yet</td><td></td></tr>'}</table></div>`);
 
+  /*
+   * The board re-renders every few seconds, and innerHTML throws away DOM state: an expanded
+   * alternative collapsed itself a moment after being opened, and the page jumped to the top.
+   * Open <details> are keyed by player, so they can be restored after the swap.
+   */
+  const open = new Set(
+    [...document.querySelectorAll('details[data-key]')]
+      .filter((d) => d.open)
+      .map((d) => d.dataset.key),
+  );
+  const scroll = window.scrollY;
+
   $('app').innerHTML = parts.join('');
+
+  for (const d of document.querySelectorAll('details[data-key]')) {
+    if (open.has(d.dataset.key)) d.open = true;
+  }
+  if (Math.abs(window.scrollY - scroll) > 1) window.scrollTo(0, scroll);
 
   for (const b of document.querySelectorAll('[data-id]')) {
     b.addEventListener('click', async () => {
@@ -216,12 +265,25 @@ function render(s) {
     });
 }
 
+let lastPayload = '';
+
 async function tick() {
   try {
     const res = await fetch('/api/state', { cache: 'no-store' });
     if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json();
+    const text = await res.text();
+    const data = JSON.parse(text);
     LOWER = data.lowerIsBetter || [];
+    // `now` changes every poll, so compare everything else: an unchanged board must not
+    // re-render at all.
+    const { now, ...rest } = data;
+    const key = JSON.stringify(rest);
+    $('sub').textContent =
+      `${data.draftStatus} · pick ${data.picksMade + 1} of ${data.totalPicks} · seat ${data.ourSeat ?? '?'}` +
+      (data.nextOurPick ? ` · our next: ${data.nextOurPick}` : '') +
+      ` · updated ${new Date(now).toLocaleTimeString()}`;
+    if (key === lastPayload) return;
+    lastPayload = key;
     render(data);
   } catch {
     $('sub').textContent = 'connection lost — retrying…';

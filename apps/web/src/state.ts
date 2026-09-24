@@ -23,6 +23,8 @@ export interface PlayerCard {
   name: string;
   position: string;
   team: string;
+  /** 'P' for skaters, 'G' for goalies. Skater and goalie categories do not compare. */
+  positionType: 'P' | 'G';
   vorp: number;
   score: number;
   fit: number;
@@ -250,6 +252,7 @@ export function buildView(): DraftView {
       name: v.name,
       position: v.position,
       team: v.team,
+      positionType: v.positionType,
       vorp: Number(v.vorp.toFixed(2)),
       score: Number(s.score.toFixed(2)),
       fit: Number(s.fit.toFixed(2)),
