@@ -1,0 +1,41 @@
+{
+  "name": "fantasy-hockey-ai",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "libs/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "type-check": "tsc --build --dry 2>/dev/null || tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "npm run format:check && npm run lint && npm run type-check && npm run test && npm run build",
+    "fha": "tsx apps/gm/src/cli.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^3.0.5",
+    "eslint": "^9.18.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.0.5"
+  },
+  "dependencies": {
+    "commander": "^13.0.0",
+    "luxon": "^3.5.0",
+    "undici": "^7.2.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.1"
+  }
+}
