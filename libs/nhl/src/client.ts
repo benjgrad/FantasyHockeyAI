@@ -69,15 +69,15 @@ export async function getReport<T>(
     }
     if (attempt < attempts) await sleep(Math.min(2000, 250 * 2 ** (attempt - 1)));
   }
-  throw new NhlApiError(
-    `NHL API failed after ${attempts} attempts: ${String(lastError)}`,
-    url,
-  );
+  throw new NhlApiError(`NHL API failed after ${attempts} attempts: ${String(lastError)}`, url);
 }
 
 /** "ARI,EDM" for a traded player: the last entry is where he ended up. */
 export function currentTeam(teamAbbrevs: string | undefined): string {
   if (!teamAbbrevs) return 'UNK';
-  const parts = teamAbbrevs.split(',').map((s) => s.trim()).filter(Boolean);
+  const parts = teamAbbrevs
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   return parts.at(-1) ?? 'UNK';
 }

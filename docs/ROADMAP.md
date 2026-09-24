@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 12:50 ET**
+Last updated: **2026-09-24 13:35 ET**
 
 ---
 
@@ -20,16 +20,22 @@ Working on **M0 / Part A** (documentation restructure), then the draft-night ver
 Tonight's scope was deliberately cut from the spec's §23 plan — see
 [Decision D-004](#d-004) and the [cut list](#deferred-from-tonight).
 
-**Next acceptance gate:** the six required valuation tests of §12.2 (M2).
+**Next acceptance gate:** `fha draft board` behaves correctly across a 20-pick mock (M4).
 
-Done: **M0a** docs restructure · **M0b** scaffold (`npm run validate` green across 5 workspaces) ·
-**M1** NHL stats client — three seasons cached, 19 tests passing.
+Done: **M0a** docs restructure · **M0b** scaffold · **M1** NHL stats client (3 seasons cached) ·
+**M2** projections + valuation, **63 tests, 98% statements / 80% branches on `libs/model`** ·
+**M3** `fha rank` producing `data/prerank.csv` for 1328 players, converging in 5 iterations.
 
-Three unknowns verified along the way (U-03, U-04, U-07). Merge integrity spot-checked: a winger
-shows 0 faceoff wins, and reported GAA reconciles exactly with `GA×60/TOI`.
+Three unknowns verified (U-03, U-04, U-07). The six required §12.2 tests all pass, and were
+**mutation-tested**: stripping SV% volume weighting, flipping the GAA sign, or ignoring category
+weights each makes the suite fail. Tests that cannot fail are worthless, so this was checked rather
+than assumed.
 
-**M1b (Yahoo) is blocked on Q-001 and has been reordered behind M2** — the model determines draft
-quality, Yahoo only adds ADP polish, so the model gets the fresh hours.
+**M1b (Yahoo) is blocked on Q-001 and was reordered behind M2** — the model determines draft
+quality; Yahoo only adds ADP polish, so the model got the fresh hours.
+
+**Ranking is coherent but unvalidated against any market.** Without ADP the only check is
+judgement, which is why Q-005 matters.
 
 **Blocking on Ben:** [Q-001](#q-001) — what the Yahoo app-creation form offers. Everything about
 the data path depends on it.
@@ -48,9 +54,9 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0b** | Minimal scaffold: npm workspaces, tsconfig, vitest, eslint, `fha` CLI entry | `done` 12:33 | `npm run validate` passes on an empty skeleton | §4 |
 | **M1** | `libs/nhl`: stats client, 3 seasons cached to JSON | `done` 12:45 | `fha nhl pull` writes ~940 skaters and ~98 goalies per season | §11.1 |
 | **M1b** | `libs/yahoo` read attempt — **timeboxed, hard 40-minute stop** | `blocked` on Q-001 | Either real settings/ADP, or a clean documented fallback | §10.1–10.3 |
-| **M2** | `libs/model`: projections + valuation, TDD | `wip` | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
-| **M3** | **Safety net:** `fha rank` → `prerank.csv` + printable cheat sheet | `todo` | **Required.** The files exist and the top 100 survives review | §14.1(6) |
-| **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `todo` | A mock run marking 20 picks behaves correctly | §12.5 |
+| **M2** | `libs/model`: projections + valuation, TDD | `done` 13:30 | The six required tests of §12.2 pass; ≥90% coverage on `libs/model` | §12.1–12.2 |
+| **M3** | **Safety net:** `fha rank` → `prerank.csv` (cheat sheet pending) | `done` 13:35 | **Required.** The files exist and the top 100 survives review | §14.1(6) |
+| **M4** | `fha draft board` / `draft taken`, draft scoring, JSON draft state | `wip` | A mock run marking 20 picks behaves correctly | §12.5 |
 | — | Rehearsal, then **code freeze at 20:45** | `todo` | A full mock draft driven with the real tool | — |
 
 ### After the draft
@@ -164,6 +170,30 @@ were state living inside a spec, which is why the §23 timeline went stale withi
 - **Stack:** TypeScript. *(Supersedes the earlier Python/uv plan entirely.)*
 
 ---
+
+## Sanity findings from the first real ranking (13:35)
+
+Recorded because they shape how the board should be read, and because two of them looked like
+bugs and were not.
+
+- **Not a bug — the D value distribution sits far below forwards** (best D 3.51 vs best C 15.87).
+  z-scores run over a forward-dominated skater pool, so every defenceman carries a constant
+  negative offset, most visibly `FW ≈ −0.98` for every non-centre. Replacement level absorbs the
+  constant exactly, which is what it is for.
+- **Not a bug — 10 defencemen in the top 40.** The league starts 4 D, a third of the skater
+  slots, so roughly a quarter of the top 40 being D is proportionate.
+- **Centre is the *deepest* position here** (replacement +0.74, the highest bar) because centres
+  monopolise FW, so the marginal centre also gets it and it confers no surplus. Correct, but worth
+  knowing: it will pull the board away from centres.
+- **Fixed — `lowConfidence` only fired below 10 career games**, so a rookie with one full season
+  (Matthew Schaefer, #19) was indistinguishable from a three-season veteran. Now any player with
+  fewer than two seasons of data is flagged.
+- **Open — players no longer in the NHL still appear** (Johnny Gaudreau at #98), because they
+  exist in historical seasons. Harmless for the draft since they are not in Yahoo's pool, but the
+  ranking should not be read as an availability list.
+- **Open — `+/-` is treated as a stable per-game rate.** It is the noisiest category in hockey and
+  is team-dependent, so players on strong teams (COL, EDM, TBL, WPG) are systematically favoured.
+  Shrinking it harder than other categories is a candidate improvement.
 
 ## Risks
 

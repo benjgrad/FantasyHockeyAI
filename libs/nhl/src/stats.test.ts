@@ -17,9 +17,21 @@ function fakeApi(bodies: unknown[]): typeof fetch {
 }
 
 const summaryRow = {
-  playerId: 1, skaterFullName: 'Test Skater', positionCode: 'C', teamAbbrevs: 'ARI,EDM',
-  gamesPlayed: 82, goals: 40, assists: 50, points: 90, plusMinus: 10, penaltyMinutes: 30,
-  ppPoints: 25, shPoints: 2, gameWinningGoals: 5, shots: 250, timeOnIcePerGame: 1200,
+  playerId: 1,
+  skaterFullName: 'Test Skater',
+  positionCode: 'C',
+  teamAbbrevs: 'ARI,EDM',
+  gamesPlayed: 82,
+  goals: 40,
+  assists: 50,
+  points: 90,
+  plusMinus: 10,
+  penaltyMinutes: 30,
+  ppPoints: 25,
+  shPoints: 2,
+  gameWinningGoals: 5,
+  shots: 250,
+  timeOnIcePerGame: 1200,
 };
 
 describe('recentSeasons', () => {
@@ -65,11 +77,24 @@ describe('pullSeason', () => {
       { data: [], total: 0 },
       { data: [], total: 0 },
       {
-        data: [{
-          playerId: 9, goalieFullName: 'Test Goalie', teamAbbrevs: 'TBL', gamesPlayed: 58,
-          gamesStarted: 58, wins: 39, losses: 15, goalsAgainst: 132, goalsAgainstAverage: 2.309,
-          savePct: 0.9123, saves: 1353, shotsAgainst: 1483, shutouts: 2, timeOnIce: 205_860,
-        }],
+        data: [
+          {
+            playerId: 9,
+            goalieFullName: 'Test Goalie',
+            teamAbbrevs: 'TBL',
+            gamesPlayed: 58,
+            gamesStarted: 58,
+            wins: 39,
+            losses: 15,
+            goalsAgainst: 132,
+            goalsAgainstAverage: 2.309,
+            savePct: 0.9123,
+            saves: 1353,
+            shotsAgainst: 1483,
+            shutouts: 2,
+            timeOnIce: 205_860,
+          },
+        ],
         total: 1,
       },
     ]);
@@ -80,7 +105,9 @@ describe('pullSeason', () => {
   it('should throw on an unexpected position code instead of guessing', async () => {
     const api = fakeApi([
       { data: [{ ...summaryRow, positionCode: 'X' }], total: 1 },
-      { data: [], total: 0 }, { data: [], total: 0 }, { data: [], total: 0 },
+      { data: [], total: 0 },
+      { data: [], total: 0 },
+      { data: [], total: 0 },
     ]);
     await expect(pullSeason('20252026', { fetchImpl: api })).rejects.toThrow(/positionCode/);
   });

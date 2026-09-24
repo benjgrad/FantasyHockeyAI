@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { currentTeam, getReport, NhlApiError } from './client.js';
 
 const ok = (body: unknown): Response =>
-  new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 
 describe('currentTeam', () => {
   it('should return the single team when a player was not traded', () => {
@@ -25,7 +28,9 @@ describe('currentTeam', () => {
 describe('getReport', () => {
   it('should request the regular season with limit=-1 and no pagination', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(ok({ data: [{ playerId: 1 }], total: 1 }));
-    await getReport('skater/summary', '20252026', { fetchImpl: fetchImpl as unknown as typeof fetch });
+    await getReport('skater/summary', '20252026', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
 
     const url = String(fetchImpl.mock.calls[0]?.[0]);
     expect(url).toContain('limit=-1');
