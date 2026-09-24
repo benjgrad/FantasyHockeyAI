@@ -176,4 +176,29 @@ describe('executeApproved', () => {
     await executeApproved(p.planId, d);
     expect(adapter.calls).toBe(1);
   });
+
+  it('re-validating an approved plan does not count the plan as its own conflict', async () => {
+    const adapter = new RecordingAdapter();
+    const p = swap();
+    // The store-backed conflict check, as production wires it, rather than a stub.
+    const validationWithStore: ValidationContext = {
+      ...validation,
+      conflicting: (keys, exclude) =>
+        store.decisions
+          .conflicting(keys, '2026-01-01T00:00:00.000Z', exclude)
+          .map((d) => d.plan.planId),
+    };
+    const d = deps(ask, {
+      adapter,
+      validation: validationWithStore,
+      verify: () => Promise.resolve(true),
+    });
+    await submitPlan(p, d);
+    store.approvals.decide(p.planId, 'approved', 'cli');
+    expect((await executeApproved(p.planId, d)).status).toBe('executed');
+
+    // ...while a second plan over the same players is still refused as a duplicate.
+    const dup = await submitPlan(swap(), d);
+    expect(dup.status).toBe('invalid');
+  });
 });

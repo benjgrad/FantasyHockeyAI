@@ -29,8 +29,11 @@ export interface ValidationContext {
   /** True once the player's game on `date` has started (intraday lock, §12.4). */
   isLocked(playerKey: string, date: string): boolean;
   pendingTrade(transactionKey: string): Transaction | undefined;
-  /** planIds of plans pending or executed today that touch any of these players. */
-  conflicting(playerKeys: string[]): string[];
+  /**
+   * planIds of plans pending or executed today that touch any of these players, other than
+   * `excludePlanId`. Re-validating an approved plan must not find the plan itself.
+   */
+  conflicting(playerKeys: string[], excludePlanId?: string): string[];
 }
 
 export type ValidationResult = { ok: true } | { ok: false; errors: string[] };
@@ -51,7 +54,7 @@ export function validatePlan(plan: Plan, ctx: ValidationContext): ValidationResu
   if (plan.deadline !== undefined && plan.deadline <= ctx.now) {
     errors.push(`The plan's deadline ${plan.deadline} has passed. Do not re-propose it.`);
   }
-  const conflicts = ctx.conflicting(all);
+  const conflicts = ctx.conflicting(all, plan.planId);
   if (conflicts.length > 0) {
     errors.push(
       `Plan(s) ${conflicts.join(', ')} already pending or executed today touch these players. Do not propose a duplicate.`,

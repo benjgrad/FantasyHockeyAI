@@ -58,6 +58,15 @@ export const Permissions = z
   .strict();
 export type Permissions = z.infer<typeof Permissions>;
 
+/** The tightest weekly add cap across the kinds that add a player, or undefined if none is set. */
+export function weeklyAddCap(perms: Permissions): number | undefined {
+  const caps = [
+    perms.plans.addDrop?.limits.maxPerWeek,
+    perms.plans.waiverClaim?.limits.maxPerWeek,
+  ].filter((n): n is number => n !== undefined);
+  return caps.length === 0 ? undefined : Math.min(...caps);
+}
+
 export function isToolEnabled(perms: Permissions, tool: string): boolean {
   return perms.tools[tool] !== false;
 }

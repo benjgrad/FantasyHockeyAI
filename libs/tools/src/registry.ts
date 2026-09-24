@@ -115,8 +115,10 @@ export function validationContextFor(view: LeagueView, store: Store, now: string
     },
     pendingTrade: (key): Transaction | undefined =>
       view.pendingTradesForUs().find((t) => t.transactionKey === key),
-    conflicting: (keys) =>
-      store.decisions.conflicting(keys, `${today}T00:00:00.000Z`).map((d) => d.plan.planId),
+    conflicting: (keys, excludePlanId) =>
+      store.decisions
+        .conflicting(keys, `${today}T00:00:00.000Z`, excludePlanId)
+        .map((d) => d.plan.planId),
   };
 }
 

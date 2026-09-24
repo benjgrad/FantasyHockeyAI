@@ -24,6 +24,21 @@
     },
     {
       "path": "../../libs/pipeline"
+    },
+    {
+      "path": "../../libs/agents"
+    },
+    {
+      "path": "../../libs/llm"
+    },
+    {
+      "path": "../../libs/prompts"
+    },
+    {
+      "path": "../../libs/store"
+    },
+    {
+      "path": "../../libs/tools"
     }
   ]
 }

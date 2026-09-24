@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Player } from '@fha/core';
+import { weeklyAddCap, type Player } from '@fha/core';
 import { defineTool, fail, ok, type RunContext } from '../context.js';
 import { fmt, label, scoringCategories, table, weekBounds } from '../derive.js';
 import { resolvePlayers, resolveTeam, teamName } from '../resolve.js';
@@ -17,7 +17,7 @@ export const getLeagueContext = defineTool({
     const { view, settings, permissions: perms } = ctx;
     const week = weekBounds(view.snap.date);
     const addsUsed = ctx.store.decisions.addsThisWeek(`${week.start}T00:00:00.000Z`);
-    const maxAdds = perms.plans.addDrop?.limits.maxPerWeek;
+    const maxAdds = weeklyAddCap(perms);
     const data = {
       league: settings.name,
       source: view.snap.source,

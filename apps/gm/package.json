@@ -15,6 +15,11 @@
     "yaml": "*",
     "zod": "*",
     "@fha/market": "*",
-    "@fha/pipeline": "*"
+    "@fha/pipeline": "*",
+    "@fha/agents": "*",
+    "@fha/llm": "*",
+    "@fha/prompts": "*",
+    "@fha/store": "*",
+    "@fha/tools": "*"
   }
 }

@@ -13,6 +13,11 @@
   },
   "dependencies": {
     "@fha/core": "*",
+    "@fha/llm": "*",
+    "@fha/pipeline": "*",
+    "@fha/prompts": "*",
+    "@fha/store": "*",
+    "@fha/tools": "*",
     "zod": "*"
   }
 }
