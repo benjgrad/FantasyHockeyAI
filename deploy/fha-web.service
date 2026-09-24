@@ -1,0 +1,19 @@
+[Unit]
+Description=FantasyHockeyAI draft board (web)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/Projects/FantasyHockeyAI
+# The password lives in an environment file, not here, so it is not world-readable in the unit.
+EnvironmentFile=%h/.config/fha/web.env
+ExecStart=%h/Documents/Projects/FantasyHockeyAI/deploy/fha-web.sh
+Restart=always
+RestartSec=3
+RestartPreventExitStatus=78
+StartLimitIntervalSec=0
+StandardOutput=append:%h/Documents/Projects/FantasyHockeyAI/data/web.log
+StandardError=append:%h/Documents/Projects/FantasyHockeyAI/data/web.log
+
+[Install]
+WantedBy=default.target

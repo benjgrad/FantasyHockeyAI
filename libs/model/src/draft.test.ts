@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LeagueSettings, Valuation } from '@fha/core';
-import { league } from './fixtures.js';
+import { league, slot } from './fixtures.js';
 import {
   categoryFit,
   categoryNeedWeights,
@@ -417,5 +417,61 @@ describe('slotUrgency', () => {
       settings,
     });
     expect(board.every((b) => b.urgency === 0)).toBe(true);
+  });
+});
+
+describe('unfilledStartingSlots as a matching problem', () => {
+  const settings = league({
+    rosterSlots: [
+      slot('C', 2),
+      slot('LW', 2),
+      slot('RW', 2),
+      slot('D', 4),
+      slot('Util', 1),
+      slot('G', 2),
+      slot('BN', 4, false),
+    ],
+  });
+
+  it('should not let one flexible player fill two seats', () => {
+    // A defenceman is D-eligible and Util-eligible. Counting per slot marked both filled,
+    // which hid an open seat; he can only occupy one.
+    const before = unfilledStartingSlots([], settings).length;
+    const after = unfilledStartingSlots([val('D', 5)], settings).length;
+    expect(before).toBe(13);
+    expect(after).toBe(12);
+  });
+
+  it('should leave Util open when a single defenceman is rostered', () => {
+    const open = unfilledStartingSlots([val('D', 5)], settings);
+    expect(open.filter((s) => s === 'D')).toHaveLength(3);
+    expect(open).toContain('Util');
+  });
+
+  it('should use Util only once every primary seat for that player is taken', () => {
+    const five = [val('D', 5), val('D', 4), val('D', 3), val('D', 2), val('D', 1)];
+    const open = unfilledStartingSlots(five, settings);
+    // Four fill D, the fifth takes Util.
+    expect(open.filter((s) => s === 'D')).toHaveLength(0);
+    expect(open).not.toContain('Util');
+  });
+
+  it('should reassign a flexible player so a specialist can be seated', () => {
+    // A goalie can only sit at G, so the matching must not strand him.
+    const roster = [val('G', 5, 'G'), val('G', 4, 'G')];
+    const open = unfilledStartingSlots(roster, settings);
+    expect(open.filter((s) => s === 'G')).toHaveLength(0);
+  });
+
+  it('should count every seat open for an empty roster', () => {
+    expect(unfilledStartingSlots([], settings)).toHaveLength(13);
+  });
+
+  it('should not seat more players than there are seats', () => {
+    const many = Array.from({ length: 20 }, (_, i) => val('C', 20 - i));
+    const open = unfilledStartingSlots(many, settings);
+    // Centres can fill C, Util — never LW/RW/D/G.
+    expect(open).toContain('G');
+    expect(open.filter((s) => s === 'C')).toHaveLength(0);
   });
 });

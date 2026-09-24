@@ -285,22 +285,55 @@ export function categoryFit(
   return weighted - plain;
 }
 
-/** Starting slots the roster has not yet filled, one entry per empty seat. */
+/**
+ * Starting slots the roster has not yet filled, one entry per empty seat.
+ *
+ * This is a matching problem, not a count. A player eligible at several slots can only
+ * occupy **one** of them, so counting "how many rostered players are eligible here" per slot
+ * double-counts the flexible ones: Cale Makar is eligible at D and at Util, and the naive
+ * count reported both as filled, hiding an open seat. Under-reporting open slots makes
+ * `slotUrgency` under-apply, which is precisely the failure it exists to prevent.
+ *
+ * Maximum bipartite matching between rostered players and expanded slot seats. The rosters
+ * here are at most ~20 players against ~13 seats, so a simple augmenting-path search is more
+ * than fast enough.
+ */
 export function unfilledStartingSlots(
   roster: readonly Valuation[],
   settings: LeagueSettings,
 ): string[] {
-  const out: string[] = [];
+  // One entry per seat: a slot with count 4 becomes four seats.
+  const seats: string[] = [];
   for (const s of settings.rosterSlots) {
     if (!s.isStarting) continue;
-    const filled = roster.filter((r) =>
-      eligibleSlots(nhlPositionOf(r.position), settings.rosterSlots, r.eligible ?? []).includes(
-        s.position,
-      ),
-    ).length;
-    for (let i = filled; i < s.count; i++) out.push(s.position);
+    for (let i = 0; i < s.count; i++) seats.push(s.position);
   }
-  return out;
+
+  const eligibleSeats = roster.map((r) => {
+    const mine = eligibleSlots(nhlPositionOf(r.position), settings.rosterSlots, r.eligible ?? []);
+    return seats.map((seat, i) => (mine.includes(seat) ? i : -1)).filter((i) => i >= 0);
+  });
+
+  const seatTakenBy = new Array<number>(seats.length).fill(-1);
+
+  const tryAssign = (player: number, visited: boolean[]): boolean => {
+    for (const seat of eligibleSeats[player] ?? []) {
+      if (visited[seat] === true) continue;
+      visited[seat] = true;
+      const holder = seatTakenBy[seat] ?? -1;
+      if (holder === -1 || tryAssign(holder, visited)) {
+        seatTakenBy[seat] = player;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (let p = 0; p < roster.length; p++) {
+    tryAssign(p, new Array<boolean>(seats.length).fill(false));
+  }
+
+  return seats.filter((_, i) => seatTakenBy[i] === -1);
 }
 
 /** Picks of slack before an unfilled starting slot becomes unavoidable. */

@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f1720" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>FHA Draft</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f1720;
+        --card: #17212b;
+        --line: #243140;
+        --ink: #e6edf3;
+        --dim: #8b9aa108;
+        --mut: #93a1ad;
+        --good: #3fb950;
+        --warn: #d29922;
+        --bad: #f85149;
+        --acc: #58a6ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.45 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        padding: max(12px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+      }
+      h1 {
+        font-size: 17px;
+        margin: 0 0 2px;
+      }
+      .sub {
+        color: var(--mut);
+        font-size: 12px;
+        margin-bottom: 12px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      .clock {
+        border-color: var(--acc);
+      }
+      .clock.ours {
+        border-color: var(--good);
+        box-shadow: 0 0 0 1px var(--good);
+      }
+      .big {
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 8px;
+      }
+      .tag {
+        font-size: 11px;
+        color: var(--mut);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .nums {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0;
+      }
+      .n {
+        background: #0d141b;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 2px 7px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      .n b {
+        color: var(--acc);
+        font-weight: 600;
+      }
+      ul.why {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        color: #c7d3dd;
+        font-size: 13px;
+      }
+      ul.why li {
+        margin: 2px 0;
+      }
+      button {
+        font: inherit;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: #1d2a36;
+        color: var(--ink);
+        padding: 9px 12px;
+      }
+      .pick {
+        width: 100%;
+        background: var(--good);
+        border-color: var(--good);
+        color: #06240e;
+        font-weight: 650;
+        margin-top: 8px;
+      }
+      .alt {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .alt:last-child {
+        border-bottom: 0;
+      }
+      .alt button {
+        background: #1d2a36;
+        padding: 6px 10px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .thin {
+        color: var(--warn);
+      }
+      .bar {
+        height: 6px;
+        background: #0d141b;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 3px;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+      }
+      .warn {
+        background: #3d2a09;
+        border-color: var(--warn);
+        color: #ffd98a;
+      }
+      .muted {
+        color: var(--mut);
+        font-size: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      td {
+        padding: 3px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      td:last-child {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--mut);
+      }
+      .mine {
+        color: var(--good);
+      }
+      .pillrow {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .pill {
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        color: var(--mut);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>FantasyHockeyAI — draft board</h1>
+    <div class="sub" id="sub">loading…</div>
+    <div id="app"></div>
+    <div class="card">
+      <div class="row">
+        <span class="tag">notifications</span><span class="muted" id="pushstate">—</span>
+      </div>
+      <div class="pillrow">
+        <button id="enable">Enable push</button>
+        <button id="test">Send test</button>
+      </div>
+      <div class="muted" style="margin-top: 8px">
+        Push needs HTTPS. On iPhone, add this page to your home screen first.
+      </div>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>

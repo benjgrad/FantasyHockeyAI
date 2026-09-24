@@ -6,6 +6,7 @@
     { "path": "libs/model" },
     { "path": "libs/market" },
     { "path": "libs/yahoo" },
-    { "path": "apps/gm" }
+    { "path": "apps/gm" },
+    { "path": "apps/web" }
   ]
 }

@@ -4,3 +4,5 @@ dist/
 .env
 data/
 coverage/
+data/web-push.json
+data/web-subscriptions.json
