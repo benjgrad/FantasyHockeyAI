@@ -65,6 +65,7 @@ for (let pick = 1; pick <= total; pick++) {
       settings,
       ...(next === undefined ? {} : { nextPick: next }),
       ...(BALANCE ? { categories: SCORED } : {}),
+      picksRemaining: [...ourPicks].filter((p) => p >= pick).length,
       adpOf,
     });
     chosen = board[0]?.valuation;

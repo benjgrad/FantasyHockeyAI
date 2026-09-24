@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 18:15 ET**
+Last updated: **2026-09-24 18:45 ET**
 
 ---
 
@@ -234,6 +234,25 @@ none is wastefully dominant.
 
 §12.6 specifies this for weekly in-season strategy but nothing covered it at the draft.
 **This is why the rehearsal was scheduled before the draft rather than after.**
+
+## Second rehearsal finding (18:40) — empty starting slots
+
+Rehearsing from the **extreme seats** rather than only seat 4 exposed a second failure: from
+seat 8 the draft finished with **one goalie and an empty starting G slot**, and from seat 1
+with an empty **D** slot. An unfilled starting slot is not a mild inefficiency — it is a
+guaranteed zero in every category that seat would contribute, on every day of the season.
+Nothing in the model made the last starting slot mandatory.
+
+Fixed with `slotUrgency`: as the picks remaining close on the slots remaining, players who can
+fill an empty seat are boosted and players who cannot are suppressed. All three seats now
+finish with every starting slot filled.
+
+**The instructive part is that the first fix was wrong, and wrong in the exact situation it was
+written for.** It was a *multiplier*. By the final rounds every remaining player has **negative**
+VORP, and multiplying a negative score by a boost makes it *worse* — so the fix made seat 1
+regress from a filled roster to an unfilled D slot. A multiplicative modifier silently inverts
+on any quantity that can go negative. The bonus is now additive, in VORP units, and there is a
+regression test asserting a needed goalie at −6 VORP still outranks a skater at −2.
 
 ## Sanity findings from the first real ranking (13:35)
 

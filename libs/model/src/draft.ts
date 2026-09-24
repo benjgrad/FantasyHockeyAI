@@ -143,6 +143,8 @@ export function expectedNextBest(
 export interface ScoredPlayer {
   valuation: Valuation;
   need: number;
+  /** Additive pressure in VORP units to fill a remaining starting slot; negative suppresses. */
+  urgency: number;
   nextBest: number;
   /** Category-balance adjustment in VORP units; negative means redundant strength. */
   fit: number;
@@ -157,6 +159,8 @@ export interface BoardOptions {
   categories?: readonly string[];
   /** Summed-z strength at which a category stops needing more. */
   saturation?: number;
+  /** How many picks we have left, including this one. Enables the slot-urgency term. */
+  picksRemaining?: number;
   /** Overall pick number of our next selection after this one, if any. */
   nextPick?: number;
   /** Expected draft position by player. Falls back to VORP rank when absent (no ADP). */
@@ -199,9 +203,13 @@ export function scoreBoard(opts: BoardOptions): ScoredPlayer[] {
       const need = needMultiplier(valuation, myRoster, settings);
       const nextBest = nextBestBySlot.get(valuation.vorpPosition) ?? valuation.vorp;
       const fit = categories.length > 0 ? categoryFit(valuation, needWeights, categories) : 0;
+      const urgency =
+        opts.picksRemaining === undefined
+          ? 0
+          : slotUrgency(valuation, myRoster, settings, opts.picksRemaining);
       const adjusted = valuation.vorp + fit;
-      const score = need * adjusted + lambda * (adjusted - nextBest);
-      return { valuation, need, nextBest, fit, score };
+      const score = need * adjusted + lambda * (adjusted - nextBest) + urgency;
+      return { valuation, need, urgency, nextBest, fit, score };
     })
     .sort((a, b) => b.score - a.score);
 }
@@ -275,4 +283,62 @@ export function categoryFit(
     plain += z;
   }
   return weighted - plain;
+}
+
+/** Starting slots the roster has not yet filled, one entry per empty seat. */
+export function unfilledStartingSlots(
+  roster: readonly Valuation[],
+  settings: LeagueSettings,
+): string[] {
+  const out: string[] = [];
+  for (const s of settings.rosterSlots) {
+    if (!s.isStarting) continue;
+    const filled = roster.filter((r) =>
+      eligibleSlots(nhlPositionOf(r.position), settings.rosterSlots, r.eligible ?? []).includes(
+        s.position,
+      ),
+    ).length;
+    for (let i = filled; i < s.count; i++) out.push(s.position);
+  }
+  return out;
+}
+
+/** Picks of slack before an unfilled starting slot becomes unavoidable. */
+const URGENCY_HORIZON = 3;
+/** VORP units per unit of pressure. Large enough to dominate late-round differences. */
+const URGENCY_WEIGHT = 8;
+
+/**
+ * An **additive** bonus, in VORP units, that forces the remaining starting slots to be filled.
+ *
+ * An unfilled starting slot is not a mild inefficiency: it is a guaranteed zero in every
+ * category that slot would have contributed, on every day of the season. A rehearsal from
+ * the last seat finished the draft with one goalie and an empty G slot, because the board
+ * kept preferring marginally better skaters and nothing made the second goalie mandatory.
+ *
+ * This is deliberately additive. The first attempt was a multiplier, which failed in the
+ * exact situation it was written for: by the final rounds the best available VORP is
+ * **negative** (everyone left is below replacement), and multiplying a negative score by a
+ * boost makes it *worse*. A multiplicative modifier is unsafe on any quantity that can go
+ * negative — it silently inverts. An additive bonus behaves the same at both ends of the board.
+ */
+export function slotUrgency(
+  player: Valuation,
+  roster: readonly Valuation[],
+  settings: LeagueSettings,
+  picksRemaining: number,
+): number {
+  const unfilled = unfilledStartingSlots(roster, settings);
+  if (unfilled.length === 0) return 0;
+  const slack = picksRemaining - unfilled.length;
+  const pressure = Math.max(0, URGENCY_HORIZON - slack);
+  if (pressure === 0) return 0;
+
+  const mine = eligibleSlots(
+    nhlPositionOf(player.position),
+    settings.rosterSlots,
+    player.eligible ?? [],
+  );
+  const fills = unfilled.some((slot) => mine.includes(slot));
+  return (fills ? 1 : -1) * pressure * URGENCY_WEIGHT;
 }

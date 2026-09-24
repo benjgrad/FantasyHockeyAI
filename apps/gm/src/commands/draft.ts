@@ -284,6 +284,7 @@ export function registerDraftCommands(program: Command): void {
         myRoster: ctx.myRoster,
         settings: ctx.settings,
         categories: scoredCategories,
+        picksRemaining: ours.filter((p) => p >= onClock).length,
         ...(next === undefined ? {} : { nextPick: next }),
       });
       if (o.position) {
@@ -317,7 +318,8 @@ export function registerDraftCommands(program: Command): void {
 
       console.log(
         `  ${'#'.padStart(3)}  ${'player'.padEnd(24)} ${'pos'.padEnd(4)} ${'tm'.padEnd(4)} ` +
-          `${'score'.padStart(7)} ${'VORP'.padStart(7)} ${'fit'.padStart(6)} ${'need'.padStart(5)} ${'next'.padStart(7)}`,
+          `${'score'.padStart(7)} ${'VORP'.padStart(7)} ${'fit'.padStart(6)} ${'urg'.padStart(5)} ` +
+          `${'need'.padStart(5)} ${'next'.padStart(7)}`,
       );
       scored.slice(0, Number.isFinite(top) ? top : 20).forEach((s, i) => {
         const v = s.valuation;
@@ -325,6 +327,7 @@ export function registerDraftCommands(program: Command): void {
           `  ${String(i + 1).padStart(3)}  ${v.name.slice(0, 24).padEnd(24)} ${v.position.padEnd(4)} ` +
             `${v.team.padEnd(4)} ${s.score.toFixed(2).padStart(7)} ${v.vorp.toFixed(2).padStart(7)} ` +
             `${(s.fit >= 0 ? '+' : '') + s.fit.toFixed(2).padStart(5)} ` +
+            `${s.urgency.toFixed(2).padStart(5)} ` +
             `${s.need.toFixed(2).padStart(5)} ${s.nextBest.toFixed(2).padStart(7)}` +
             (v.lowConfidence ? '  *thin data' : ''),
         );

@@ -11,6 +11,8 @@ import {
   positionRuns,
   probabilityAvailable,
   scoreBoard,
+  slotUrgency,
+  unfilledStartingSlots,
   type DraftPick,
 } from './draft.js';
 
@@ -312,5 +314,108 @@ describe('scoreBoard category balance', () => {
       categories: cats,
     });
     expect(board[0]?.fit).toBeLessThan(0);
+  });
+});
+
+describe('unfilledStartingSlots', () => {
+  const settings = league();
+
+  it('should list every empty starting seat for an empty roster', () => {
+    const unfilled = unfilledStartingSlots([], settings);
+    // 2C + 2LW + 2RW + 4D + 2G = 12 starting seats in the fixture league.
+    expect(unfilled).toHaveLength(12);
+    expect(unfilled.filter((s) => s === 'G')).toHaveLength(2);
+  });
+
+  it('should not count bench or IR seats', () => {
+    expect(unfilledStartingSlots([], settings)).not.toContain('BN');
+  });
+
+  it('should shrink as slots are filled', () => {
+    const before = unfilledStartingSlots([], settings).length;
+    const after = unfilledStartingSlots([val('G', 5, 'G')], settings).length;
+    expect(after).toBe(before - 1);
+  });
+
+  it('should report nothing once every starting seat is filled', () => {
+    const roster = [
+      val('C', 1),
+      val('C', 1),
+      val('LW', 1),
+      val('LW', 1),
+      val('RW', 1),
+      val('RW', 1),
+      val('D', 1),
+      val('D', 1),
+      val('D', 1),
+      val('D', 1),
+      val('G', 1, 'G'),
+      val('G', 1, 'G'),
+    ];
+    expect(unfilledStartingSlots(roster, settings)).toEqual([]);
+  });
+});
+
+describe('slotUrgency', () => {
+  const settings = league();
+  const nearlyFull = [
+    val('C', 1),
+    val('C', 1),
+    val('LW', 1),
+    val('LW', 1),
+    val('RW', 1),
+    val('RW', 1),
+    val('D', 1),
+    val('D', 1),
+    val('D', 1),
+    val('D', 1),
+    val('G', 1, 'G'),
+  ]; // one G seat left
+
+  it('should be neutral when there is plenty of slack', () => {
+    expect(slotUrgency(val('C', 5), nearlyFull, settings, 10)).toBe(0);
+  });
+
+  it('should be neutral once nothing is unfilled', () => {
+    const full = [...nearlyFull, val('G', 1, 'G')];
+    expect(slotUrgency(val('C', 5), full, settings, 1)).toBe(0);
+  });
+
+  it('should boost a player who fills the last empty seat', () => {
+    expect(slotUrgency(val('G', 1, 'G'), nearlyFull, settings, 1)).toBeGreaterThan(0);
+  });
+
+  it('should suppress a player who cannot fill it', () => {
+    expect(slotUrgency(val('C', 9), nearlyFull, settings, 1)).toBeLessThan(0);
+  });
+
+  it('should grow as the slack disappears', () => {
+    const far = slotUrgency(val('G', 1, 'G'), nearlyFull, settings, 3);
+    const near = slotUrgency(val('G', 1, 'G'), nearlyFull, settings, 1);
+    expect(near).toBeGreaterThan(far);
+  });
+
+  it('should be additive, so it still works when VORP is negative', () => {
+    // The regression that broke the first attempt: late in a draft everyone left is below
+    // replacement, and a multiplicative boost on a negative score makes it worse, not better.
+    const neededGoalie = { ...val('G', -6, 'G'), name: 'Needed Goalie' };
+    const betterSkater = { ...val('C', -2), name: 'Better Skater' };
+    const board = scoreBoard({
+      available: [neededGoalie, betterSkater],
+      myRoster: nearlyFull,
+      settings,
+      picksRemaining: 1,
+    });
+    expect(board[0]?.valuation.name).toBe('Needed Goalie');
+    expect(board[0]?.valuation.vorp).toBeLessThan(0);
+  });
+
+  it('should leave the board untouched when picksRemaining is not supplied', () => {
+    const board = scoreBoard({
+      available: [val('G', -6, 'G'), val('C', -2)],
+      myRoster: nearlyFull,
+      settings,
+    });
+    expect(board.every((b) => b.urgency === 0)).toBe(true);
   });
 });
