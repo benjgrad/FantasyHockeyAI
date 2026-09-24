@@ -59,9 +59,39 @@ function deltaTable(alt, rec) {
       </tr>`;
     })
     .join('');
+  // The scoring terms, diffed too: they are what actually ordered the board, so a comparison
+  // that stops at the categories hides why one player outranks another.
+  // adp is deliberately uncoloured — the market taking someone earlier is neither good nor bad
+  // for us, it is just information.
+  const metrics = [
+    { k: 'score', a: alt.score, r: rec.score, dp: 2, dir: 1 },
+    { k: 'vorp', a: alt.vorp, r: rec.vorp, dp: 2, dir: 1 },
+    { k: 'fit', a: alt.fit, r: rec.fit, dp: 2, dir: 1 },
+    { k: 'need', a: alt.need, r: rec.need, dp: 2, dir: 1 },
+    { k: 'urgency', a: alt.urgency, r: rec.urgency, dp: 2, dir: 1 },
+    { k: 'proj gp', a: alt.gp, r: rec.gp, dp: 0, dir: 1 },
+    { k: 'adp', a: alt.adp ?? null, r: rec.adp ?? null, dp: 1, dir: 0 },
+  ];
+  const mrows = metrics
+    .filter((m) => m.a !== null && m.r !== null)
+    .map((m) => {
+      const d = m.a - m.r;
+      const cls = m.dir === 0 || Math.abs(d) < 0.005 ? '' : d * m.dir > 0 ? 'up' : 'down';
+      return `<tr>
+        <td>${esc(m.k)}</td>
+        <td>${m.a.toFixed(m.dp)}</td>
+        <td class="muted">${m.r.toFixed(m.dp)}</td>
+        <td class="${cls}">${d > 0 ? '+' : ''}${d.toFixed(m.dp)}</td>
+        <td></td>
+      </tr>`;
+    })
+    .join('');
+
   return `<table class="cmp">
     <tr><th>cat</th><th>${esc(alt.name.split(' ').pop())}</th><th>${esc(rec.name.split(' ').pop())}</th><th>Δ</th><th>Δz</th></tr>
-    ${rows}</table>`;
+    ${rows}
+    <tr class="sep"><td colspan="5"></td></tr>
+    ${mrows}</table>`;
 }
 
 function playerCard(p, isRec) {
@@ -113,14 +143,20 @@ function render(s) {
     </div>`);
   }
 
-  if (s.pendingOverride) {
-    parts.push(`<div class="card warn">Override queued: <b>${esc(s.pendingOverride.name)}</b>
-      <div class="pillrow"><button id="clear">Cancel override</button></div></div>`);
-  }
-
   if (s.recommendation) {
     parts.push(
-      `<div class="card"><div class="tag">recommended pick</div>${playerCard(s.recommendation, true)}</div>`,
+      (() => {
+        // An override is the current pick, so it leads — but the model's choice stays visible
+        // and one tap away, otherwise overriding is a decision you cannot walk back.
+        const isOv = s.recommendation.isOverride === true;
+        const head = isOv
+          ? `<div class="tag ovtag">your pick (override)</div>` +
+            (s.modelPick
+              ? `<div class="muted" style="margin-bottom:6px">model wanted <b>${esc(s.modelPick.name)}</b> · <button id="clear" class="linkish">revert to it</button></div>`
+              : '')
+          : `<div class="tag">recommended pick</div>`;
+        return `<div class="card ${isOv ? 'ovcard' : ''}">${head}${playerCard(s.recommendation, true)}</div>`;
+      })(),
     );
   } else {
     parts.push(`<div class="card warn">No recommendation available.</div>`);

@@ -32,6 +32,8 @@ export interface PlayerCard {
   adp?: number;
   marketRank?: number;
   lowConfidence: boolean;
+  /** True when this card is here because a human chose it, not because it scored highest. */
+  isOverride?: boolean;
   /** Every scored category, best first, as a z-score against the draftable pool. */
   cats: { cat: string; z: number }[];
   /** Projected season totals for the scored categories — the actual numbers, not z-scores. */
@@ -50,6 +52,8 @@ export interface DraftView {
   picksMade: number;
   totalPicks: number;
   recommendation?: PlayerCard;
+  /** What the model would have taken, present only when an override displaced it. */
+  modelPick?: PlayerCard;
   alternates: PlayerCard[];
   roster: { name: string; position: string; team: string; vorp: number }[];
   openSlots: string[];
@@ -274,6 +278,25 @@ export function buildView(): DraftView {
     yd?.onClock && teamKey && `${settings.leagueKey}.t.${yd.onClock.teamId}` === teamKey,
   );
 
+  /*
+   * A pending override *is* the current pick, so the view must lead with it.
+   *
+   * Previously the override only changed what the CLI did at pick time, while the board kept
+   * showing the model's choice — so the page contradicted the decision, and every delta stayed
+   * anchored to a player we were no longer taking. The file is deliberately not consumed here:
+   * reading the board must not have the side effect of spending the override. `fha draft
+   * recommend` consumes it at the moment it actually picks.
+   */
+  const overrideIdx = pending ? board.findIndex((b) => b.valuation.nhlId === pending.nhlId) : -1;
+  const chosen = overrideIdx > 0 ? board[overrideIdx] : undefined;
+  const displaced = overrideIdx > 0 ? board[0] : undefined;
+  const ordered =
+    chosen === undefined ? board : [chosen, ...board.filter((_, i) => i !== overrideIdx)];
+  const modelPick = displaced === undefined ? undefined : card(displaced);
+  if (pending && overrideIdx < 0) {
+    warnings.push(`Override "${pending.name}" is no longer on the board — it will be ignored.`);
+  }
+
   return {
     now: new Date().toISOString(),
     draftStatus: yd?.draftStatus ?? 'unknown',
@@ -283,8 +306,9 @@ export function buildView(): DraftView {
     ...(nextOurPick === undefined ? {} : { nextOurPick }),
     picksMade: yd?.picks?.length ?? 0,
     totalPicks: numTeams * rounds,
-    ...(board[0] ? { recommendation: card(board[0]) } : {}),
-    alternates: board.slice(1, 9).map(card),
+    ...(ordered[0] ? { recommendation: { ...card(ordered[0]), isOverride: overrideIdx > 0 } } : {}),
+    ...(modelPick ? { modelPick } : {}),
+    alternates: ordered.slice(1, 9).map(card),
     roster: myRoster
       .slice()
       .sort((a, b) => b.vorp - a.vorp)
