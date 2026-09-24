@@ -1,12 +1,17 @@
-import { existsSync, readFileSync } from 'node:fs';
-import type { Valuation } from '@fha/core';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import type { Projection, Valuation } from '@fha/core';
 import {
   nhlPositionOf,
   eligibleSlots,
   pickNumbersFor,
+  projectAll,
   scoreBoard,
+  startingGoalieSlotCount,
+  startingSkaterSlotCount,
   unfilledStartingSlots,
 } from '@fha/model';
+import { lowerIsBetter } from '@fha/model';
+import { readSeason, recentSeasons } from '@fha/nhl';
 import { buildRanking } from '../../gm/src/commands/rank.js';
 import { loadLeague } from '../../gm/src/config.js';
 import { readDraft, readPlayerMap } from '../../gm/src/commands/yahooFiles.js';
@@ -27,9 +32,10 @@ export interface PlayerCard {
   adp?: number;
   marketRank?: number;
   lowConfidence: boolean;
-  /** Strongest and weakest scored categories, as z-scores. */
-  best: { cat: string; z: number }[];
-  worst: { cat: string; z: number }[];
+  /** Every scored category, best first, as a z-score against the draftable pool. */
+  cats: { cat: string; z: number }[];
+  /** Projected season totals for the scored categories — the actual numbers, not z-scores. */
+  stats: { cat: string; total: number }[];
   /** Plain-language justifications, generated from the numbers. */
   reasons: string[];
 }
@@ -49,8 +55,60 @@ export interface DraftView {
   openSlots: string[];
   categoryStrength: { cat: string; z: number }[];
   recentPicks: { pick: number; name: string; position: string; mine: boolean }[];
+  /** Categories where a lower number is better, so the UI colours a delta correctly. */
+  lowerIsBetter: string[];
   pendingOverride?: { nhlId: number; name: string };
   warnings: string[];
+}
+
+/**
+ * Cache the expensive half of the view.
+ *
+ * Projections and valuations depend only on the cached NHL seasons, the Yahoo pool, the player
+ * map and the league config — never on who has already been drafted. The page polls every few
+ * seconds and the push watcher polls again, so recomputing about a second of maths twice per
+ * three seconds would burn a core for nothing. Keyed on input mtimes, so a pre-flight rebuild is
+ * picked up immediately with no cache busting to remember.
+ */
+const CACHE_INPUTS = [
+  'data/yahoo/pool.json',
+  'data/yahoo/player-map.json',
+  'config/league.yaml',
+  'config/draft-overrides.yaml',
+  'data/nhl/20252026.json',
+];
+let cache:
+  | { key: string; ranking: ReturnType<typeof buildRanking>; totals: Map<number, Projection> }
+  | undefined;
+
+function cacheKey(): string {
+  return CACHE_INPUTS.map((f) => {
+    try {
+      return `${f}:${statSync(f).mtimeMs}`;
+    } catch {
+      return `${f}:absent`;
+    }
+  }).join('|');
+}
+
+function rankingAndTotals(): {
+  ranking: ReturnType<typeof buildRanking>;
+  totals: Map<number, Projection>;
+} {
+  const key = cacheKey();
+  if (cache?.key === key) return { ranking: cache.ranking, totals: cache.totals };
+  const { settings } = loadLeague();
+  const ranking = buildRanking();
+  const projections = projectAll({
+    seasons: recentSeasons(2025, 3)
+      .map((id) => readSeason('data', id))
+      .filter((s): s is NonNullable<typeof s> => s !== undefined),
+    skaterPoolSize: settings.numTeams * startingSkaterSlotCount(settings.rosterSlots),
+    goaliePoolSize: settings.numTeams * startingGoalieSlotCount(settings.rosterSlots),
+  });
+  const totals = new Map(projections.map((p) => [p.nhlId, p]));
+  cache = { key, ranking, totals };
+  return { ranking, totals };
 }
 
 function readState():
@@ -122,7 +180,7 @@ function explain(
 export function buildView(): DraftView {
   const warnings: string[] = [];
   const { settings, teamKey } = loadLeague();
-  const r = buildRanking();
+  const { ranking: r, totals } = rankingAndTotals();
   const state = readState();
   const yd = readDraft();
   const map = readPlayerMap();
@@ -174,7 +232,15 @@ export function buildView(): DraftView {
 
   const card = (s: (typeof board)[number]): PlayerCard => {
     const v = s.valuation;
-    const zs = cats.map((c) => ({ cat: c, z: v.z[c] ?? 0 })).sort((a, b) => b.z - a.z);
+    const zs = cats
+      .map((c) => ({ cat: c, z: Number((v.z[c] ?? 0).toFixed(2)) }))
+      .sort((a, b) => b.z - a.z);
+    const proj = totals.get(v.nhlId);
+    // Rate categories are already rates; counting categories are season totals.
+    const stats = cats.map((c) => ({
+      cat: c,
+      total: Number((proj?.totals[c] ?? 0).toFixed(c === 'SV%' ? 3 : c === 'GAA' ? 2 : 0)),
+    }));
     return {
       nhlId: v.nhlId,
       name: v.name,
@@ -189,8 +255,8 @@ export function buildView(): DraftView {
       ...(v.adp === undefined ? {} : { adp: v.adp }),
       ...(v.marketRank === undefined ? {} : { marketRank: v.marketRank }),
       lowConfidence: v.lowConfidence,
-      best: zs.slice(0, 3).map((x) => ({ cat: x.cat, z: Number(x.z.toFixed(2)) })),
-      worst: zs.slice(-2).map((x) => ({ cat: x.cat, z: Number(x.z.toFixed(2)) })),
+      cats: zs,
+      stats,
       reasons: explain(v, s, openSlots, nextOurPick, cats),
     };
   };
@@ -231,6 +297,7 @@ export function buildView(): DraftView {
     openSlots,
     categoryStrength: strength,
     recentPicks: recentPicks.slice(-12).reverse(),
+    lowerIsBetter: cats.filter((c) => lowerIsBetter(c)),
     ...(pending ? { pendingOverride: pending } : {}),
     warnings,
   };

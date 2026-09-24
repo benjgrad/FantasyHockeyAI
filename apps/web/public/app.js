@@ -14,9 +14,67 @@ function zBar(z) {
   return `<div class="bar"><i style="width:${pct}%;background:${col}"></i></div>`;
 }
 
+let LOWER = [];
+
+/** Does a positive delta in this category help us? GAA and GA are inverted. */
+const better = (cat, d) => (LOWER.includes(cat) ? -d : d);
+
+function fmt(cat, n) {
+  if (cat === 'SV%') return n.toFixed(3).replace(/^0/, '');
+  if (cat === 'GAA') return n.toFixed(2);
+  return Math.round(n).toString();
+}
+
+function deltaSummary(alt, rec) {
+  if (!rec) return '';
+  const rs = new Map(rec.stats.map((x) => [x.cat, x.total]));
+  const deltas = alt.stats
+    .map((x) => ({ cat: x.cat, d: x.total - (rs.get(x.cat) ?? 0) }))
+    .filter((x) => Math.abs(x.d) > 0.0005)
+    .sort((a, b) => better(b.cat, b.d) - better(a.cat, a.d));
+  const up = deltas.filter((x) => better(x.cat, x.d) > 0).slice(0, 3);
+  const down = deltas.filter((x) => better(x.cat, x.d) < 0).slice(-2);
+  const chip = (x, cls) =>
+    `<span class="d ${cls}">${x.d > 0 ? '+' : ''}${fmt(x.cat, x.d)} ${esc(x.cat)}</span>`;
+  return up.map((x) => chip(x, 'up')).join('') + down.map((x) => chip(x, 'down')).join('');
+}
+
+function deltaTable(alt, rec) {
+  const rs = new Map(rec.stats.map((x) => [x.cat, x.total]));
+  const zs = new Map(rec.cats.map((x) => [x.cat, x.z]));
+  const rows = alt.stats
+    .map((x) => {
+      const r = rs.get(x.cat) ?? 0;
+      const d = x.total - r;
+      const good = better(x.cat, d);
+      const cls = Math.abs(d) < 0.0005 ? '' : good > 0 ? 'up' : 'down';
+      const az = alt.cats.find((c) => c.cat === x.cat)?.z ?? 0;
+      const rz = zs.get(x.cat) ?? 0;
+      return `<tr>
+        <td>${esc(x.cat)}</td>
+        <td>${fmt(x.cat, x.total)}</td>
+        <td class="muted">${fmt(x.cat, r)}</td>
+        <td class="${cls}">${d > 0 ? '+' : ''}${fmt(x.cat, d)}</td>
+        <td class="muted">${sign(az - rz)}z</td>
+      </tr>`;
+    })
+    .join('');
+  return `<table class="cmp">
+    <tr><th>cat</th><th>${esc(alt.name.split(' ').pop())}</th><th>${esc(rec.name.split(' ').pop())}</th><th>Δ</th><th>Δz</th></tr>
+    ${rows}</table>`;
+}
+
 function playerCard(p, isRec) {
-  const cats = [...p.best, ...p.worst]
-    .map((c) => `<div class="n">${esc(c.cat)} <b>${sign(c.z)}</b>${zBar(c.z)}</div>`)
+  const top = [...p.cats.slice(0, 4), ...p.cats.slice(-2)];
+  const statByCat = new Map(p.stats.map((x) => [x.cat, x.total]));
+  const cats = top
+    .map(
+      (c) =>
+        `<div class="n">${esc(c.cat)} <b>${fmt(c.cat, statByCat.get(c.cat) ?? 0)}</b> <span class="muted">${sign(c.z)}z</span>${zBar(c.z)}</div>`,
+    )
+    .join('');
+  const allStats = p.stats
+    .map((x) => `<div class="n">${esc(x.cat)} <b>${fmt(x.cat, x.total)}</b></div>`)
     .join('');
   return `
     <div class="row">
@@ -35,6 +93,7 @@ function playerCard(p, isRec) {
     </div>
     <div class="nums">${cats}</div>
     ${p.reasons.length ? `<ul class="why">${p.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+    <details><summary class="tag">all 13 projected categories</summary><div class="nums">${allStats}</div></details>
     ${isRec ? `<button class="pick" data-id="${p.nhlId}">Lock in ${esc(p.name)}</button>` : ''}`;
 }
 
@@ -67,15 +126,22 @@ function render(s) {
     parts.push(`<div class="card warn">No recommendation available.</div>`);
   }
 
+  const rec = s.recommendation;
   if (s.alternates.length) {
     parts.push(
-      `<div class="card"><div class="tag">alternatives</div>${s.alternates
+      `<div class="card"><div class="tag">alternatives — difference from ${esc(rec ? rec.name : 'the pick')}</div>${s.alternates
         .map(
-          (a) => `<div class="alt">
-          <div><b>${esc(a.name)}</b> <span class="muted">${esc(a.position)} · ${esc(a.team)} · vorp ${a.vorp.toFixed(2)} · fit ${sign(a.fit)}${a.lowConfidence ? ' · <span class="thin">thin</span>' : ''}</span>
-            <div class="muted">${esc(a.reasons[0] ?? '')}</div></div>
-          <button data-id="${a.nhlId}">Pick</button>
-        </div>`,
+          (a) => `<details class="alt">
+          <summary>
+            <div><b>${esc(a.name)}</b> <span class="muted">${esc(a.position)} · ${esc(a.team)} · score ${a.score.toFixed(2)}${a.lowConfidence ? ' · <span class="thin">thin</span>' : ''}</span>
+              <div class="chips">${deltaSummary(a, rec)}</div></div>
+          </summary>
+          <div class="altbody">
+            ${rec ? deltaTable(a, rec) : ''}
+            ${a.reasons.length ? `<ul class="why">${a.reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+            <button data-id="${a.nhlId}">Pick ${esc(a.name)}</button>
+          </div>
+        </details>`,
         )
         .join('')}</div>`,
     );
@@ -118,7 +184,9 @@ async function tick() {
   try {
     const res = await fetch('/api/state', { cache: 'no-store' });
     if (!res.ok) throw new Error(String(res.status));
-    render(await res.json());
+    const data = await res.json();
+    LOWER = data.lowerIsBetter || [];
+    render(data);
   } catch {
     $('sub').textContent = 'connection lost — retrying…';
   }

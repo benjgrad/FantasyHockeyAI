@@ -188,6 +188,100 @@
         border: 1px solid var(--line);
         color: var(--mut);
       }
+
+      /* Delta chips and the comparison table: what an alternative gains and gives up. */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 5px;
+      }
+      .d {
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 99px;
+        font-variant-numeric: tabular-nums;
+        border: 1px solid;
+      }
+      .d.up {
+        color: #7ee787;
+        border-color: #1f3d25;
+        background: #112516;
+      }
+      .d.down {
+        color: #ffa198;
+        border-color: #4a2320;
+        background: #2d1513;
+      }
+      td.up,
+      .up {
+        color: #7ee787;
+      }
+      td.down,
+      .down {
+        color: #ffa198;
+      }
+      details.alt {
+        border-bottom: 1px solid var(--line);
+        padding: 8px 0;
+      }
+      details.alt:last-child {
+        border-bottom: 0;
+      }
+      details.alt summary {
+        cursor: pointer;
+        list-style: none;
+      }
+      details.alt summary::-webkit-details-marker {
+        display: none;
+      }
+      details.alt summary::after {
+        content: ' \25BE';
+        color: var(--mut);
+        font-size: 11px;
+      }
+      details.alt[open] summary::after {
+        content: ' \25B4';
+      }
+      .altbody {
+        padding-top: 8px;
+      }
+      .altbody button {
+        width: 100%;
+        margin-top: 8px;
+        background: #1d2a36;
+      }
+      table.cmp {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+      }
+      table.cmp th {
+        text-align: right;
+        color: var(--mut);
+        font-weight: 500;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 2px 0;
+      }
+      table.cmp th:first-child,
+      table.cmp td:first-child {
+        text-align: left;
+      }
+      table.cmp td {
+        text-align: right;
+        padding: 2px 0;
+        border-bottom: 1px solid #1c2733;
+      }
+      details summary {
+        cursor: pointer;
+      }
+      details > summary.tag {
+        margin-top: 8px;
+        display: block;
+      }
     </style>
   </head>
   <body>
