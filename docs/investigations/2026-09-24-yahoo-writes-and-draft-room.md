@@ -255,3 +255,17 @@ npx tsx tools/draft-discover.ts --wait     # block until the room has a server
 ```
 `discoverDraftRoom()` and `waitForDraftRoom()` are exported, so `ws-watch.ts` can use them the same way. Environment variables
 still override discovery, e.g. for mock rooms, which don't appear in the user's team list.
+
+---
+
+## 10. Update 14:20 ET: roadmap unknowns settled (read-only checks)
+| Item | Finding | Evidence |
+|---|---|---|
+| U-01 | Plain `?format=json` is irregular: `league` is a 2-element array and `teams` an object keyed `"0"…"n"`. **`json_f` gives clean arrays** (`teams: [{team}]`) | [EXEC] same request in both formats |
+| U-02 / U-09 | `league.weekly_deadline = "intraday"`, shown on the settings page as **"Weekly Deadline: Daily - Today"**. Also `roster_type: "date"`, `edit_key: "2026-09-24"` (the editable date), and "Lock Benched Players: No" | [EXEC] v2 settings + `/hockey/48535/settings` |
+| U-05 | `api-web.nhle.com/v1/schedule/{date}` → `gameWeek` = 7 × `{date, games[]}`; each game has `startTimeUTC` (Z), `homeTeam.abbrev`, `awayTeam.abbrev`, `gameType` (2 = regular), `gameState`, `venueTimezone` | [EXEC] 2026-10-08 |
+| U-06 | **False**: stat IDs are identical in games 453, 465 and 477 (G=1 A=2 +/-=4 PIM=5 PPP=8 SHP=11 GWG=12 SOG=14 W=19 GAA=23 SV%=26 SHO=27 HIT=31 BLK=32). Last season's league (`465.l.53136`) returned 403 to this account | [EXEC] `/game/{g}/stat_categories` |
+| Q-007 | **Crumb from the API:** `GET https://pub-api.fantasysports.yahoo.com/fantasy/v3/getCrumb?format=json_f` → `{service:{crumb}}` (11 chars, the same length as the pre-rank crumb) | [EXEC] (value not recorded) |
+| Q-007 | **Lineups:** Yahoo's "Start Active Players" = `POST …/fantasy/v3/set_optimal_roster?gameId&leagueId&teamId&lineupEditKey&lineupEditKeyEnd&format=json_f` (JSON, credentials included). This is **Yahoo's own optimiser**, not an arbitrary lineup | [OBS] static read of the public bundle `react_fantasy_startactive.*.js`; **not exercised** |
+| Q-007 | The same bundle's API client also defines `league/get_draft_settings` (GET) and `league/save_draft_settings` (POST, `crumb` query), both commissioner-level | [OBS] static |
+| Q-007 (open) | Custom lineup, add/drop, waiver and trade endpoints. There is no roster form before the draft, and the player-search bundle has no write calls. **Observe these after the draft** with a real roster | — |

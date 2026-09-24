@@ -200,10 +200,20 @@ async function inputWindow(clockSecs: number, current: Recommendation): Promise<
 
 let handling = false;
 
-function connect(attempt = 0): void {
+/**
+ * Consecutive failed connection attempts, for backoff.
+ *
+ * Reset on every successful open, so backoff measures *this* outage rather than the whole
+ * evening. Carrying it forward would mean that six unrelated drops spread over a long draft
+ * leave the next reconnect waiting 30s, which is long enough to miss a pick.
+ */
+let failures = 0;
+
+function connect(): void {
   const ws = new WebSocket(`${WS_SCHEME}://${WS_HOST}:${WS_PORT}/`);
 
   ws.onopen = () => {
+    failures = 0;
     console.log(`[${new Date().toISOString()}] connected; joining draft ${DRAFT_ID} as team ${TEAM_ID}`);
     // The only frame sent in read-only mode.
     ws.send(`8|${DRAFT_ID}|${TEAM_ID}|${encodeURIComponent(UA)}|${DRAFT_AUTH}`);
@@ -276,9 +286,10 @@ function connect(attempt = 0): void {
 
   ws.onclose = (e: CloseEvent) => {
     // A draft runs for hours; a dropped socket must not end the watch (P9).
-    const delay = Math.min(30_000, 1000 * 2 ** attempt);
+    const delay = Math.min(30_000, 1000 * 2 ** failures);
+    failures += 1;
     console.log(`[${new Date().toISOString()}] closed (${e.code}); reconnecting in ${delay / 1000}s`);
-    setTimeout(() => connect(attempt + 1), delay);
+    setTimeout(connect, delay);
   };
 
   ws.onerror = () => console.log(`[${new Date().toISOString()}] socket error`);
