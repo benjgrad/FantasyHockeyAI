@@ -11,7 +11,7 @@ import {
   type CalibrationResult,
 } from '@fha/model';
 import { readSeason, recentSeasons } from '@fha/nhl';
-import { loadLeague } from '../config.js';
+import { loadDraftOverrides, loadLeague } from '../config.js';
 import { compareToMarket, sanityReport } from './diagnose.js';
 import { buildSheet } from './sheet.js';
 import { indexMarket, lookupMarket, preferredMarket } from './market.js';
@@ -242,6 +242,22 @@ export function registerRankCommands(program: Command): void {
             position: x.v.position,
           }))
           .filter((x) => x.playerId !== '');
+        // Human insertions come after the model, and are logged so an unexplained name in
+        // the uploaded list can always be traced back to a decision.
+        for (const ins of loadDraftOverrides()) {
+          if (ranked.some((x) => x.playerKey === ins.playerKey)) continue;
+          const at = Math.min(Math.max(1, ins.atRank), ranked.length + 1);
+          ranked.splice(at - 1, 0, {
+            rank: at,
+            playerId: ins.playerKey.split('.p.')[1] ?? '',
+            playerKey: ins.playerKey,
+            name: ins.name,
+            position: 'INS',
+          });
+          console.log(`  inserted ${ins.name} at rank ${at} (config/draft-overrides.yaml)`);
+        }
+        ranked.forEach((x, i) => (x.rank = i + 1));
+
         const idsPath = `${opts.out}/yahoo/prerank-ids.json`;
         mkdirSync(`${opts.out}/yahoo`, { recursive: true });
         writeFileSync(

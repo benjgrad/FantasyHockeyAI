@@ -60,10 +60,12 @@ const READ_STATE = (): { count: number; first: string[] } => {
   const yours = text.search(/Your Rankings/i);
   const def = text.search(/Default Rankings/i);
   if (yours < 0) return { count: 0, first: [] };
-  const span = text.slice(yours, def > yours ? def : yours + 4000);
-  const entries = [...span.matchAll(/\b\d{1,3}\.\s*([A-Z][^\n]{2,40}?)\s*(?=\n|\d{1,3}\.|$)/g)]
-    .map((m) => m[1]!.trim())
-    .filter((n) => /[a-z]/.test(n));
+  const span = text.slice(yours, def > yours ? def : undefined);
+  // Anchored on line start. An earlier version used a lookahead and silently undercounted
+  // a 300-entry list as 213, which would have hidden a partial save on a live league.
+  const entries = [...span.matchAll(/(^|\n)\s*(\d{1,3})\.\s+([^\n]+)/g)].map((m) =>
+    m[3]!.trim(),
+  );
   return { count: entries.length, first: entries.slice(0, 10) };
 };
 

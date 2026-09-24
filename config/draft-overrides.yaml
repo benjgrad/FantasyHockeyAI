@@ -1,0 +1,23 @@
+# Human overrides to the generated draft artefacts.
+#
+# These exist because `fha rank` regenerates everything from the model, and the model is
+# deliberately blind to players with no NHL history — it flags them rather than inventing a
+# projection. That is the right default, but it means a judgement call about such a player
+# would be silently erased by the next rank run (the runbook does one at 20:30).
+#
+# Anything here is a human decision, recorded with its reasoning, and applied after the model.
+
+# Insert players into the pre-draft ranking uploaded to Yahoo (the autopick fallback order).
+# `atRank` is the 1-indexed slot in our order; everyone below shifts down one.
+prerankInsert:
+  - playerKey: '477.p.33811'
+    name: Gavin McKenna
+    atRank: 78
+    reason: >
+      No NHL games, so there is nothing to project and the model excludes him entirely.
+      Ben's call, and the evidence supports it: first overall in 2026, 51 points in 35 NCAA
+      games as an 18-year-old with 33 of them in his final 19, and a preseason role at left
+      wing with Tavares and Nylander including power-play time. Slotted at 78 because our
+      VORP crosses zero at rank 74 — this says "worth about a replacement starter, with
+      upside", not "worth a top-75 pick". His ADP is 93.8, so he will not last to our late
+      rounds; the realistic window is a pick in the high 80s.

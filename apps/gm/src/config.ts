@@ -40,6 +40,31 @@ export function loadPlayerOverrides(path = 'config/player-overrides.yaml'): Reco
   return OverridesFile.parse(raw ?? {}).overrides;
 }
 
+const PrerankInsert = z.object({
+  playerKey: z.string().min(1),
+  name: z.string().min(1),
+  atRank: z.number().int().positive(),
+  reason: z.string().optional(),
+});
+export type PrerankInsert = z.infer<typeof PrerankInsert>;
+
+const DraftOverridesFile = z.object({
+  prerankInsert: z.array(PrerankInsert).default([]),
+});
+
+/**
+ * Human overrides applied after the model (§10.5's spirit, extended to the draft board).
+ *
+ * The model excludes players it cannot project rather than guessing at them, which is
+ * correct — but it means a deliberate judgement about such a player would be wiped by the
+ * next `fha rank`. These are recorded in config so they survive regeneration.
+ */
+export function loadDraftOverrides(path = 'config/draft-overrides.yaml'): PrerankInsert[] {
+  if (!existsSync(path)) return [];
+  const raw: unknown = parse(readFileSync(path, 'utf-8'));
+  return DraftOverridesFile.parse(raw ?? {}).prerankInsert;
+}
+
 export interface LoadedLeague {
   settings: LeagueSettings;
   categoryWeights: Record<string, number>;
