@@ -1,0 +1,28 @@
+[Unit]
+Description=FantasyHockeyAI live draft client
+Documentation=file:%h/Documents/Projects/FantasyHockeyAI/docs/DRAFT-NIGHT.md
+After=network-online.target
+
+[Service]
+Type=simple
+# HOW IT IS ARMED: the flags below, and nothing else.
+#   (no flags)            read-only — prints the pick, sends only the join frame
+#   --submit              makes our picks
+#   --unattended          no input window; timestamped log (use with --submit)
+#   --dry-run             decides everything, sends nothing
+# Flags must live here, not in an Environment= string: systemd splits Environment= on
+# whitespace, which silently drops all but the first flag.
+ExecStart=%h/Documents/Projects/FantasyHockeyAI/deploy/fha-draft.sh --submit --unattended
+Environment=LEAGUE_KEY=477.l.48535
+Environment=NUM_TEAMS=8
+# A draft lasts hours: restart on any exit, but never on a configuration failure (exit 78),
+# since retrying a missing session or interpreter forever only fills the log.
+Restart=always
+RestartSec=5
+RestartPreventExitStatus=78
+StartLimitIntervalSec=0
+StandardOutput=append:%h/Documents/Projects/FantasyHockeyAI/data/draft-client.log
+StandardError=append:%h/Documents/Projects/FantasyHockeyAI/data/draft-client.log
+
+[Install]
+WantedBy=default.target

@@ -41,6 +41,14 @@ const arg = (name: string): string | undefined => {
 const SUBMIT = process.argv.includes('--submit');
 const DRY = process.argv.includes('--dry-run');
 const WAIT = process.argv.includes('--wait');
+/**
+ * No human is watching.
+ *
+ * Collapses the input window to zero (waiting for an override nobody will send just burns
+ * clock) and makes every log line timestamped and self-explanatory, because the log is the
+ * only record anyone will read afterwards.
+ */
+const UNATTENDED = process.argv.includes('--unattended');
 const OUT = arg('--out') ?? '../../data/yahoo/draft.json';
 const INPUT_WINDOW_S = Number(arg('--input-window') ?? 20);
 const LEAGUE_KEY = process.env.LEAGUE_KEY ?? '477.l.48535';
@@ -52,6 +60,17 @@ const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/*
+ * When unattended the log is the only record of what happened, so every line carries a
+ * timestamp. Wrapping console.log keeps the call sites readable.
+ */
+if (process.argv.includes('--unattended')) {
+  const raw = console.log.bind(console);
+  console.log = (...args: unknown[]): void => {
+    raw(`[${new Date().toISOString()}]`, ...args);
+  };
+}
 
 interface Recommendation {
   pick: number;
@@ -171,6 +190,10 @@ function flush(): void {
  * waiting for input would be strictly worse than picking without it.
  */
 async function inputWindow(clockSecs: number, current: Recommendation): Promise<Recommendation> {
+  if (UNATTENDED) {
+    console.log('  unattended: submitting immediately, no input window');
+    return current;
+  }
   const budget = Math.max(0, Math.min(INPUT_WINDOW_S, Math.floor(clockSecs * 0.5) - 5));
   if (budget <= 0) {
     console.log('  clock too short for an input window; going with the recommendation');
@@ -296,6 +319,19 @@ function connect(): void {
 }
 
 const mode = SUBMIT ? (DRY ? 'SUBMIT (dry-run: decides but sends nothing)' : 'SUBMIT — will make our picks') : 'READ-ONLY';
+if (UNATTENDED && !SUBMIT) {
+  console.log(
+    '  !! WARNING: --unattended without --submit does nothing useful. Nobody will click the\n' +
+      '     printed picks, so every pick will expire and Yahoo will autodraft from the\n' +
+      '     uploaded pre-draft rankings instead.',
+  );
+}
+// State the parsed flags explicitly: a mis-armed run must be obvious from the log's head,
+// not inferred from behaviour hundreds of lines later.
+console.log(
+  `flags: submit=${SUBMIT} unattended=${UNATTENDED} dryRun=${DRY} wait=${WAIT}` +
+    `  (argv: ${process.argv.slice(2).join(' ') || 'none'})`,
+);
 console.log(`draft ${DRAFT_ID} team ${TEAM_ID} via ${WS_SCHEME}://${WS_HOST}:${WS_PORT}`);
 console.log(`mode: ${mode}   input window: ${INPUT_WINDOW_S}s   board -> ${OUT}`);
 flush();
