@@ -1,4 +1,11 @@
 import type { CategoryWeights, LeagueSettings, Valuation } from '@fha/core';
+import {
+  SEASON_TEAM_GAMES,
+  availabilityAdjustedVorp,
+  availableShare,
+  expectedGamesPlayed,
+  type Availability,
+} from './availability.js';
 import { unfilledStartingSlots } from './draft.js';
 
 /**
@@ -37,14 +44,26 @@ export interface WaiverInput {
   /** Days left in the scoring week including today, 1..7. */
   daysRemaining: number;
   addThreshold?: number;
+  /** Availability by nhlId (see `availability`). A player without an entry is healthy. */
+  availability?: Readonly<Record<number, Availability>>;
+  /**
+   * Reserve seats (IR, IR+, NA) open on our roster, one entry per seat, e.g. ['IR']. Enables
+   * IR stashes: an injured free agent added straight into a reserve seat costs no drop.
+   */
+  openReserveSlots?: readonly string[];
+  /** Team games left in the season, the horizon for rest-of-season value. Default 82. */
+  seasonGamesRemaining?: number;
 }
 
 export interface WaiverMove {
   add: number;
-  drop: number;
+  /** The player dropped, or null for an IR stash, which needs no roster spot. */
+  drop: number | null;
   /** The gain the move is judged on: the better of the season and the streaming view. */
   gain: number;
-  kind: 'upgrade' | 'stream';
+  /** For an IR stash, the reserve slot he goes into. */
+  reserveSlot?: string;
+  kind: 'upgrade' | 'stream' | 'irStash';
   /** VORP_add − VORP_drop. */
   rosGain: number;
   /** This week's weighted production of the add minus the drop's. */
@@ -90,10 +109,39 @@ function weightedPerGame(v: Valuation, weights: CategoryWeights | undefined): nu
   return sum / v.gp;
 }
 
+/** Games he is expected to play this week: his team's games, less those he misses injured. */
 function gamesThisWeek(v: Valuation, input: WaiverInput): number {
-  const team = input.gamesThisWeek[v.team] ?? 0;
+  const scheduled = input.gamesThisWeek[v.team] ?? 0;
+  const a = input.availability?.[v.nhlId];
+  const team = a === undefined ? scheduled : expectedGamesPlayed(a, scheduled);
   if (v.positionType !== 'G') return team;
   return team * (input.goalieStartShare?.[v.nhlId] ?? DEFAULT_GOALIE_START_SHARE);
+}
+
+function seasonShare(v: Valuation, input: WaiverInput): number {
+  const a = input.availability?.[v.nhlId];
+  return a === undefined ? 1 : availableShare(a, input.seasonGamesRemaining ?? SEASON_TEAM_GAMES);
+}
+
+/**
+ * Rest-of-season value net of expected time out (additive, see `availabilityAdjustedVorp`).
+ * An injured player on our roster is therefore a cheap drop, and an injured free agent a
+ * poor add unless he can be stashed in a reserve seat.
+ */
+export function waiverWorth(v: Valuation, input: WaiverInput): number {
+  return availabilityAdjustedVorp(v.vorp, seasonShare(v, input));
+}
+
+function injuryNote(v: Valuation, input: WaiverInput): string | undefined {
+  const a = input.availability?.[v.nhlId];
+  if (a === undefined || a.expectedGamesMissed <= 0) return undefined;
+  const ir = a.irEligible.filter((slot) => input.openReserveSlots?.includes(slot));
+  return (
+    `${v.name} is ${a.label}.` +
+    (ir.length > 0
+      ? ` A ${ir[0] ?? 'IR'} seat is open: moving him there frees a spot without a drop.`
+      : '')
+  );
 }
 
 /** Dropping `drop` for `add` must not leave a starting slot we could fill before unfillable. */
@@ -119,7 +167,7 @@ const fmt = (x: number): string => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed
  *   rosGain)`, so streaming never quietly throws away a better player.
  */
 export function scoreWaiverPair(add: Valuation, drop: Valuation, input: WaiverInput): WaiverMove {
-  const rosGain = add.vorp - drop.vorp;
+  const rosGain = waiverWorth(add, input) - waiverWorth(drop, input);
   const gAdd = gamesThisWeek(add, input);
   const gDrop = gamesThisWeek(drop, input);
   const weekly = (v: Valuation, g: number): number => g * weightedPerGame(v, input.weights);
@@ -131,67 +179,114 @@ export function scoreWaiverPair(add: Valuation, drop: Valuation, input: WaiverIn
     kind === 'upgrade'
       ? [`${add.name} is worth ${fmt(rosGain)} over the rest of the season versus ${drop.name}.`]
       : [
-          `${add.name} plays ${String(gAdd)} games this week to ${drop.name}'s ${String(gDrop)}: ` +
+          `${add.name} plays ${gAdd.toFixed(1)} games this week to ${drop.name}'s ${gDrop.toFixed(1)}: ` +
             `${fmt(streamGain)} this week` +
             (rosGain < 0 ? `, less ${fmt(-rosGain)} of season value given up.` : '.'),
         ];
-  return { add: add.nhlId, drop: drop.nhlId, gain, kind, rosGain, streamGain, reasons };
+  const notes = [injuryNote(add, input), injuryNote(drop, input)].filter(
+    (n): n is string => n !== undefined,
+  );
+  return {
+    add: add.nhlId,
+    drop: drop.nhlId,
+    gain,
+    kind,
+    rosGain,
+    streamGain,
+    reasons: [...reasons, ...notes],
+  };
 }
 
 /**
- * §12.8: rank add/drop pairs and recommend those worth a scarce add. Pure and deterministic.
- * Moves are chosen greedily best-first, each add and each drop used once, up to the adds left.
+ * An IR stash: an injured free agent added straight into an open reserve seat his status
+ * allows. No one is dropped, so the gain is his value once back, `share·max(VORP, 0)`, with no
+ * roster-spot cost. [U] That Yahoo accepts an add directly into IR is unverified (U-12).
  */
-export function scoreWaivers(input: WaiverInput): WaiverResult {
-  const requiredGain = requiredAddGain(input);
+export function scoreIrStash(add: Valuation, input: WaiverInput): WaiverMove | undefined {
+  const a = input.availability?.[add.nhlId];
+  if (a === undefined || a.expectedGamesMissed <= 0) return undefined;
+  const reserveSlot = a.irEligible.find((slot) => input.openReserveSlots?.includes(slot));
+  if (reserveSlot === undefined) return undefined;
+  const gain = seasonShare(add, input) * Math.max(0, add.vorp);
+  return {
+    add: add.nhlId,
+    drop: null,
+    reserveSlot,
+    gain,
+    kind: 'irStash',
+    rosGain: gain,
+    streamGain: 0,
+    reasons: [
+      `${add.name} is ${a.label}: stash him in ${reserveSlot}, no drop needed. ` +
+        `Worth ${fmt(gain)} over the rest of the season once back.`,
+    ],
+  };
+}
+
+function rejection(m: WaiverMove, input: WaiverInput, requiredGain: number): WaiverMove {
+  const why =
+    input.addsRemaining <= 0
+      ? 'No adds left this week.'
+      : m.gain > requiredGain
+        ? 'Every remaining add is already committed to a better move.'
+        : `Gain ${m.gain.toFixed(2)} does not clear the ${requiredGain.toFixed(2)} bar for an add.`;
+  return { ...m, reasons: [...m.reasons, why] };
+}
+
+/** Every candidate move: each add/drop pair, plus an IR stash for each injured free agent. */
+function candidateMoves(input: WaiverInput): WaiverMove[] {
   const onRoster = new Set(input.roster.map((r) => r.nhlId));
   const drops = input.droppable
     .map((id) => input.roster.find((r) => r.nhlId === id))
     .filter((v): v is Valuation => v !== undefined);
-
   const scored: WaiverMove[] = [];
   for (const add of input.candidates) {
     if (onRoster.has(add.nhlId)) continue;
-    for (const drop of drops) {
-      scored.push(scoreWaiverPair(add, drop, input));
-    }
+    const stash = scoreIrStash(add, input);
+    if (stash) scored.push(stash);
+    for (const drop of drops) scored.push(scoreWaiverPair(add, drop, input));
   }
-  scored.sort((a, b) => b.gain - a.gain || a.add - b.add || a.drop - b.drop);
+  return scored.sort((a, b) => b.gain - a.gain || a.add - b.add || (a.drop ?? -1) - (b.drop ?? -1));
+}
 
+/**
+ * §12.8: rank add/drop pairs and IR stashes, and recommend those worth a scarce add. Pure and
+ * deterministic. Moves are chosen greedily best-first, each add, each drop and each open
+ * reserve seat used once, up to the adds left.
+ */
+export function scoreWaivers(input: WaiverInput): WaiverResult {
+  const requiredGain = requiredAddGain(input);
   const moves: WaiverMove[] = [];
   const usedAdd = new Set<number>();
   const usedDrop = new Set<number>();
+  const reserve = [...(input.openReserveSlots ?? [])];
   const byId = new Map(input.candidates.map((c) => [c.nhlId, c]));
   let current = [...input.roster];
   let bestRejected: WaiverMove | undefined;
-  for (const m of scored) {
-    if (usedAdd.has(m.add) || usedDrop.has(m.drop)) continue;
+  for (const m of candidateMoves(input)) {
+    if (usedAdd.has(m.add) || (m.drop !== null && usedDrop.has(m.drop))) continue;
     const add = byId.get(m.add);
-    const drop = current.find((r) => r.nhlId === m.drop);
-    // Legality is judged on the roster as earlier moves leave it: two drops can open a hole
-    // together that neither opens alone.
-    const holes = unfilledStartingSlots(current, input.settings).length;
-    if (!add || !drop || !keepsLineupLegal(current, add, drop, input.settings, holes)) continue;
+    if (!add) continue;
+    if (m.drop === null) {
+      if (m.reserveSlot === undefined || !reserve.includes(m.reserveSlot)) continue;
+    } else {
+      const drop = current.find((r) => r.nhlId === m.drop);
+      // Legality is judged on the roster as earlier moves leave it: two drops can open a hole
+      // together that neither opens alone.
+      const holes = unfilledStartingSlots(current, input.settings).length;
+      if (!drop || !keepsLineupLegal(current, add, drop, input.settings, holes)) continue;
+    }
     if (m.gain > requiredGain && moves.length < input.addsRemaining) {
-      current = [...current.filter((r) => r.nhlId !== drop.nhlId), add];
+      if (m.drop === null) reserve.splice(reserve.indexOf(m.reserveSlot ?? ''), 1);
+      else current = [...current.filter((r) => r.nhlId !== m.drop), add];
       moves.push({
         ...m,
         reasons: [...m.reasons, `Clears the ${requiredGain.toFixed(2)} bar for an add.`],
       });
       usedAdd.add(m.add);
-      usedDrop.add(m.drop);
-    } else if (!bestRejected) {
-      bestRejected = {
-        ...m,
-        reasons: [
-          ...m.reasons,
-          input.addsRemaining <= 0
-            ? 'No adds left this week.'
-            : m.gain > requiredGain
-              ? 'Every remaining add is already committed to a better move.'
-              : `Gain ${m.gain.toFixed(2)} does not clear the ${requiredGain.toFixed(2)} bar for an add.`,
-        ],
-      };
+      if (m.drop !== null) usedDrop.add(m.drop);
+    } else {
+      bestRejected ??= rejection(m, input, requiredGain);
     }
   }
   return bestRejected ? { requiredGain, moves, bestRejected } : { requiredGain, moves };

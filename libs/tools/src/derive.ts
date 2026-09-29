@@ -1,5 +1,5 @@
 import type { LeagueSettings, Player } from '@fha/core';
-import { isLocked, type LineupPlayer } from '@fha/model';
+import { availability, isLocked, type Availability, type LineupPlayer } from '@fha/model';
 import type { LeagueView } from './view.js';
 
 /**
@@ -55,6 +55,27 @@ export function label(p: Player): string {
 
 export function fmt(n: number | undefined, digits = 2): string {
   return n === undefined || !Number.isFinite(n) ? '-' : n.toFixed(digits);
+}
+
+/**
+ * Optional injury detail a reader may attach to a player. Not in the core `Player` schema yet:
+ * the live Yahoo reader is expected to supply `injury_note` and a return date (Phase 2), and a
+ * snapshot without them falls back to the status defaults in `availability` [U].
+ */
+interface InjuryDetail {
+  injuryNote?: string;
+  returnDate?: string;
+}
+
+/** A player's availability as of the snapshot date (§12, draft-night flaw 4). */
+export function availabilityOf(view: LeagueView, p: Player): Availability {
+  const detail = p as Player & InjuryDetail;
+  return availability({
+    status: p.status,
+    injuryNote: detail.injuryNote,
+    returnDate: detail.returnDate,
+    now: view.snap.date,
+  });
 }
 
 export interface DayStatus {

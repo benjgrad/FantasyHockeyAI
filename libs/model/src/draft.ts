@@ -1,6 +1,36 @@
 import type { LeagueSettings, Valuation } from '@fha/core';
+import {
+  SEASON_TEAM_GAMES,
+  availabilityAdjustedVorp,
+  availableShare,
+  type Availability,
+} from './availability.js';
+import { categoryFit, categoryNeedWeights, fitWeight } from './draftFit.js';
+import {
+  needMultiplier,
+  qualityLeftAtOpenSlots,
+  qualityUrgency,
+  slotUrgency,
+  unfilledStartingSlots,
+} from './draftSlots.js';
 import { normalCdf } from './numeric.js';
-import { eligibleSlots, type NhlPosition } from './positions.js';
+
+export {
+  CATEGORY_SATURATION,
+  FIT_LATE_GROWTH,
+  categoryFit,
+  categoryNeedWeights,
+  fitWeight,
+} from './draftFit.js';
+export {
+  QUALITY_URGENCY_WEIGHT,
+  needMultiplier,
+  nhlPositionOf,
+  qualityLeftAtOpenSlots,
+  qualityUrgency,
+  slotUrgency,
+  unfilledStartingSlots,
+} from './draftSlots.js';
 
 /** §12.5 step 4. */
 export const SCARCITY_LAMBDA = 0.5;
@@ -38,78 +68,6 @@ export function nextOwnPick(state: DraftState, afterPick: number): number | unde
   return pickNumbersFor(state.slot, state.numTeams, state.rounds).find((p) => p > afterPick);
 }
 
-function slotCount(settings: LeagueSettings, position: string): number {
-  return settings.rosterSlots
-    .filter((s) => s.isStarting && s.position === position)
-    .reduce((n, s) => n + s.count, 0);
-}
-
-function benchCount(settings: LeagueSettings): number {
-  return settings.rosterSlots
-    .filter((s) => !s.isStarting && s.position !== 'IR' && s.position !== 'IR+')
-    .reduce((n, s) => n + s.count, 0);
-}
-
-export function nhlPositionOf(position: string): NhlPosition {
-  switch (position) {
-    case 'LW':
-      return 'L';
-    case 'RW':
-      return 'R';
-    case 'C':
-      return 'C';
-    case 'D':
-      return 'D';
-    default:
-      return 'G';
-  }
-}
-
-/**
- * Roster need multiplier (§12.5 step 2).
- *
- * A player only earns his full value if he would fill a starting slot. Once those are
- * full he is a bench upgrade, and once the bench is stocked at his position he is close
- * to worthless for this draft.
- */
-export function needMultiplier(
-  player: Valuation,
-  myRoster: readonly Valuation[],
-  settings: LeagueSettings,
-): number {
-  const isGoalie = player.positionType === 'G';
-  const mineAt = (pos: string): number =>
-    myRoster.filter((r) =>
-      eligibleSlots(nhlPositionOf(r.position), settings.rosterSlots).includes(pos),
-    ).length;
-
-  if (isGoalie) {
-    const gSlots = slotCount(settings, 'G');
-    const goalies = myRoster.filter((r) => r.positionType === 'G').length;
-    if (goalies < gSlots) return 1.0;
-    if (goalies < gSlots + 1) return 0.5;
-    return 0.2;
-  }
-
-  const eligible = eligibleSlots(
-    nhlPositionOf(player.position),
-    settings.rosterSlots,
-    player.eligible ?? [],
-  );
-  const primaries = eligible.filter((s) => s !== 'Util' && s !== 'UTIL');
-  const hasOpenStarting = primaries.some((pos) => mineAt(pos) < slotCount(settings, pos));
-  if (hasOpenStarting) return 1.0;
-
-  const skaters = myRoster.filter((r) => r.positionType === 'P').length;
-  const startingSkaterSlots = settings.rosterSlots
-    .filter((s) => s.isStarting && s.position !== 'G')
-    .reduce((n, s) => n + s.count, 0);
-  const bench = benchCount(settings);
-  // Two or more spare bodies already covering his positions: deep depth, little value.
-  if (skaters >= startingSkaterSlots + Math.min(2, bench)) return 0.35;
-  return 0.7;
-}
-
 /**
  * Probability a player is still on the board at pick `k` (§12.5 step 3).
  * `adp` is an expected draft position; sigma widens with it because late picks are noisier.
@@ -143,11 +101,20 @@ export function expectedNextBest(
 export interface ScoredPlayer {
   valuation: Valuation;
   need: number;
-  /** Additive pressure in VORP units to fill a remaining starting slot; negative suppresses. */
+  /**
+   * Additive pressure in VORP units: the head count (fill every starting seat) plus the
+   * quality shortfall (grab an above-replacement player where they are running out).
+   */
   urgency: number;
   nextBest: number;
   /** Category-balance adjustment in VORP units; negative means redundant strength. */
   fit: number;
+  /** Weight the fit term carried, 1 on an empty roster rising as the starting seats fill. */
+  fitWeight: number;
+  /** Share of the season he is expected to be available for (1 when healthy or unknown). */
+  availableShare: number;
+  /** VORP after the availability discount: the base every other term builds on. */
+  adjustedVorp: number;
   score: number;
 }
 
@@ -159,36 +126,83 @@ export interface BoardOptions {
   categories?: readonly string[];
   /** Summed-z strength at which a category stops needing more. */
   saturation?: number;
-  /** How many picks we have left, including this one. Enables the slot-urgency term. */
+  /** How many picks we have left, including this one. Enables the slot-urgency terms. */
   picksRemaining?: number;
   /** Overall pick number of our next selection after this one, if any. */
   nextPick?: number;
   /** Expected draft position by player. Falls back to VORP rank when absent (no ADP). */
   adpOf?: (v: Valuation) => number;
+  /** Status-based availability by player (see `availability`). Undefined means healthy. */
+  availabilityOf?: (v: Valuation) => Availability | undefined;
   lambda?: number;
 }
 
-/** §12.5: score every available player, best first. */
+/**
+ * A rostered player expected to miss more than half the season does not hold his seat: need
+ * and urgency see the seat as open. We drafted an NA goalie; his G seat was still empty.
+ */
+export const ROSTER_PRESENT_SHARE = 0.5;
+
+/** VORP after availability, and the share behind it, for every player the board looks at. */
+function availabilityIndex(
+  players: readonly Valuation[],
+  availabilityOf: BoardOptions['availabilityOf'],
+): Map<number, { share: number; worth: number }> {
+  const out = new Map<number, { share: number; worth: number }>();
+  for (const v of players) {
+    const a = availabilityOf?.(v);
+    const share = a === undefined ? 1 : availableShare(a, SEASON_TEAM_GAMES);
+    out.set(v.nhlId, { share, worth: availabilityAdjustedVorp(v.vorp, share) });
+  }
+  return out;
+}
+
+/** Expected best (availability-adjusted) VORP left at our next pick, per VORP slot. */
+function nextBestBySlot(
+  available: readonly Valuation[],
+  worth: (v: Valuation) => number,
+  adpOf: (v: Valuation) => number,
+  nextPick: number | undefined,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  if (nextPick === undefined) return out;
+  for (const slot of new Set(available.map((v) => v.vorpPosition))) {
+    const cands = available
+      .filter((v) => v.vorpPosition === slot)
+      .map((v) => ({ vorp: worth(v), adp: adpOf(v) }));
+    out.set(slot, expectedNextBest(cands, nextPick));
+  }
+  return out;
+}
+
+/**
+ * §12.5: score every available player, best first.
+ *
+ * `score = need·(worth + w_fit·fit) + need²·λ·(worth − nextBest) + urgency`, where `worth` is
+ * VORP discounted for expected time out. Three draft-night corrections (ROADMAP):
+ * - the scarcity ("grab him before the run") term is scaled by need²: a run at a position we
+ *   have filled costs us a bench player, not a starter (flaw 1, the third goalie);
+ * - `w_fit` rises as the starting seats fill (flaw 3);
+ * - urgency adds a quality shortfall, not only a head count (flaw 2).
+ * Every term is additive, so none of them inverts on the negative VORPs of the late rounds.
+ */
 export function scoreBoard(opts: BoardOptions): ScoredPlayer[] {
-  const { available, myRoster, settings, nextPick } = opts;
+  const { available, settings, nextPick } = opts;
   const lambda = opts.lambda ?? SCARCITY_LAMBDA;
+  const avail = availabilityIndex([...available, ...opts.myRoster], opts.availabilityOf);
+  const worth = (v: Valuation): number => avail.get(v.nhlId)?.worth ?? v.vorp;
+  const myRoster = opts.myRoster.filter(
+    (r) => (avail.get(r.nhlId)?.share ?? 1) >= ROSTER_PRESENT_SHARE,
+  );
 
   // Without Yahoo ADP, our own ranking is the best available prior for how the room drafts.
-  const rankByVorp = new Map<number, number>();
-  [...available].sort((a, b) => b.vorp - a.vorp).forEach((v, i) => rankByVorp.set(v.nhlId, i + 1));
+  const rankByWorth = new Map<number, number>();
+  [...available]
+    .sort((a, b) => worth(b) - worth(a))
+    .forEach((v, i) => rankByWorth.set(v.nhlId, i + 1));
   const adpOf =
-    opts.adpOf ?? ((v: Valuation): number => rankByVorp.get(v.nhlId) ?? available.length);
-
-  const nextBestBySlot = new Map<string, number>();
-  if (nextPick !== undefined) {
-    const slots = new Set(available.map((v) => v.vorpPosition));
-    for (const slot of slots) {
-      const cands = available
-        .filter((v) => v.vorpPosition === slot)
-        .map((v) => ({ vorp: v.vorp, adp: adpOf(v) }));
-      nextBestBySlot.set(slot, expectedNextBest(cands, nextPick));
-    }
-  }
+    opts.adpOf ?? ((v: Valuation): number => rankByWorth.get(v.nhlId) ?? available.length);
+  const nextBest = nextBestBySlot(available, worth, adpOf, nextPick);
 
   const categories = opts.categories ?? [];
   const needWeights =
@@ -197,21 +211,40 @@ export function scoreBoard(opts: BoardOptions): ScoredPlayer[] {
           ...(opts.saturation === undefined ? {} : { saturation: opts.saturation }),
         })
       : {};
+  const seats = unfilledStartingSlots([], settings).length;
+  const wFit = fitWeight(seats - unfilledStartingSlots(myRoster, settings).length, seats);
+  const survives = (v: Valuation): number =>
+    nextPick === undefined ? 0 : probabilityAvailable(adpOf(v), nextPick);
+  const left =
+    opts.picksRemaining === undefined
+      ? new Map<string, { open: number; goodLeft: number }>()
+      : qualityLeftAtOpenSlots(myRoster, available, settings, worth, survives);
 
   return available
     .map((valuation) => {
+      const w = worth(valuation);
       const need = needMultiplier(valuation, myRoster, settings);
-      const nextBest = nextBestBySlot.get(valuation.vorpPosition) ?? valuation.vorp;
+      const nb = nextBest.get(valuation.vorpPosition) ?? w;
       const fit = categories.length > 0 ? categoryFit(valuation, needWeights, categories) : 0;
       const urgency =
         opts.picksRemaining === undefined
           ? 0
-          : slotUrgency(valuation, myRoster, settings, opts.picksRemaining);
-      const adjusted = valuation.vorp + fit;
-      const score = need * adjusted + lambda * (adjusted - nextBest) + urgency;
-      return { valuation, need, urgency, nextBest, fit, score };
+          : slotUrgency(valuation, myRoster, settings, opts.picksRemaining) +
+            qualityUrgency(valuation, w, left, settings);
+      const score = need * (w + wFit * fit) + need * need * lambda * (w - nb) + urgency;
+      return {
+        valuation,
+        need,
+        urgency,
+        nextBest: nb,
+        fit,
+        fitWeight: wFit,
+        availableShare: avail.get(valuation.nhlId)?.share ?? 1,
+        adjustedVorp: w,
+        score,
+      };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((x, y) => y.score - x.score);
 }
 
 /** §12.5 step 6: flag a position run in the recent picks. */
@@ -223,155 +256,4 @@ export function positionRuns(picks: readonly DraftPick[]): { position: string; c
     .filter(([, n]) => n >= RUN_THRESHOLD)
     .map(([position, count]) => ({ position, count }))
     .sort((a, b) => b.count - a.count);
-}
-
-/** Category strength beyond which more of it stops helping (in summed-z units). */
-export const CATEGORY_SATURATION = 6;
-const NEED_FLOOR = 0.25;
-const NEED_CEILING = 2;
-
-/**
- * How much our roster still needs each category.
- *
- * Summing z-scores across categories maximises *total* strength, which is the wrong
- * objective in head-to-head categories: a category is won, not accumulated. A roster
- * measured at +17 in hits wins hits by a mile and would have won it at +5, so the
- * remaining +12 bought nothing while assists and power-play points were being lost.
- *
- * Weights fall as a category saturates and rise where we are behind, then are normalised
- * to average 1 so this re-balances the board rather than deflating it.
- */
-export function categoryNeedWeights(
-  roster: readonly Valuation[],
-  categories: readonly string[],
-  opts: { saturation?: number } = {},
-): Record<string, number> {
-  const saturation = opts.saturation ?? CATEGORY_SATURATION;
-  if (categories.length === 0) return {};
-
-  const raw: Record<string, number> = {};
-  for (const c of categories) {
-    const current = roster.reduce((a, p) => a + (p.z[c] ?? 0), 0);
-    const want = 1 - current / saturation;
-    raw[c] = Math.min(NEED_CEILING, Math.max(NEED_FLOOR, want));
-  }
-  const mean = Object.values(raw).reduce((a, b) => a + b, 0) / Math.max(1, Object.keys(raw).length);
-  if (mean <= 0) return Object.fromEntries(categories.map((c) => [c, 1]));
-
-  const out: Record<string, number> = {};
-  for (const c of categories) out[c] = (raw[c] ?? 1) / mean;
-  return out;
-}
-
-/**
- * How well a player's category profile fits what the roster still needs, in VORP units.
- *
- * Positive means his strengths land where we are weak; negative means he piles into
- * categories we have already won. Adding this to VORP preserves the positional
- * replacement structure while steering the draft towards a balanced roster.
- */
-export function categoryFit(
-  player: Valuation,
-  weights: Readonly<Record<string, number>>,
-  categories: readonly string[],
-): number {
-  let weighted = 0;
-  let plain = 0;
-  for (const c of categories) {
-    const z = player.z[c] ?? 0;
-    weighted += (weights[c] ?? 1) * z;
-    plain += z;
-  }
-  return weighted - plain;
-}
-
-/**
- * Starting slots the roster has not yet filled, one entry per empty seat.
- *
- * This is a matching problem, not a count. A player eligible at several slots can only
- * occupy **one** of them, so counting "how many rostered players are eligible here" per slot
- * double-counts the flexible ones: Cale Makar is eligible at D and at Util, and the naive
- * count reported both as filled, hiding an open seat. Under-reporting open slots makes
- * `slotUrgency` under-apply, which is precisely the failure it exists to prevent.
- *
- * Maximum bipartite matching between rostered players and expanded slot seats. The rosters
- * here are at most ~20 players against ~13 seats, so a simple augmenting-path search is more
- * than fast enough.
- */
-export function unfilledStartingSlots(
-  roster: readonly Valuation[],
-  settings: LeagueSettings,
-): string[] {
-  // One entry per seat: a slot with count 4 becomes four seats.
-  const seats: string[] = [];
-  for (const s of settings.rosterSlots) {
-    if (!s.isStarting) continue;
-    for (let i = 0; i < s.count; i++) seats.push(s.position);
-  }
-
-  const eligibleSeats = roster.map((r) => {
-    const mine = eligibleSlots(nhlPositionOf(r.position), settings.rosterSlots, r.eligible ?? []);
-    return seats.map((seat, i) => (mine.includes(seat) ? i : -1)).filter((i) => i >= 0);
-  });
-
-  const seatTakenBy = new Array<number>(seats.length).fill(-1);
-
-  const tryAssign = (player: number, visited: boolean[]): boolean => {
-    for (const seat of eligibleSeats[player] ?? []) {
-      if (visited[seat] === true) continue;
-      visited[seat] = true;
-      const holder = seatTakenBy[seat] ?? -1;
-      if (holder === -1 || tryAssign(holder, visited)) {
-        seatTakenBy[seat] = player;
-        return true;
-      }
-    }
-    return false;
-  };
-
-  for (let p = 0; p < roster.length; p++) {
-    tryAssign(p, new Array<boolean>(seats.length).fill(false));
-  }
-
-  return seats.filter((_, i) => seatTakenBy[i] === -1);
-}
-
-/** Picks of slack before an unfilled starting slot becomes unavoidable. */
-const URGENCY_HORIZON = 3;
-/** VORP units per unit of pressure. Large enough to dominate late-round differences. */
-const URGENCY_WEIGHT = 8;
-
-/**
- * An **additive** bonus, in VORP units, that forces the remaining starting slots to be filled.
- *
- * An unfilled starting slot is not a mild inefficiency: it is a guaranteed zero in every
- * category that slot would have contributed, on every day of the season. A rehearsal from
- * the last seat finished the draft with one goalie and an empty G slot, because the board
- * kept preferring marginally better skaters and nothing made the second goalie mandatory.
- *
- * This is deliberately additive. The first attempt was a multiplier, which failed in the
- * exact situation it was written for: by the final rounds the best available VORP is
- * **negative** (everyone left is below replacement), and multiplying a negative score by a
- * boost makes it *worse*. A multiplicative modifier is unsafe on any quantity that can go
- * negative — it silently inverts. An additive bonus behaves the same at both ends of the board.
- */
-export function slotUrgency(
-  player: Valuation,
-  roster: readonly Valuation[],
-  settings: LeagueSettings,
-  picksRemaining: number,
-): number {
-  const unfilled = unfilledStartingSlots(roster, settings);
-  if (unfilled.length === 0) return 0;
-  const slack = picksRemaining - unfilled.length;
-  const pressure = Math.max(0, URGENCY_HORIZON - slack);
-  if (pressure === 0) return 0;
-
-  const mine = eligibleSlots(
-    nhlPositionOf(player.position),
-    settings.rosterSlots,
-    player.eligible ?? [],
-  );
-  const fills = unfilled.some((slot) => mine.includes(slot));
-  return (fills ? 1 : -1) * pressure * URGENCY_WEIGHT;
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isOut } from '@fha/model';
 import { defineTool, fail, ok } from '../context.js';
-import { DATE_RE, dateProblem, dayStatus, label, table } from '../derive.js';
+import { DATE_RE, availabilityOf, dateProblem, dayStatus, label, table } from '../derive.js';
 import { resolvePlayers } from '../resolve.js';
 
 /** Read tools over time: the NHL schedule, goalie starts and player news. */
@@ -87,22 +87,28 @@ export const getGoalieStarts = defineTool({
 export const getNews = defineTool({
   name: 'getNews',
   description:
-    'Status and recent news notes for up to 25 players. Use it for anyone whose status or role is in doubt before overriding the solver or dropping him.',
+    'Status, availability (chance to play, expected return) and recent news notes for up to 25 players. Use it for anyone whose status or role is in doubt before overriding the solver or dropping him.',
   input: z.object({ playerKeys: z.array(z.string()).min(1).max(25) }),
   risk: 'read',
   execute: (input, ctx) => {
     const r = resolvePlayers(ctx.view, input.playerKeys);
     if (!r.ok) return Promise.resolve(fail(r.error));
-    const items = r.value.map((p) => ({
-      playerKey: p.playerKey,
-      name: p.name,
-      status: p.status ?? 'healthy',
-      news: ctx.view.snap.news[p.playerKey] ?? [],
-    }));
+    const items = r.value.map((p) => {
+      const a = availabilityOf(ctx.view, p);
+      return {
+        playerKey: p.playerKey,
+        name: p.name,
+        status: p.status ?? 'healthy',
+        availability: a.label,
+        playProb: a.playProb,
+        expectedReturn: a.expectedReturn ?? null,
+        news: ctx.view.snap.news[p.playerKey] ?? [],
+      };
+    });
     const summary = items
       .map(
         (i) =>
-          `${i.playerKey} ${i.name} [${i.status}]: ${i.news.length === 0 ? 'no news recorded' : i.news.join(' / ')}`,
+          `${i.playerKey} ${i.name} [${i.status}]: ${i.news.length === 0 ? 'no news recorded' : i.news.join(' / ')} — availability: ${i.availability}`,
       )
       .join('\n');
     return Promise.resolve(ok(items, summary));

@@ -8,7 +8,7 @@ import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './to
 import { getMatchup } from './tools/matchup.js';
 import { proposeAddDrop, proposeLineup, proposeWaiverClaim } from './tools/proposeRoster.js';
 import { proposeTrade, proposeTradeResponse } from './tools/proposeTrade.js';
-import { getLineupSuggestion, getRoster } from './tools/roster.js';
+import { getLineupSuggestion, getRoster, getRosterHealth } from './tools/roster.js';
 import { getGoalieStarts, getNews, getSchedule } from './tools/schedule.js';
 import { evaluateTrade, getPendingTrades } from './tools/trades.js';
 import type { LeagueView } from './view.js';
@@ -18,6 +18,7 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
   [
     getLeagueContext,
     getRoster,
+    getRosterHealth,
     getLineupSuggestion,
     getTeamRoster,
     getPlayers,
@@ -52,6 +53,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
   lineup: [
     'getLeagueContext',
     'getRoster',
+    'getRosterHealth',
     'getLineupSuggestion',
     'getSchedule',
     'getGoalieStarts',
@@ -62,6 +64,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
   waivers: [
     'getLeagueContext',
     'getRoster',
+    'getRosterHealth',
     'searchPlayers',
     'getPlayers',
     'getMatchup',

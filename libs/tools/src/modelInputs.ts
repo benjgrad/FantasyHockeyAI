@@ -1,16 +1,17 @@
 import type { LeagueTeam, Projection, TeamKey, Valuation } from '@fha/core';
 import {
   evaluateTrade,
-  isOut,
   playerLine,
+  projectedWeekGames,
   seasonStarters,
   sumLines,
   weeklyCategoryPlan,
+  type Availability,
   type CategoryLine,
   type TradeEvaluation,
   type WeeklyPlan,
 } from '@fha/model';
-import { scoringCategories, weekBounds } from './derive.js';
+import { availabilityOf, scoringCategories, weekBounds } from './derive.js';
 import type { LeagueView } from './view.js';
 
 /**
@@ -30,6 +31,8 @@ const TEAM_GAMES = 82;
 export class ModelInputs {
   readonly projections: Projection[] = [];
   readonly valuations: Valuation[] = [];
+  /** Availability by model id, for every player whose status is not healthy. */
+  readonly availability: Record<number, Availability> = {};
   private readonly idOf = new Map<string, number>();
   private readonly keyOf = new Map<number, string>();
 
@@ -43,6 +46,8 @@ export class ModelInputs {
       const id = p.nhlId ?? synthetic--;
       this.idOf.set(p.playerKey, id);
       this.keyOf.set(id, p.playerKey);
+      const a = availabilityOf(view, p);
+      if (a.source !== 'healthy') this.availability[id] = a;
       const base = { nhlId: id, name: p.name, team: p.nhlTeam, positionType: p.positionType };
       const eligible = p.eligible.filter((e) => e !== 'Util' && e !== 'IR' && e !== 'IR+');
       this.projections.push({
@@ -143,6 +148,7 @@ export function evaluateTradeKeys(
     valuations: m.valuations,
     freeAgents: m.freeAgentIds(),
     weeksRemaining: weeksRemaining(view.snap.week),
+    availability: m.availability,
   });
 }
 
@@ -157,20 +163,25 @@ export function opponentFor(view: LeagueView, week: number): LeagueTeam | undefi
 }
 
 /**
- * A team's projected line for the rest of the week: its season starters (healthy players only)
- * times their NHL team's remaining games, scaled by each player's share of team games.
+ * A team's projected line for the rest of the week: its season starters among the players who
+ * will play at all this week, times their expected games (team games less games missed
+ * injured, scaled by each player's share of team games).
  */
 export function remainingWeekLine(view: LeagueView, teamKey: TeamKey, from: string): CategoryLine {
   const m = modelInputs(view);
   const { end } = weekBounds(from);
   const games = view.gamesBetween(from, end);
+  const weekGames = (v: Valuation, gpShare = 1): number =>
+    projectedWeekGames(games.get(v.team) ?? 0, { gpShare, availability: m.availability[v.nhlId] });
   const healthy = view
     .roster(teamKey)
-    .entries.filter((e) => e.slot !== 'IR' && e.slot !== 'IR+' && !isOut(e.player.status))
+    .entries.filter((e) => e.slot !== 'IR' && e.slot !== 'IR+')
     .flatMap((e) => {
       const id = m.id(e.player.playerKey);
       const v = id === undefined ? undefined : m.valuationById(id);
-      return v === undefined ? [] : [v];
+      // Scheduled but out all week: he would only take a starter's seat from someone who plays.
+      if (v === undefined || ((games.get(v.team) ?? 0) > 0 && weekGames(v) === 0)) return [];
+      return [v];
     });
   const cats = scoringCategories(view.settings);
   const starters = seasonStarters(healthy, view.settings);
@@ -178,8 +189,7 @@ export function remainingWeekLine(view: LeagueView, teamKey: TeamKey, from: stri
     starters.flatMap((v) => {
       const p = m.projectionById(v.nhlId);
       if (p === undefined) return [];
-      const share = Math.min(1, p.gp / TEAM_GAMES);
-      return [playerLine(p, (games.get(p.team) ?? 0) * share, cats)];
+      return [playerLine(p, weekGames(v, Math.min(1, p.gp / TEAM_GAMES)), cats)];
     }),
   );
 }

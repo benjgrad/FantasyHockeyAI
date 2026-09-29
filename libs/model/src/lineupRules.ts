@@ -15,7 +15,14 @@ export const DEFAULT_RESERVE_STATUSES: Readonly<Record<string, readonly string[]
 };
 
 /** Statuses that mean the player will not play tonight, whatever his team does. */
-const OUT_STATUSES = new Set(['O', 'IR', 'IR-LT', 'IR-NR', 'NA', 'SUSP']);
+export const OUT_STATUSES: ReadonlySet<string> = new Set([
+  'O',
+  'IR',
+  'IR-LT',
+  'IR-NR',
+  'NA',
+  'SUSP',
+]);
 
 /** P(plays) for a DTD skater (§12.3). */
 export const DTD_PLAY_PROBABILITY = 0.8;

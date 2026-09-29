@@ -1,7 +1,14 @@
 import type { Valuation } from '@fha/core';
 import { describe, expect, it } from 'vitest';
 import { cat, league, slot } from './fixtures.js';
-import { type WaiverInput, requiredAddGain, scoreWaiverPair, scoreWaivers } from './waiver.js';
+import { availability } from './availability.js';
+import {
+  type WaiverInput,
+  requiredAddGain,
+  scoreIrStash,
+  scoreWaiverPair,
+  scoreWaivers,
+} from './waiver.js';
 
 const settings = league({
   categories: [cat('G', 'P'), cat('A', 'P')],
@@ -163,5 +170,99 @@ describe('scoreWaivers — budget and legality', () => {
     expect(res.moves[0]?.add).toBe(fas[2]?.nhlId); // best add
     expect(res.moves[0]?.drop).toBe(extra.nhlId); // cheapest drop
     expect(res.bestRejected?.reasons.join(' ')).toContain('already committed');
+  });
+});
+
+describe('scoreWaivers — availability (draft-night flaw 4)', () => {
+  const now = '2026-09-29';
+  const hurt = (status: string) => availability({ status, now });
+
+  it('should make an injured rostered player a natural drop', () => {
+    // Bench D (VORP 2) is IR-LT: 60 days = 26.45 of 82 games, share 0.6774,
+    // worth 2 − 0.3226·(2 + 1) = 1.032. A healthy D at 1.8 gains 0.768 > 0.5.
+    const t = team();
+    const injured = val('D', { vorp: 2 });
+    const fa = val('D', { vorp: 1.8 });
+    const input = base({
+      roster: [...t.roster, injured],
+      droppable: [injured.nhlId],
+      candidates: [fa],
+    });
+    // Without availability the healthy D is 0.2 worse: no move.
+    expect(scoreWaivers(input).moves).toEqual([]);
+
+    const res = scoreWaivers({ ...input, availability: { [injured.nhlId]: hurt('IR-LT') } });
+    expect(res.moves).toHaveLength(1);
+    expect(res.moves[0]?.rosGain).toBeCloseTo(1.8 - (2 - ((60 * 82) / 186 / 82) * 3), 10);
+    expect(res.moves[0]?.reasons.join(' ')).toContain('IR-LT');
+  });
+
+  it('should count no games this week for an out player when streaming', () => {
+    // FA on a 4-game team but O (~4.4 games missed): he plays 0 of them.
+    const t = team();
+    const fa = val('C', { vorp: 1.0, perGame: 0.2, team: 'BUSY' });
+    const healthyStream = scoreWaiverPair(fa, t.benchC, base({ roster: t.roster }));
+    expect(healthyStream.streamGain).toBeCloseTo(0.6, 12);
+    const outStream = scoreWaiverPair(
+      fa,
+      t.benchC,
+      base({ roster: t.roster, availability: { [fa.nhlId]: hurt('O') } }),
+    );
+    // 0 games × 0.2 − 1 × 0.2 = −0.2.
+    expect(outStream.streamGain).toBeCloseTo(-0.2, 12);
+  });
+
+  it('should discount a DTD stream by his 0.2 expected missed game', () => {
+    const t = team();
+    const fa = val('C', { vorp: 1.0, perGame: 0.2, team: 'BUSY' });
+    const m = scoreWaiverPair(
+      fa,
+      t.benchC,
+      base({ roster: t.roster, availability: { [fa.nhlId]: hurt('DTD') } }),
+    );
+    // 3.8 × 0.2 − 1 × 0.2 = 0.56.
+    expect(m.streamGain).toBeCloseTo(0.56, 12);
+  });
+
+  it('should stash a valuable injured free agent in an open IR seat without a drop', () => {
+    // IR ≈ 25 days = 11.02 games: share 0.8656, stash gain 0.8656·4 = 3.46.
+    const t = team();
+    const star = val('C', { vorp: 4 });
+    const input = base({
+      roster: t.roster,
+      droppable: [],
+      candidates: [star],
+      availability: { [star.nhlId]: hurt('IR') },
+      openReserveSlots: ['IR'],
+    });
+    const res = scoreWaivers(input);
+    expect(res.moves).toHaveLength(1);
+    expect(res.moves[0]).toMatchObject({ kind: 'irStash', drop: null, reserveSlot: 'IR' });
+    expect(res.moves[0]?.gain).toBeCloseTo((1 - (25 * 82) / 186 / 82) * 4, 10);
+  });
+
+  it('should not stash without an open seat his status allows, nor stash twice into one seat', () => {
+    const t = team();
+    const a = val('C', { vorp: 4 });
+    const b = val('C', { vorp: 3 });
+    const availabilityMap = { [a.nhlId]: hurt('IR'), [b.nhlId]: hurt('O') };
+    const common = { roster: t.roster, candidates: [a, b], availability: availabilityMap };
+    expect(scoreWaivers(base({ ...common, openReserveSlots: [] })).moves).toEqual([]);
+    expect(scoreWaivers(base({ ...common, openReserveSlots: ['NA'] })).moves).toEqual([]);
+    const one = scoreWaivers(base({ ...common, openReserveSlots: ['IR'] }));
+    expect(one.moves.map((m) => m.add)).toEqual([a.nhlId]);
+    expect(scoreIrStash(val('C', { vorp: 4 }), base({ openReserveSlots: ['IR'] }))).toBeUndefined();
+  });
+
+  it('should tell us to use a free IR seat instead of dropping an IR-eligible player', () => {
+    const t = team();
+    const injured = val('D', { vorp: 2 });
+    const m = scoreWaiverPair(
+      val('D', { vorp: 1.8 }),
+      injured,
+      base({ availability: { [injured.nhlId]: hurt('O') }, openReserveSlots: ['IR'] }),
+    );
+    expect(m.reasons.join(' ')).toContain('IR seat is open');
+    expect(t.roster).toHaveLength(4);
   });
 });

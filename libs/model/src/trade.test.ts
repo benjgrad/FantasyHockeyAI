@@ -1,6 +1,7 @@
 import type { Projection, Valuation } from '@fha/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { cat, league, resetIds, skater, slot } from './fixtures.js';
+import { availability } from './availability.js';
 import { seasonStarters } from './starters.js';
 import { TradeInputError, evaluateTrade, findTradeTargets } from './trade.js';
 
@@ -274,5 +275,54 @@ describe('findTradeTargets', () => {
     }
     const scores = found.map((f) => f.evaluation.score);
     expect(scores).toEqual([...scores].sort((x, y) => y - x));
+  });
+});
+
+describe('evaluateTrade — availability', () => {
+  it('should value our NA player at nothing: trading him for a healthy one is a gain', () => {
+    // Our 10-goal centre is NA: over 1 week he plays share 0, so our line is 0 goals.
+    // Before: Φ((0 − 6)/√6) = Φ(−2.449); after we have the 6-goal centre: Φ(2.449).
+    const a = player('C', { G: 10 }, 2);
+    const b = player('C', { G: 6 }, 1);
+    const e = evaluateTrade({
+      settings: settings(['G']),
+      categories: ['G'],
+      ourRoster: ids(a),
+      theirRoster: ids(b),
+      give: ids(a),
+      get: ids(b),
+      weeksRemaining: 1,
+      availability: { [a.p.nhlId]: availability({ status: 'NA', now: '2026-09-29' }) },
+      ...data([a, b]),
+    });
+    const phi = 0.99284; // Φ(2.449)
+    expect(e.expectedWon.usBefore).toBeCloseTo(1 - phi, 3);
+    expect(e.expectedWon.usAfter).toBeCloseTo(phi, 3);
+    expect(e.deltaUs).toBeGreaterThan(0.98);
+    expect(e.reasons.join(' ')).toContain('expected to play 0% of the remaining season');
+  });
+
+  it('should scale a partly-injured player by the share he plays', () => {
+    // O ≈ 10 days = 4.41 team games; 2 weeks ≈ 6.17 games: share 1 − 4.41/6.17 = 2/7.
+    const a = player('C', { G: 10 }, 2);
+    const b = player('C', { G: 6 }, 1);
+    const input = {
+      settings: settings(['G']),
+      categories: ['G'],
+      ourRoster: ids(a),
+      theirRoster: ids(b),
+      give: ids(a),
+      get: ids(b),
+      weeksRemaining: 2,
+      ...data([a, b]),
+    };
+    const healthy = evaluateTrade(input);
+    const hurt = evaluateTrade({
+      ...input,
+      availability: { [a.p.nhlId]: availability({ status: 'O', now: '2026-09-29' }) },
+    });
+    expect(healthy.deltaUs).toBeLessThan(0);
+    expect(hurt.byCategory[0]?.ourWeeklyBefore).toBeCloseTo((10 * (2 / 7)) / 2, 6);
+    expect(hurt.deltaUs).toBeGreaterThan(healthy.deltaUs);
   });
 });

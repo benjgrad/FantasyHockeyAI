@@ -1,4 +1,5 @@
 import type { CategoryWeights, Projection } from '@fha/core';
+import { expectedGamesPlayed, type Availability } from './availability.js';
 import { isRateCategory, lowerIsBetter } from './categories.js';
 import { normalCdf } from './numeric.js';
 
@@ -117,6 +118,22 @@ export function playerLine(
     line.skaterGames = games;
   }
   return line;
+}
+
+/**
+ * Games a player is expected to play in the rest of this week: his team's scheduled games,
+ * less the ones his injury is expected to take (DTD costs 0.2 of the next game, O about 4.4),
+ * times his usual share of team games (`gp / 82`, a regular's ~1, a goalie's start share).
+ */
+export function projectedWeekGames(
+  scheduled: number,
+  opts: { gpShare?: number; availability?: Availability | undefined } = {},
+): number {
+  const share = Math.min(1, Math.max(0, opts.gpShare ?? 1));
+  const playable = opts.availability
+    ? expectedGamesPlayed(opts.availability, scheduled)
+    : scheduled;
+  return playable * share;
 }
 
 /** A category's value for a line: the total, or the rate built from volume. */

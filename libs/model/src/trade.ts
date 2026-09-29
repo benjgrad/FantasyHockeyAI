@@ -1,5 +1,11 @@
 import type { LeagueSettings, Projection, Valuation } from '@fha/core';
 import {
+  NHL_GAMES_PER_DAY,
+  availabilityAdjustedVorp,
+  availableShare,
+  type Availability,
+} from './availability.js';
+import {
   type CategoryLine,
   type MatchupOptions,
   categoryValue,
@@ -8,6 +14,7 @@ import {
   sumLines,
 } from './matchup.js';
 import { rosterCapacity, seasonStarters } from './starters.js';
+import { tradeReasons } from './tradeReasons.js';
 
 /**
  * Trade evaluation (§12.7).
@@ -51,6 +58,12 @@ export interface TradeInput {
   freeAgents?: readonly number[];
   weeksRemaining: number;
   matchup?: MatchupOptions;
+  /**
+   * Availability by nhlId, for every roster in the field. An injured player's weekly line is
+   * scaled by the share of the remaining season he is expected to play, and his value (used to
+   * pick starters, releases and signings) is discounted additively. Missing means healthy.
+   */
+  availability?: Readonly<Record<number, Availability>>;
 }
 
 export interface TradeCategoryDelta {
@@ -81,15 +94,31 @@ export interface TradeEvaluation {
   reasons: string[];
 }
 
-type Entry = { p: Projection; v: Valuation };
+/** `share`: of the remaining season, the part he is expected to be available for. */
+type Entry = { p: Projection; v: Valuation; share: number };
 type Index = ReadonlyMap<number, Entry>;
 
-function buildIndex(projections: readonly Projection[], valuations: readonly Valuation[]): Index {
-  const byId = new Map<number, Projection>(projections.map((p) => [p.nhlId, p]));
+function buildIndex(
+  input: Pick<TradeInput, 'projections' | 'valuations' | 'availability' | 'weeksRemaining'>,
+): Index {
+  const byId = new Map<number, Projection>(input.projections.map((p) => [p.nhlId, p]));
+  const horizon = input.weeksRemaining * 7 * NHL_GAMES_PER_DAY;
   const out = new Map<number, Entry>();
-  for (const v of valuations) {
+  for (const v of input.valuations) {
     const p = byId.get(v.nhlId);
-    if (p) out.set(v.nhlId, { p, v });
+    if (!p) continue;
+    const a = input.availability?.[v.nhlId];
+    if (a === undefined) {
+      out.set(v.nhlId, { p, v, share: 1 });
+      continue;
+    }
+    const share = availableShare(a, horizon);
+    const adjusted = {
+      ...v,
+      value: availabilityAdjustedVorp(v.value, share),
+      vorp: availabilityAdjustedVorp(v.vorp, share),
+    };
+    out.set(v.nhlId, { p, v: adjusted, share });
   }
   return out;
 }
@@ -103,8 +132,8 @@ function weeklyLine(
   const starters = seasonStarters(roster, input.settings);
   return sumLines(
     starters.map((v) => {
-      const p = entry(index, v.nhlId).p;
-      return playerLine(p, p.gp / input.weeksRemaining, input.categories);
+      const { p, share } = entry(index, v.nhlId);
+      return playerLine(p, (share * p.gp) / input.weeksRemaining, input.categories);
     }),
   );
 }
@@ -196,7 +225,7 @@ function validate(input: TradeInput, index: Index): void {
 
 /** §12.7: Δ expected categories won per week for both sides of a trade. Pure. */
 export function evaluateTrade(input: TradeInput): TradeEvaluation {
-  const index = buildIndex(input.projections, input.valuations);
+  const index = buildIndex(input);
   validate(input, index);
   const others = (input.otherRosters ?? []).map((r) => weeklyLine(r, index, input));
   return evaluateIndexed(input, index, others);
@@ -289,55 +318,12 @@ function evaluateIndexed(
     theirReleases: them.released,
     reasons: [],
   };
-  evaluation.reasons = tradeReasons(evaluation, pUsB, index, others.length);
+  evaluation.reasons = tradeReasons(evaluation, pUsB, {
+    name: (id) => entry(index, id).v.name,
+    fieldSize: others.length,
+    availability: [...give, ...get].map((id) => ({ id, share: entry(index, id).share })),
+  });
   return evaluation;
-}
-
-const signed = (x: number): string => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(2)}`;
-
-function tradeReasons(
-  e: TradeEvaluation,
-  usBefore: Readonly<Record<string, number>>,
-  index: Index,
-  fieldSize: number,
-): string[] {
-  const name = (id: number): string => entry(index, id).v.name;
-  const out = [
-    `Us ${signed(e.deltaUs)} expected categories/week ` +
-      `(${e.expectedWon.usBefore.toFixed(2)} → ${e.expectedWon.usAfter.toFixed(2)}); ` +
-      `partner ${signed(e.deltaThem)}.`,
-  ];
-  const moved = e.byCategory.filter((c) => Math.abs(c.us) >= 0.01).sort((x, y) => y.us - x.us);
-  for (const [label, cats] of [
-    ['Gains', moved.filter((c) => c.us > 0)],
-    ['Costs', moved.filter((c) => c.us < 0).reverse()],
-  ] as const) {
-    if (cats.length > 0)
-      out.push(`${label}: ${cats.map((c) => `${c.category} ${signed(c.us)}`).join(', ')}.`);
-  }
-  if (e.summedZ > 0 && e.deltaUs < 0) {
-    const wasted = e.byCategory
-      .filter((c) => (usBefore[c.category] ?? 0) > 0.9 && c.ourWeeklyAfter > c.ourWeeklyBefore)
-      .map((c) => c.category);
-    out.push(
-      `Adds ${signed(e.summedZ)} summed z but loses expected categories: ` +
-        (wasted.length > 0
-          ? `the extra strength lands in categories already won (${wasted.join(', ')}).`
-          : 'the strength arrives where it does not change who wins.'),
-    );
-  }
-  if (!e.partnerGains) {
-    out.push(
-      `Partner loses ${Math.abs(e.deltaThem).toFixed(2)} categories/week: unlikely to accept.`,
-    );
-  }
-  if (e.ourSignings.length > 0)
-    out.push(`Frees a spot for us: signs ${e.ourSignings.map(name).join(', ')}.`);
-  if (e.ourReleases.length > 0) out.push(`We must release ${e.ourReleases.map(name).join(', ')}.`);
-  if (fieldSize === 0) {
-    out.push('No league field supplied: evaluated against the partner alone.');
-  }
-  return out;
 }
 
 export interface TradeSearchInput extends Omit<
@@ -370,7 +356,7 @@ function combos(ids: readonly number[]): number[][] {
  * `Δ_us > minTradeGain` and `Δ_them ≥ 0`, ranked by `Δ_us + 0.5·Δ_them`.
  */
 export function findTradeTargets(input: TradeSearchInput): TradeCandidate[] {
-  const index = buildIndex(input.projections, input.valuations);
+  const index = buildIndex(input);
   const minGain = input.minTradeGain ?? DEFAULT_MIN_TRADE_GAIN;
   const found: TradeCandidate[] = [];
   const keys = Object.keys(input.partners).sort();

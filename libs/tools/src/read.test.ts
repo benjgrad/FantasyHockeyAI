@@ -3,9 +3,10 @@ import type { ToolResult } from '@fha/llm';
 import { evaluateTrade, getPendingTrades } from './tools/trades.js';
 import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './tools/league.js';
 import { getMatchup } from './tools/matchup.js';
-import { getLineupSuggestion, getRoster } from './tools/roster.js';
+import { getLineupSuggestion, getRoster, getRosterHealth } from './tools/roster.js';
 import { getGoalieStarts, getNews, getSchedule } from './tools/schedule.js';
-import { testRun } from './testing.js';
+import { evaluateTradeKeys, remainingWeekLine } from './modelInputs.js';
+import { mockView, testRun } from './testing.js';
 
 const MAKAR = '477.p.7519';
 const OURS_IN_PENDING = '477.p.6744';
@@ -158,9 +159,69 @@ describe('read tools over the mock league', () => {
     expect(!wrong.ok && wrong.error).toContain("not on Mock Team 2's roster");
   });
 
-  it('getLineupSuggestion shows the solver moving the out starter', async () => {
+  it('getLineupSuggestion moves the out starter to the free IR seat, not the bench', async () => {
+    // Both IR seats are empty in the mock roster and O is IR-eligible, so the solver's
+    // IR-first rule frees his roster spot (previously this accepted BN as well).
     const { ctx } = testRun();
     const s = summary(await getLineupSuggestion.execute({ date: '2026-10-13' }, ctx));
-    expect(s).toMatch(/Cale Makar D→(IR|BN)/);
+    expect(s).toMatch(/Cale Makar D→IR/);
+  });
+});
+
+describe('availability in the read tools (draft-night flaw 4)', () => {
+  it('getRoster shows each player’s availability with an expected return', async () => {
+    const { ctx } = testRun();
+    const r = await getRoster.execute({}, ctx);
+    if (!r.ok) throw new Error(r.error);
+    const makar = r.data.players.find((p) => p.playerKey === MAKAR);
+    expect(makar).toMatchObject({ status: 'O', playProb: 0, expectedReturn: '2026-10-23' });
+    expect(makar?.availability).toBe('O, out ~10 days, back ~2026-10-23 (default estimate)');
+    expect(r.summary).toContain('O, out ~10 days');
+  });
+
+  it('getPlayers and getNews carry the availability label', async () => {
+    const { ctx } = testRun();
+    const p = await getPlayers.execute({ playerKeys: [MAKAR, OURS_IN_PENDING] }, ctx);
+    if (!p.ok) throw new Error(p.error);
+    expect(p.data[0]?.availability).toContain('O, out ~10 days');
+    expect(p.data[1]?.availability).toBe('healthy');
+    const n = summary(await getNews.execute({ playerKeys: [MAKAR] }, ctx));
+    expect(n).toContain('availability: O, out ~10 days');
+  });
+
+  it('getRosterHealth flags the out starters and the IR moves that free their spots', async () => {
+    const { ctx } = testRun();
+    const r = await getRosterHealth.execute({ date: '2026-10-13' }, ctx);
+    if (!r.ok) throw new Error(r.error);
+    const out = r.data.unplayableStarters.filter((u) => u.reason.startsWith('O'));
+    expect(out.map((u) => u.playerKey).sort()).toEqual(['477.p.3637', MAKAR].sort());
+    expect(r.data.irMovesAvailable.map((m) => m.to)).toEqual(['IR', 'IR']);
+    expect(r.summary).toContain('Cale Makar (477.p.7519) starts at D but will not play');
+    expect(r.summary).toContain('can move D → IR');
+  });
+
+  it('getRosterHealth refuses a date outside the schedule', async () => {
+    const { ctx } = testRun();
+    expect(await getRosterHealth.execute({ date: '2027-01-01' }, ctx)).toMatchObject({ ok: false });
+  });
+});
+
+describe('availability in the model inputs', () => {
+  const setStatus = (key: string, status: string) => (snap: { players: { playerKey: string; status?: string }[] }) => {
+    const p = snap.players.find((x) => x.playerKey === key);
+    if (p) p.status = status;
+  };
+
+  it('takes a DTD starter’s expected missed game off our weekly line', () => {
+    const healthy = mockView();
+    const dtd = mockView(setStatus(OURS_IN_PENDING, 'DTD'));
+    const sog = (v: typeof healthy) =>
+      remainingWeekLine(v, v.teamKey, v.snap.date).counts['SOG'] ?? 0;
+    expect(sog(dtd)).toBeLessThan(sog(healthy));
+  });
+
+  it('values an out player in a trade by the share of the season he plays', () => {
+    const e = evaluateTradeKeys(mockView(), '477.l.48535.t.102', [MAKAR], [THEIRS_IN_PENDING]);
+    expect(e.reasons.join(' ')).toMatch(/Cale Makar is expected to play \d+% of the remaining season/);
   });
 });

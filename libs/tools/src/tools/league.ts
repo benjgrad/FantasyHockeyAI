@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { weeklyAddCap, type Player } from '@fha/core';
 import { defineTool, fail, ok, type RunContext } from '../context.js';
-import { fmt, label, scoringCategories, table, weekBounds } from '../derive.js';
+import { availabilityOf, fmt, label, scoringCategories, table, weekBounds } from '../derive.js';
 import { resolvePlayers, resolveTeam, teamName } from '../resolve.js';
 import type { LeagueView } from '../view.js';
 
@@ -55,12 +55,16 @@ function teamNameOf(view: LeagueView, key: string): string {
 /** One row of player detail, shared by getPlayers and searchPlayers. */
 function playerRow(ctx: RunContext, p: Player) {
   const v = ctx.view.valuation(p.playerKey);
+  const a = availabilityOf(ctx.view, p);
   return {
     playerKey: p.playerKey,
     name: p.name,
     nhlTeam: p.nhlTeam,
     eligible: p.eligible,
     status: p.status ?? 'healthy',
+    availability: a.label,
+    playProb: a.playProb,
+    expectedReturn: a.expectedReturn ?? null,
     owner: teamName(ctx.view, ctx.view.ownerOf(p.playerKey)),
     percentOwned: p.percentOwned,
     value: v?.value,
@@ -71,12 +75,23 @@ function playerRow(ctx: RunContext, p: Player) {
 }
 
 type Row = ReturnType<typeof playerRow>;
-const ROW_HEADERS = ['playerKey', 'player', 'status', 'owner', 'value', 'vorp', 'perGame', '%own'];
+const ROW_HEADERS = [
+  'playerKey',
+  'player',
+  'status',
+  'availability',
+  'owner',
+  'value',
+  'vorp',
+  'perGame',
+  '%own',
+];
 function rowCells(r: Row, p: Player): string[] {
   return [
     r.playerKey,
     label(p),
     r.status,
+    r.availability,
     r.owner,
     fmt(r.value),
     fmt(r.vorp),
@@ -88,7 +103,7 @@ function rowCells(r: Row, p: Player): string[] {
 export const getPlayers = defineTool({
   name: 'getPlayers',
   description:
-    'Details for up to 25 players at once: owner, status, rest-of-season value and VORP, per-game value and projected category totals. Pass playerKeys from other tools; never type one from memory.',
+    'Details for up to 25 players at once: owner, status and availability (chance to play, expected return), rest-of-season value and VORP, per-game value and projected category totals. Pass playerKeys from other tools; never type one from memory.',
   input: z.object({ playerKeys: z.array(z.string()).min(1).max(25) }),
   risk: 'read',
   execute: (input, ctx) => {

@@ -349,3 +349,52 @@ describe('solveLineup: bad input does nothing (P5)', () => {
     expect(nan.warnings).toEqual(['a has no finite value; left unchanged']);
   });
 });
+
+describe('solveLineup: season-opening injuries (draft-night flaw 4)', () => {
+  // Our drafted Jarvis (O), Gustavsson (O) and Nikishin (O), and Hellebuyck (NA).
+  it('should never start an O player, even the most valuable one, when a healthy one can', () => {
+    const r = solveLineup({
+      slots: [slot('C', 1), slot('BN', 2, false)],
+      entries: [pl('jarvis', ['C'], 'C', 9, { status: 'O' }), pl('backup', ['C'], 'BN', 1)],
+    });
+    expect(slotOf(r, 'jarvis')).toBe('BN');
+    expect(slotOf(r, 'backup')).toBe('C');
+  });
+
+  it('should move an O starter straight to a free IR seat, not the bench', () => {
+    const r = solveLineup({
+      slots: LEAGUE_SLOTS,
+      entries: [
+        pl('jarvis', ['C'], 'C', 9, { status: 'O' }),
+        pl('c2', ['C'], 'C', 3),
+        pl('benchC', ['C'], 'BN', 2),
+      ],
+    });
+    expect(r.moves).toEqual([
+      { playerKey: 'jarvis', from: 'C', to: 'IR' },
+      { playerKey: 'benchC', from: 'BN', to: 'C' },
+    ]);
+  });
+
+  it('should move IR-eligible bench players (O, IR-LT) into free IR seats, freeing roster spots', () => {
+    const r = solveLineup({
+      slots: LEAGUE_SLOTS,
+      entries: [
+        pl('gus', ['G'], 'BN', 4, { status: 'O' }),
+        pl('nikishin', ['D'], 'BN', 3, { status: 'IR-LT' }),
+        pl('g', ['G'], 'G', 2),
+      ],
+    });
+    expect(slotOf(r, 'gus')).toBe('IR');
+    expect(slotOf(r, 'nikishin')).toBe('IR');
+  });
+
+  it('should leave an NA player out of IR (IR does not take NA) and never start him', () => {
+    const r = solveLineup({
+      slots: LEAGUE_SLOTS,
+      entries: [pl('helle', ['G'], 'G', 9, { status: 'NA' }), pl('g2', ['G'], 'BN', 1)],
+    });
+    expect(slotOf(r, 'helle')).toBe('BN');
+    expect(slotOf(r, 'g2')).toBe('G');
+  });
+});

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { availability } from './availability.js';
 import { goalie, resetIds, skater } from './fixtures.js';
 import {
   type CategoryLine,
@@ -8,6 +9,7 @@ import {
   emptyLine,
   expectedCategoriesWon,
   playerLine,
+  projectedWeekGames,
   sumLines,
   weeklyCategoryPlan,
 } from './matchup.js';
@@ -176,5 +178,25 @@ describe('weeklyCategoryPlan', () => {
     expect(plan.expectedWon).toBeCloseTo(expectedCategoriesWon(plan.probabilities), 12);
     expect(plan.expectedWon).toBeCloseTo(PHI_1 + 1, 3);
     expect(plan.weights).toEqual({ G: 1, HIT: 0.3 });
+  });
+});
+
+describe('projectedWeekGames — availability', () => {
+  const now = '2026-09-29';
+  it('should be scheduled × gp share for a healthy player', () => {
+    expect(projectedWeekGames(4, { gpShare: 0.75 })).toBe(3);
+    expect(projectedWeekGames(4)).toBe(4);
+  });
+
+  it('should take a DTD player’s 0.2 expected missed game off the week', () => {
+    const dtd = availability({ status: 'DTD', now });
+    expect(projectedWeekGames(3, { availability: dtd })).toBeCloseTo(2.8, 12);
+  });
+
+  it('should give an out player none of a 3-game week, and a returning one the rest', () => {
+    expect(projectedWeekGames(3, { availability: availability({ status: 'O', now }) })).toBe(0);
+    // Back in 2 days: 2 × 82/186 = 0.88 games missed of 4.
+    const back = availability({ status: 'O', returnDate: '2026-10-01', now });
+    expect(projectedWeekGames(4, { availability: back })).toBeCloseTo(4 - (2 * 82) / 186, 12);
   });
 });

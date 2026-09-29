@@ -8,6 +8,7 @@
     { "path": "libs/yahoo" },
     { "path": "libs/store" },
     { "path": "libs/auth" },
+    { "path": "libs/api" },
     { "path": "libs/llm" },
     { "path": "libs/prompts" },
     { "path": "libs/tools" },

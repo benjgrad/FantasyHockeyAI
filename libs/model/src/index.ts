@@ -10,6 +10,8 @@ export * from './calibrate.js';
 export * from './playerMap.js';
 export * from './hungarian.js';
 export * from './lineupRules.js';
+export * from './availability.js';
+export * from './rosterHealth.js';
 export * from './lineup.js';
 export * from './lock.js';
 export * from './matchup.js';

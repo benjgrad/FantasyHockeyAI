@@ -21,6 +21,12 @@ describe('registry', () => {
     }
   });
 
+  it('the lineup and waivers agents can read roster health (injuries, IR moves)', () => {
+    expect(AGENT_TOOLS.lineup).toContain('getRosterHealth');
+    expect(AGENT_TOOLS.waivers).toContain('getRosterHealth');
+    expect(ALL_TOOLS['getRosterHealth']?.risk).toBe('read');
+  });
+
   it('a tool switched off in permissions is not shown to the model (P2)', () => {
     const perms = mockPermissions({ tools: { proposeTrade: false } });
     const names = toolsFor('trades', perms).map((t) => t.name);
