@@ -8,49 +8,50 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-24 18:45 ET**
+Last updated: **2026-09-29**
 
 ---
 
 ## Now
 
-**Hard deadline: Ben's live Yahoo draft, 2026-09-24 at 21:00 ET.**
+**The draft is done (2026-09-24). The season opened 2026-09-29.** Final roster: MacKinnon, Aho ·
+Forsberg, Jarvis · Wilson, Kempe · Batherson (Util) · Morrissey, Zadorov, Sergachev, Harley ·
+Vasilevskiy, Hellebuyck · bench Gustavsson (G), Stamkos, Hischier, Nikishin (D).
 
-Working on **M0 / Part A** (documentation restructure), then the draft-night vertical slice.
-Tonight's scope was deliberately cut from the spec's §23 plan — see
-[Decision D-004](#d-004) and the [cut list](#deferred-from-tonight).
+**Working on the in-season plan** (`/home/bengrady4/.claude/plans/…pnueli.md`, approved 2026-09-29):
+Phase 0 consolidate (**done**: `agents` merged, validate green) → **1** availability as a
+first-class input → **2** live `libs/yahoo` reader + Yahoo write capture → **3** MCP server →
+**4** Sign in with Personal OS, Connect Yahoo settings page, permissions editor → **5**
+chat-centred web app → **6** daemon, news/status subscriptions, web push.
 
-**Next acceptance gate:** the live room at ~20:45 — discovery, then `--submit --dry-run`.
+**The pressing problem:** four drafted players were unavailable at draft time (Jarvis O,
+Hellebuyck NA, Gustavsson O, Nikishin O). Nothing in the model read availability ([Draft-night
+findings](#draft-night-findings)).
 
-**Draft night procedure: `docs/DRAFT-NIGHT.md`.**
+**Blocking on Ben:** a Yahoo network capture of one lineup edit, add/drop, IR move and claim
+(U-12); a domain and sudo for nginx; approval to add an OIDC client to personal-os; a dedicated
+Anthropic key for the agents.
 
-Done: **M0a** docs restructure · **M0b** scaffold · **M1** NHL stats client (3 seasons cached) ·
-**M2** projections + valuation, **63 tests, 98% statements / 80% branches on `libs/model`** ·
-**M3** `fha rank` producing `data/prerank.csv` for 1328 players · **M4** draft board with §12.5
-scoring, snake pick maths and safe name resolution. **106 tests.**
+<a id="draft-night-findings"></a>
+### Draft-night findings (2026-09-24)
 
-Remaining before the draft: the printable cheat sheet, the Yahoo read attempt (blocked on Q-001),
-and the rehearsal. **Everything draft-critical is already in place** roughly seven hours early.
-
-Three unknowns verified (U-03, U-04, U-07). The six required §12.2 tests all pass, and were
-**mutation-tested**: stripping SV% volume weighting, flipping the GAA sign, or ignoring category
-weights each makes the suite fail. Tests that cannot fail are worthless, so this was checked rather
-than assumed.
-
-**M1b (Yahoo) is blocked on Q-001 and was reordered behind M2** — the model determines draft
-quality; Yahoo only adds ADP polish, so the model got the fresh hours.
-
-**Ranking is coherent but unvalidated against any market.** Without ADP the only check is
-judgement, which is why Q-005 matters.
-
-**In parallel, not touching the draft:** the agent layer (M0c, M4b, M5–M7) is being built in
-the `../FantasyHockeyAI-agents` worktree on branch `agents` ([D-009](#d-009)), with Ben's
-permission system for autonomy ([D-008](#d-008)). It merges after the draft, with Ben's go-ahead.
-
-**Blocking on Ben:** [Q-001](#q-001) — what the Yahoo app-creation form offers. Everything about
-the data path depends on it.
-
----
+- **League draft rooms need the room token.** The client joined with an empty `auth` (our notes
+  assumed none for league rooms, [INF]); Yahoo closed every socket after ~6 s with no frames.
+  Fixed live by passing `DRAFT_AUTH` from the room URL. **VERIFIED** — falsifies the assumption.
+- **The board only refreshed on our turns.** `draft-state.json` was written by `draft sync`,
+  which only ran before our picks. Patched live with a guarded background sync.
+- **The explainer's `max_tokens: 400` truncated** because Opus 5's thinking counts against it.
+  Raised to 2000.
+- **Scoring flaw 1 — scarcity was not scaled by need.** `score = need·adj + λ·(adj − nextBest) +
+  urgency`: the λ term counted in full for positions already filled, so a *third goalie*
+  (Gustavsson, 4.60) outranked every D for an empty starting slot (Carlson 1.54).
+- **Scoring flaw 2 — urgency counts heads, not quality.** It stayed 0 while the last good D went.
+- **Scoring flaw 3 — fit is under-weighted late.** Weegar (−3.42 fit into saturated HIT/PIM)
+  still ranked on raw value.
+- **Scoring flaw 4 — availability ignored.** Status was in the pool data; nothing used it.
+- **Human overrides carried the draft's back half** (Wilson, Aho, Hellebuyck, Zadorov,
+  Sergachev, Harley, Stamkos, Hischier, Nikishin). A preference silently fell through to the
+  model when the player was taken first (Carlson → Gustavsson).
 
 ## Milestones
 
