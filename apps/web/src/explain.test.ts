@@ -121,7 +121,10 @@ describe('generate', () => {
     await generate(11, card(), [], ctx, create);
     const body = create.mock.calls[0]?.[0] as Anthropic.MessageCreateParamsNonStreaming;
     expect(body.model).toBe('claude-opus-5');
-    expect(body.max_tokens).toBeLessThanOrEqual(500);
+    // Bounded, but with headroom: on Opus 5 thinking counts against max_tokens, and a
+    // 400-token budget truncated explanations on draft night.
+    expect(body.max_tokens).toBeGreaterThanOrEqual(1500);
+    expect(body.max_tokens).toBeLessThanOrEqual(4000);
     expect(String(body.system)).toContain('fantasy hockey');
     expect(body.messages[0]?.role).toBe('user');
   });

@@ -118,7 +118,8 @@ export async function generate(
   const res = await create(
     {
       model: MODEL,
-      max_tokens: 2000, // thinking counts against this on Opus 5; 400 truncated mid-draft
+      // Thinking counts against max_tokens on Opus 5; 400 truncated explanations on draft night.
+      max_tokens: 2000,
       // Low effort: this is a short piece of prose about a decision already made, not a
       // problem to reason through, and it runs against a draft clock.
       output_config: { effort: 'low' },
