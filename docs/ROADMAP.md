@@ -80,12 +80,16 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | ID | Milestone | Status | Acceptance | Spec |
 |---|---|---|---|---|
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
-| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done on `agents` (43 tests); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
-| **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done` on `agents` 17:45 — llm, prompts, pipeline + permission gate, 22 tools, Lineup/Waivers/Trades/Matchup agents, GM router; `fha run/ask/pending/show/approve/reject`, `fha perms`. 578 tests. **Not yet run against the live API** (no calls during the draft) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
-| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — exact solver + intraday lock done on `agents`; agent not yet wired | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
-| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — §12.8 scoring done on `agents` | Proposals carry evidence; nothing writes without approval | §12.8 |
+| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
+| **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
+| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; waits on the daemon, a live LLM run, and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
+| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
-| **M8** | Discord digest + approval buttons; systemd unit | `todo` | Only Ben's user ID can approve; every press re-checked | §15 |
+| **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push service, prefs, quiet hours done in `apps/app`; daemon in progress | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
+| **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
+| **M-A** | Availability as a first-class input (`availability()`, `rosterHealth()`), draft-scoring fixes | `done` 2026-09-29 — every draft-night flaw has a failing-first scenario | Scenarios pass; live roster health matches Ben's diagnosis | §12 |
+| **M-MCP** | stdio MCP server over the agent tools (`apps/mcp`) | `done` 2026-09-29 | Tools listed from the registry; proposals gated; approval needs a human confirmation | §8, §9 |
+| **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` (code) 2026-09-29 — **not deployed**: needs a host, nginx/certbot, `app.env` | Sign-in round trip; approve from a decision card; push on the phone | §15 |
 | **M9** | Season strategy, weekly retro, evals in CI | `todo` | `eval:smoke` runs on every PR | §12.6, §19.3, §20 |
 
 ### Deferred from tonight
@@ -142,9 +146,14 @@ first use and update the row.
 | **U-07** | Whether SHP and GWG appear in the NHL skater summary endpoint | §11.3 | Inspect the field list | **VERIFIED 12:42** — yes: `shPoints` and `gameWinningGoals`. `penaltyMinutes` is also on summary, so the `/skater/penalties` call is unnecessary |
 | **U-08** | DailyFaceoff (or equivalent) starting-goalie page structure, and its terms | §11.4 | Fetch and inspect; read the terms | UNVERIFIED — not needed before M5 |
 | **U-09** | Yahoo NHL lineup lock: by game time or daily, and the field name/values | §12.4 | Read raw settings | **VERIFIED 14:15 (PC session)**: "Daily - Today" (`intraday`). Per Yahoo's usual meaning, each player locks at his own game start [not yet observed with a live roster]. The safe default above matches |
-| **U-10** | Which injury statuses each reserve slot accepts (IR: O, IR, IR-LT, IR-NR; IR+: those plus DTD; NA: NA) | §12.3 | Read Yahoo's roster page with an injured player on the roster | UNVERIFIED — `DEFAULT_RESERVE_STATUSES` in `libs/model/src/lineupRules.ts`; the solver and the validator share it |
+| **U-10** | Which injury statuses each reserve slot accepts | §12.3 | Read Yahoo's roster page with an injured player on the roster | **PARTLY VERIFIED 2026-09-29**: Yahoo lists `IR` in a player's eligible positions for IR and IR-NR, not for DTD or NA (live roster). O and IR-LT not yet seen. Prefer Yahoo's `reserveEligible` over the fixed table |
 | **U-11** | Weekly category variance model for win probabilities (Poisson counts, PIM ×2, …) | §12.6 | Fit against real weekly scoreboards after 3–4 weeks | UNVERIFIED — `sdOverride` in `libs/model/src/matchup.ts` replaces it |
 | **U-12** | Yahoo write endpoints for a custom lineup, add/drop and trades | §10.4, Q-007 | Capture them from the website with a real post-draft roster | UNVERIFIED — so there is **no Yahoo execution adapter yet**; only DryRun and Manual. Writing one against unobserved endpoints would be a stub that looks implemented (§24.11) |
+| **U-13** | Default outage durations by status (DTD short, O ~1–2 wk, IR ~3–4 wk, IR-LT 8+ wk, NA indefinite) | §12.1 | Compare against actual returns over the first month | UNVERIFIED — one table in `libs/model/src/availability.ts`; notes and return dates override it |
+| **U-14** | Claude Code / Claude Desktop support MCP elicitation (used to confirm `approvePlan`) | — | Try `approvePlan` from each client | UNVERIFIED — without it approval is refused unless the server runs with `--trust-client-approval` |
+| **U-15** | Meaning of a goalie's `starting_status {date, is_starting}` in Yahoo player data | §11.4 | Watch it against confirmed starters for a week | UNVERIFIED — seen on one goalie; recorded as a hint only |
+| **U-16** | How far back Yahoo's `player_notes` feed goes | — | Compare notes over several days | UNVERIFIED — only recent notes come back |
+| **U-17** | Live shape of a Yahoo pending trade | §10.3 | Parse the first real offer | UNVERIFIED — parser follows the documented fields |
 
 **Source URLs for re-verification** stay in the spec at **§26 (research register)** — source
 links are stable reference material and belong next to the claims they support, unlike the
@@ -162,6 +171,23 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-012 — 2026-09-29 — One process: the daemon runs inside the app server
+§3.2's single-process model: the scheduler, watchers and serial job queue run in `apps/app`,
+reusing its per-user league runtime, pipeline and push service, behind a file lock.
+
+### D-011 — 2026-09-29 — Yahoo is connected by pasting session cookies
+Mirrors how personal-os connects Slack (a pasted browser session). The Settings page explains
+how to copy `T` and `Y`; they are validated live, stored AES-256-GCM encrypted under a key
+derived from `FHA_SECRET_KEY`, never logged. An expired session marks the connection
+`expired` and asks Ben to reconnect. Supersedes D-007's file bridge for the app.
+
+### D-010 — 2026-09-29 — Sign in with Personal OS; web push instead of Discord
+FHA registers itself with personal-os's OpenID provider through open dynamic client
+registration and trusts the id_token's `sub` against an allow-list — **no personal-os change
+was needed** (verified against its live discovery document). Notifications are web push only
+(Ben's choice); Discord (spec §15, M8) is dropped. The chat UI is the primary surface; the MCP
+server is a first pass alongside it (Ben: "full agentic workflow handled internally eventually").
 
 <a id="d-008"></a>
 ### D-008 — 2026-09-24 — Agent autonomy is a code-enforced permission system
