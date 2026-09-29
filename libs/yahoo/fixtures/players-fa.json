@@ -1,0 +1,1696 @@
+{
+  "path": "/league/477.l.48535/players;status=FA;sort=OR;start=0;count=25;out=percent_owned,ownership,player_notes",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/league/477.l.48535/players;status=FA;sort=OR;start=0;count=25;out=percent_owned,ownership,player_notes",
+      "league": {
+        "league_key": "477.l.48535",
+        "league_id": "48535",
+        "name": "Method Fantasy League",
+        "draft_status": "postdraft",
+        "num_teams": 8,
+        "max_teams": "10",
+        "edit_key": "2026-09-29",
+        "weekly_deadline": "intraday",
+        "roster_type": "date",
+        "league_update_timestamp": null,
+        "scoring_type": "head",
+        "scoring_label": "H2H Cat",
+        "league_type": "private",
+        "renew": "465_53136",
+        "renewed": null,
+        "felo_tier": "bronze",
+        "is_highscore": null,
+        "is_guillotine": "0",
+        "matchup_week": 1,
+        "iris_group_chat_id": null,
+        "allow_add_to_dl_extra_pos": 1,
+        "is_pro_league": "0",
+        "is_cash_league": "0",
+        "current_week": 1,
+        "start_week": "1",
+        "start_date": "2026-09-29",
+        "end_week": "27",
+        "end_date": "2027-04-10",
+        "current_date": "2026-09-29",
+        "is_plus_league": "0",
+        "game_code": "nhl",
+        "season": "2026",
+        "players": [
+          {
+            "player": {
+              "player_key": "477.p.5053",
+              "player_id": "5053",
+              "name": {
+                "full": "Bryan Rust",
+                "first": "Bryan",
+                "last": "Rust",
+                "ascii_first": "Bryan",
+                "ascii_last": "Rust"
+              },
+              "status": "IR",
+              "status_full": "Injured Reserve",
+              "injury_note": "Upper Body",
+              "on_disabled_list": "1",
+              "editorial_player_key": "nhl.p.5053",
+              "editorial_team_key": "nhl.t.16",
+              "editorial_team_full_name": "Pittsburgh Penguins",
+              "editorial_team_abbr": "PIT",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "17",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                },
+                {
+                  "position": "IR"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "has_recent_player_notes": 1,
+              "player_notes_last_timestamp": 1790619583,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 78,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959310",
+                    "player_id": "5053",
+                    "headline": "Hits injured reserve",
+                    "first_name": "Bryan",
+                    "last_name": "Rust",
+                    "provider": "Rotowire.com",
+                    "text": "Rust (upper body) was placed on injured reserve by Pittsburgh on Monday and is considered week-to-week according to Michelle Crechiolo of the Penguins' official site.\n\nAdvice: Rust won't be ready for the start of the season with his shift to injured reserve. Given his timeline, fantasy players should anticipate that Rust will be unavailable for at least the opening two games of the year. Without the veteran winger in the lineup, Filip Hallander and Ville Koivunen are both expected to get looks on the third line.",
+                    "advice": "Rust won't be ready for the start of the season with his shift to injured reserve. Given his timeline, fantasy players should anticipate that Rust will be unavailable for at least the opening two games of the year. Without the veteran winger in the lineup, Filip Hallander and Ville Koivunen are both expected to get looks on the third line.",
+                    "date": "2026-09-28",
+                    "time": 1790619583,
+                    "news": "Rust (upper body) was placed on injured reserve by Pittsburgh on Monday and is considered week-to-week according to Michelle Crechiolo of the Penguins' official site."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10959195",
+                    "player_id": "5053",
+                    "headline": "Being evaluated",
+                    "first_name": "Bryan",
+                    "last_name": "Rust",
+                    "provider": "Rotowire.com",
+                    "text": "Rust is being evaluated for an upper-body injury and won't participate in Sunday's practice.\n\nAdvice: Rust sustained the injury in Saturday's 3-1 preseason win over Buffalo. He earned 29 goals, 65 points, 183 shots on net and 71 blocked shots in 72 appearances for Pittsburgh during the 2025-26 regular season. It's currently unclear if Rust will be available for Opening Night against Philadelphia on Wednesday.",
+                    "advice": "Rust sustained the injury in Saturday's 3-1 preseason win over Buffalo. He earned 29 goals, 65 points, 183 shots on net and 71 blocked shots in 72 appearances for Pittsburgh during the 2025-26 regular season. It's currently unclear if Rust will be available for Opening Night against Philadelphia on Wednesday.",
+                    "date": "2026-09-27",
+                    "time": 1790521904,
+                    "news": "Rust is being evaluated for an upper-body injury and won't participate in Sunday's practice."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10959128",
+                    "player_id": "5053",
+                    "headline": "Suffers undisclosed injury",
+                    "first_name": "Bryan",
+                    "last_name": "Rust",
+                    "provider": "Rotowire.com",
+                    "text": "Rust sustained an undisclosed injury during Saturday's preseason game and won't return to the tilt.\n\nAdvice: Rust had 29 goals and 65 points in 72 regular-season appearances in 2025-26. The Penguins could face several roster decisions ahead of Opening Night against Philadelphia on Wednesday if Rust, Justin Brazeau (lower body) and Andrei Kuzmenko (personal) are unavailable.",
+                    "advice": "Rust had 29 goals and 65 points in 72 regular-season appearances in 2025-26. The Penguins could face several roster decisions ahead of Opening Night against Philadelphia on Wednesday if Rust, Justin Brazeau (lower body) and Andrei Kuzmenko (personal) are unavailable.",
+                    "date": "2026-09-26",
+                    "time": 1790457510,
+                    "news": "Rust sustained an undisclosed injury during Saturday's preseason game and won't return to the tilt."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8642",
+              "player_id": "8642",
+              "name": {
+                "full": "Quinton Byfield",
+                "first": "Quinton",
+                "last": "Byfield",
+                "ascii_first": "Quinton",
+                "ascii_last": "Byfield"
+              },
+              "editorial_player_key": "nhl.p.8642",
+              "editorial_team_key": "nhl.t.8",
+              "editorial_team_full_name": "Los Angeles Kings",
+              "editorial_team_abbr": "LA",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "55",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 67,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.6762",
+              "player_id": "6762",
+              "name": {
+                "full": "Joel Eriksson Ek",
+                "first": "Joel",
+                "last": "Eriksson Ek",
+                "ascii_first": "Joel",
+                "ascii_last": "Eriksson Ek"
+              },
+              "editorial_player_key": "nhl.p.6762",
+              "editorial_team_key": "nhl.t.30",
+              "editorial_team_full_name": "Minnesota Wild",
+              "editorial_team_abbr": "MIN",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "14",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 63,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8641",
+              "player_id": "8641",
+              "name": {
+                "full": "Alexis Lafreniere",
+                "first": "Alexis",
+                "last": "Lafreniere",
+                "ascii_first": "Alexis",
+                "ascii_last": "Lafreniere"
+              },
+              "editorial_player_key": "nhl.p.8641",
+              "editorial_team_key": "nhl.t.13",
+              "editorial_team_full_name": "New York Rangers",
+              "editorial_team_abbr": "NYR",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "13",
+              "display_position": "LW,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "LW",
+              "eligible_positions": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 78,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.33428",
+              "player_id": "33428",
+              "name": {
+                "full": "Anton Frondell",
+                "first": "Anton",
+                "last": "Frondell",
+                "ascii_first": "Anton",
+                "ascii_last": "Frondell"
+              },
+              "editorial_player_key": "nhl.p.33428",
+              "editorial_team_key": "nhl.t.4",
+              "editorial_team_full_name": "Chicago Blackhawks",
+              "editorial_team_abbr": "CHI",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "16",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 50,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8922",
+              "player_id": "8922",
+              "name": {
+                "full": "Logan Stankoven",
+                "first": "Logan",
+                "last": "Stankoven",
+                "ascii_first": "Logan",
+                "ascii_last": "Stankoven"
+              },
+              "editorial_player_key": "nhl.p.8922",
+              "editorial_team_key": "nhl.t.7",
+              "editorial_team_full_name": "Carolina Hurricanes",
+              "editorial_team_abbr": "CAR",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "22",
+              "display_position": "C,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790308498,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 67,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958935",
+                    "player_id": "8922",
+                    "headline": "Pockets three points Thursday",
+                    "first_name": "Logan",
+                    "last_name": "Stankoven",
+                    "provider": "Rotowire.com",
+                    "text": "Stankoven scored twice on seven shots and added an assist in Thursday's 6-5 preseason win over the Predators.\n\nAdvice: Stankoven looks ready for the regular season now. The 23-year-old had 44 points in 81 regular-season games in 2025-26, but it was his 16-point effort in 19 postseason contests that really turned heads. He won't be surprising anyone this year, as he's set to reprise the second-line role that he excelled in during the Hurricanes' run to the Stanley Cup championship last spring.",
+                    "advice": "Stankoven looks ready for the regular season now. The 23-year-old had 44 points in 81 regular-season games in 2025-26, but it was his 16-point effort in 19 postseason contests that really turned heads. He won't be surprising anyone this year, as he's set to reprise the second-line role that he excelled in during the Hurricanes' run to the Stanley Cup championship last spring.",
+                    "date": "2026-09-25",
+                    "time": 1790308498,
+                    "news": "Stankoven scored twice on seven shots and added an assist in Thursday's 6-5 preseason win over the Predators."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30155",
+              "player_id": "30155",
+              "name": {
+                "full": "Jackson Blake",
+                "first": "Jackson",
+                "last": "Blake",
+                "ascii_first": "Jackson",
+                "ascii_last": "Blake"
+              },
+              "editorial_player_key": "nhl.p.30155",
+              "editorial_team_key": "nhl.t.7",
+              "editorial_team_full_name": "Carolina Hurricanes",
+              "editorial_team_abbr": "CAR",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "53",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790469534,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 49,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959139",
+                    "player_id": "30155",
+                    "headline": "Three points in preseason finale",
+                    "first_name": "Jackson",
+                    "last_name": "Blake",
+                    "provider": "Rotowire.com",
+                    "text": "Blake scored a power-play goal and added two assists, one with the man advantage, in Saturday's 6-0 preseason win over the Predators.\n\nAdvice: His early first-period tally opened the scoring and held up as the game-winner, as the defending Stanley Cup champions wrap up their preseason in style. Blake had a career year offensively with 22 goals and 53 points in 81 regular-season games last campaign. He also led Carolina with 20 points (seven goals, 13 assists) in 19 playoff contests. The 23-year-old winger should have a top-six role to open 2026-27, and Blake could take on additional responsibilities while Seth Jarvis (shoulder) remains on the shelf.",
+                    "advice": "His early first-period tally opened the scoring and held up as the game-winner, as the defending Stanley Cup champions wrap up their preseason in style. Blake had a career year offensively with 22 goals and 53 points in 81 regular-season games last campaign. He also led Carolina with 20 points (seven goals, 13 assists) in 19 playoff contests. The 23-year-old winger should have a top-six role to open 2026-27, and Blake could take on additional responsibilities while Seth Jarvis (shoulder) remains on the shelf.",
+                    "date": "2026-09-27",
+                    "time": 1790469534,
+                    "news": "Blake scored a power-play goal and added two assists, one with the man advantage, in Saturday's 6-0 preseason win over the Predators."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.7143",
+              "player_id": "7143",
+              "name": {
+                "full": "Jordan Kyrou",
+                "first": "Jordan",
+                "last": "Kyrou",
+                "ascii_first": "Jordan",
+                "ascii_last": "Kyrou"
+              },
+              "editorial_player_key": "nhl.p.7143",
+              "editorial_team_key": "nhl.t.23",
+              "editorial_team_full_name": "Washington Capitals",
+              "editorial_team_abbr": "WSH",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "25",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 54,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.4687",
+              "player_id": "4687",
+              "name": {
+                "full": "Nazem Kadri",
+                "first": "Nazem",
+                "last": "Kadri",
+                "ascii_first": "Nazem",
+                "ascii_last": "Kadri"
+              },
+              "editorial_player_key": "nhl.p.4687",
+              "editorial_team_key": "nhl.t.17",
+              "editorial_team_full_name": "Colorado Avalanche",
+              "editorial_team_abbr": "COL",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "91",
+              "display_position": "C,LW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 66,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.7526",
+              "player_id": "7526",
+              "name": {
+                "full": "Gabriel Vilardi",
+                "first": "Gabriel",
+                "last": "Vilardi",
+                "ascii_first": "Gabriel",
+                "ascii_last": "Vilardi"
+              },
+              "editorial_player_key": "nhl.p.7526",
+              "editorial_team_key": "nhl.t.28",
+              "editorial_team_full_name": "Winnipeg Jets",
+              "editorial_team_abbr": "WPG",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "13",
+              "display_position": "C,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790097359,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 62,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958687",
+                    "player_id": "7526",
+                    "headline": "Posts pair of points Monday",
+                    "first_name": "Gabriel",
+                    "last_name": "Vilardi",
+                    "provider": "Rotowire.com",
+                    "text": "Vilardi tallied a goal, picked up an assist and placed two shots on net in Monday's 3-1 preseason win over Colorado.\n\nAdvice: Vilardi started the preseason off strong, as he tallied the opening goal of the game before he provided the primary helper on Dylan DeMelo's score in the third period. The 27-year-old Vilardi will look to build upon an impressive 2025-26 campaign, where he compiled 30 goals, 69 points, 150 shots on net and 35 blocked shots across 82 regular-season games. He's a lock to appear in Winnipeg's top six with plenty of power-play time to open the upcoming campaign.",
+                    "advice": "Vilardi started the preseason off strong, as he tallied the opening goal of the game before he provided the primary helper on Dylan DeMelo's score in the third period. The 27-year-old Vilardi will look to build upon an impressive 2025-26 campaign, where he compiled 30 goals, 69 points, 150 shots on net and 35 blocked shots across 82 regular-season games. He's a lock to appear in Winnipeg's top six with plenty of power-play time to open the upcoming campaign.",
+                    "date": "2026-09-22",
+                    "time": 1790097359,
+                    "news": "Vilardi tallied a goal, picked up an assist and placed two shots on net in Monday's 3-1 preseason win over Colorado."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30849",
+              "player_id": "30849",
+              "name": {
+                "full": "Jimmy Snuggerud",
+                "first": "Jimmy",
+                "last": "Snuggerud",
+                "ascii_first": "Jimmy",
+                "ascii_last": "Snuggerud"
+              },
+              "editorial_player_key": "nhl.p.30849",
+              "editorial_team_key": "nhl.t.19",
+              "editorial_team_full_name": "St. Louis Blues",
+              "editorial_team_abbr": "STL",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "21",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 54,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.6758",
+              "player_id": "6758",
+              "name": {
+                "full": "Mathew Barzal",
+                "first": "Mathew",
+                "last": "Barzal",
+                "ascii_first": "Mathew",
+                "ascii_last": "Barzal"
+              },
+              "status": "IR-NR",
+              "status_full": "Injured Reserve",
+              "injury_note": "Knee",
+              "on_disabled_list": "1",
+              "editorial_player_key": "nhl.p.6758",
+              "editorial_team_key": "nhl.t.12",
+              "editorial_team_full_name": "New York Islanders",
+              "editorial_team_abbr": "NYI",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "13",
+              "display_position": "C,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                },
+                {
+                  "position": "IR"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790602192,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 65,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959291",
+                    "player_id": "6758",
+                    "headline": "Designated as non-roster",
+                    "first_name": "Mathew",
+                    "last_name": "Barzal",
+                    "provider": "Rotowire.com",
+                    "text": "Barzal (knee) was placed on non-roster injured reserve, Stefen Rosner of NHL.com reports Monday.\n\nAdvice: Barzal's designation will allow him to be activated as soon as he is deemed healthy without the seven-day minimum required by standard injured reserve. Still, the fact that the Islanders are using any sort of roster tool almost certainly means the 29-year-old center will not be ready to face the Maple Leafs on Wednesday.",
+                    "advice": "Barzal's designation will allow him to be activated as soon as he is deemed healthy without the seven-day minimum required by standard injured reserve. Still, the fact that the Islanders are using any sort of roster tool almost certainly means the 29-year-old center will not be ready to face the Maple Leafs on Wednesday.",
+                    "date": "2026-09-28",
+                    "time": 1790602192,
+                    "news": "Barzal (knee) was placed on non-roster injured reserve, Stefen Rosner of NHL.com reports Monday."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.3638",
+              "player_id": "3638",
+              "name": {
+                "full": "Evgeni Malkin",
+                "first": "Evgeni",
+                "last": "Malkin",
+                "ascii_first": "Evgeni",
+                "ascii_last": "Malkin"
+              },
+              "editorial_player_key": "nhl.p.3638",
+              "editorial_team_key": "nhl.t.16",
+              "editorial_team_full_name": "Pittsburgh Penguins",
+              "editorial_team_abbr": "PIT",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "71",
+              "display_position": "C,LW,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 72,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.4786",
+              "player_id": "4786",
+              "name": {
+                "full": "Ryan O'Reilly",
+                "first": "Ryan",
+                "last": "O'Reilly",
+                "ascii_first": "Ryan",
+                "ascii_last": "O'Reilly"
+              },
+              "editorial_player_key": "nhl.p.4786",
+              "editorial_team_key": "nhl.t.27",
+              "editorial_team_full_name": "Nashville Predators",
+              "editorial_team_abbr": "NSH",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "90",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 53,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.6745",
+              "player_id": "6745",
+              "name": {
+                "full": "Dylan Strome",
+                "first": "Dylan",
+                "last": "Strome",
+                "ascii_first": "Dylan",
+                "ascii_last": "Strome"
+              },
+              "editorial_player_key": "nhl.p.6745",
+              "editorial_team_key": "nhl.t.23",
+              "editorial_team_full_name": "Washington Capitals",
+              "editorial_team_abbr": "WSH",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "17",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790049490,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 46,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958664",
+                    "player_id": "6745",
+                    "headline": "Records two points against Philly",
+                    "first_name": "Dylan",
+                    "last_name": "Strome",
+                    "provider": "Rotowire.com",
+                    "text": "Strome banked an even-strength goal, a power-play assist and a plus-2 rating in Monday's 5-2 exhibition win over the Flyers.\n\nAdvice: Strome set up Aliaksei Protas' power-play marker midway through the first period before scoring the game-winner late in the second. The 29-year-old Strome had just 58 points last season after supplying at least 65 in each of the previous three years, but he should be capable of getting back over the 60-point mark in 2026-27 since the Capitals brought in two skilled forwards in Alex Tuch and Jordan Kyrou.",
+                    "advice": "Strome set up Aliaksei Protas' power-play marker midway through the first period before scoring the game-winner late in the second. The 29-year-old Strome had just 58 points last season after supplying at least 65 in each of the previous three years, but he should be capable of getting back over the 60-point mark in 2026-27 since the Capitals brought in two skilled forwards in Alex Tuch and Jordan Kyrou.",
+                    "date": "2026-09-22",
+                    "time": 1790049490,
+                    "news": "Strome banked an even-strength goal, a power-play assist and a plus-2 rating in Monday's 5-2 exhibition win over the Flyers."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.5431",
+              "player_id": "5431",
+              "name": {
+                "full": "Vincent Trocheck",
+                "first": "Vincent",
+                "last": "Trocheck",
+                "ascii_first": "Vincent",
+                "ascii_last": "Trocheck"
+              },
+              "editorial_player_key": "nhl.p.5431",
+              "editorial_team_key": "nhl.t.60",
+              "editorial_team_full_name": "Utah Mammoth",
+              "editorial_team_abbr": "UTA",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "16",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 49,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30109",
+              "player_id": "30109",
+              "name": {
+                "full": "Josh Doan",
+                "first": "Josh",
+                "last": "Doan",
+                "ascii_first": "Josh",
+                "ascii_last": "Doan"
+              },
+              "editorial_player_key": "nhl.p.30109",
+              "editorial_team_key": "nhl.t.2",
+              "editorial_team_full_name": "Buffalo Sabres",
+              "editorial_team_abbr": "BUF",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "91",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 41,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30549",
+              "player_id": "30549",
+              "name": {
+                "full": "Zach Benson",
+                "first": "Zach",
+                "last": "Benson",
+                "ascii_first": "Zach",
+                "ascii_last": "Benson"
+              },
+              "editorial_player_key": "nhl.p.30549",
+              "editorial_team_key": "nhl.t.2",
+              "editorial_team_full_name": "Buffalo Sabres",
+              "editorial_team_abbr": "BUF",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "6",
+              "display_position": "LW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "LW",
+              "eligible_positions": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 50,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.7520",
+              "player_id": "7520",
+              "name": {
+                "full": "Elias Pettersson",
+                "first": "Elias",
+                "last": "Pettersson",
+                "ascii_first": "Elias",
+                "ascii_last": "Pettersson"
+              },
+              "editorial_player_key": "nhl.p.7520",
+              "editorial_team_key": "nhl.t.22",
+              "editorial_team_full_name": "Vancouver Canucks",
+              "editorial_team_abbr": "VAN",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "40",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 48,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8285",
+              "player_id": "8285",
+              "name": {
+                "full": "Dylan Cozens",
+                "first": "Dylan",
+                "last": "Cozens",
+                "ascii_first": "Dylan",
+                "ascii_last": "Cozens"
+              },
+              "editorial_player_key": "nhl.p.8285",
+              "editorial_team_key": "nhl.t.14",
+              "editorial_team_full_name": "Ottawa Senators",
+              "editorial_team_abbr": "OTT",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "24",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790044763,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 58,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958653",
+                    "player_id": "8285",
+                    "headline": "One of each Monday",
+                    "first_name": "Dylan",
+                    "last_name": "Cozens",
+                    "provider": "Rotowire.com",
+                    "text": "Cozens scored a goal and dished out an assist in Monday's overtime preseason loss to Montreal.\n\nAdvice: Cozens played a hand in each of Ottawa's goals on Monday, as he picked up the lone helper on William Eklund's first preseason goal before later scoring himself. The 25-year-old Cozens took a step forward during his first full season with the Senators, as he posted 28 goals, 59 points, 205 shots on net and 215 hits across 82 regular-season games. With Brady Tkachuk's departure to Florida, Cozens will likely have a larger role offensively in 2026-27, which could lead to him building upon his already impressive fantasy file in all league formats.",
+                    "advice": "Cozens played a hand in each of Ottawa's goals on Monday, as he picked up the lone helper on William Eklund's first preseason goal before later scoring himself. The 25-year-old Cozens took a step forward during his first full season with the Senators, as he posted 28 goals, 59 points, 205 shots on net and 215 hits across 82 regular-season games. With Brady Tkachuk's departure to Florida, Cozens will likely have a larger role offensively in 2026-27, which could lead to him building upon his already impressive fantasy file in all league formats.",
+                    "date": "2026-09-22",
+                    "time": 1790044763,
+                    "news": "Cozens scored a goal and dished out an assist in Monday's overtime preseason loss to Montreal."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.33913",
+              "player_id": "33913",
+              "name": {
+                "full": "Ivar Stenberg",
+                "first": "Ivar",
+                "last": "Stenberg",
+                "ascii_first": "Ivar",
+                "ascii_last": "Stenberg"
+              },
+              "editorial_player_key": "nhl.p.33913",
+              "editorial_team_key": "nhl.t.18",
+              "editorial_team_full_name": "San Jose Sharks",
+              "editorial_team_abbr": "SJ",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "41",
+              "display_position": "LW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "LW",
+              "eligible_positions": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790315069,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 65,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958958",
+                    "player_id": "33913",
+                    "headline": "Makes splash in preseason play",
+                    "first_name": "Ivar",
+                    "last_name": "Stenberg",
+                    "provider": "Rotowire.com",
+                    "text": "Stenberg had a hat trick and an assist in Thursday's 10-0 preseason win over the Ducks.\n\nAdvice: Stenberg, the No. 2 overall pick from June, is all but guaranteed an NHL job to begin the campaign. The 18-year-old took advantage of AHL-level competition in this game, and he should continue to see prominent usage once the puck drops next Thursday versus the Panthers in the season opener. Stenberg could find his way into the Calder Trophy conversation if he hits the ground running.",
+                    "advice": "Stenberg, the No. 2 overall pick from June, is all but guaranteed an NHL job to begin the campaign. The 18-year-old took advantage of AHL-level competition in this game, and he should continue to see prominent usage once the puck drops next Thursday versus the Panthers in the season opener. Stenberg could find his way into the Calder Trophy conversation if he hits the ground running.",
+                    "date": "2026-09-25",
+                    "time": 1790315069,
+                    "news": "Stenberg had a hat trick and an assist in Thursday's 10-0 preseason win over the Ducks."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.4683",
+              "player_id": "4683",
+              "name": {
+                "full": "Matt Duchene",
+                "first": "Matt",
+                "last": "Duchene",
+                "ascii_first": "Matt",
+                "ascii_last": "Duchene"
+              },
+              "status": "DTD",
+              "status_full": "Day-to-Day",
+              "injury_note": "Undisclosed",
+              "editorial_player_key": "nhl.p.4683",
+              "editorial_team_key": "nhl.t.9",
+              "editorial_team_full_name": "Dallas Stars",
+              "editorial_team_abbr": "DAL",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "95",
+              "display_position": "C,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790272724,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 32,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10958859",
+                    "player_id": "4683",
+                    "headline": "Won't suit up in preseason finale",
+                    "first_name": "Matt",
+                    "last_name": "Duchene",
+                    "provider": "Rotowire.com",
+                    "text": "Duchene (undisclosed) will not play in Friday's preseason finale against the Wild, Stars TV host Brien Rea reports.\n\nAdvice: Duchene continues to deal with an undisclosed injury that has limited his ability to get on the ice during camp. While it sounds like the veteran center will start practicing soon, at this point, fantasy managers may want to consider him questionable for the regular-season opener versus St. Louis on Oct. 2.",
+                    "advice": "Duchene continues to deal with an undisclosed injury that has limited his ability to get on the ice during camp. While it sounds like the veteran center will start practicing soon, at this point, fantasy managers may want to consider him questionable for the regular-season opener versus St. Louis on Oct. 2.",
+                    "date": "2026-09-24",
+                    "time": 1790272724,
+                    "news": "Duchene (undisclosed) will not play in Friday's preseason finale against the Wild, Stars TV host Brien Rea reports."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10958684",
+                    "player_id": "4683",
+                    "headline": "Remains sidelined at camp",
+                    "first_name": "Matt",
+                    "last_name": "Duchene",
+                    "provider": "Rotowire.com",
+                    "text": "Duchene wasn't seen skating at Stars' training camp Tuesday, per Robert Tiffin of NHL.com.\n\nAdvice: After reports noted that Duchene was originally supposed to miss the first few days of camp, his absence has now extended beyond the team's first two preseason games. The 35-year-old center missed a chunk of time due to an upper-body injury during the 2025-26 season, where he posted 16 goals, 45 points and 89 shots on net across 57 regular-season outings. According to Lia Assimakopoulos of The Dallas Morning News, head coach Glen Gulutzan stated that Duchene will resume skating Wednesday, but he will not play in the team's preseason game. Regardless, his status will be monitored closely in the coming days with the Stars' opening night set for Oct. 2 against the St. Louis Blues.",
+                    "advice": "After reports noted that Duchene was originally supposed to miss the first few days of camp, his absence has now extended beyond the team's first two preseason games. The 35-year-old center missed a chunk of time due to an upper-body injury during the 2025-26 season, where he posted 16 goals, 45 points and 89 shots on net across 57 regular-season outings. According to Lia Assimakopoulos of The Dallas Morning News, head coach Glen Gulutzan stated that Duchene will resume skating Wednesday, but he will not play in the team's preseason game. Regardless, his status will be monitored closely in the coming days with the Stars' opening night set for Oct. 2 against the St. Louis Blues.",
+                    "date": "2026-09-22",
+                    "time": 1790096466,
+                    "news": "Duchene wasn't seen skating at Stars' training camp Tuesday, per Robert Tiffin of NHL.com."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8883",
+              "player_id": "8883",
+              "name": {
+                "full": "William Eklund",
+                "first": "William",
+                "last": "Eklund",
+                "ascii_first": "William",
+                "ascii_last": "Eklund"
+              },
+              "editorial_player_key": "nhl.p.8883",
+              "editorial_team_key": "nhl.t.14",
+              "editorial_team_full_name": "Ottawa Senators",
+              "editorial_team_abbr": "OTT",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "27",
+              "display_position": "LW,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "LW",
+              "eligible_positions": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 51,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.5853",
+              "player_id": "5853",
+              "name": {
+                "full": "Linus Ullmark",
+                "first": "Linus",
+                "last": "Ullmark",
+                "ascii_first": "Linus",
+                "ascii_last": "Ullmark"
+              },
+              "editorial_player_key": "nhl.p.5853",
+              "editorial_team_key": "nhl.t.14",
+              "editorial_team_full_name": "Ottawa Senators",
+              "editorial_team_abbr": "OTT",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "35",
+              "display_position": "G",
+              "is_undroppable": "0",
+              "position_type": "G",
+              "primary_position": "G",
+              "eligible_positions": [
+                {
+                  "position": "G"
+                }
+              ],
+              "eligible_positions_to_add": [],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790517708,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 81,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959175",
+                    "player_id": "5853",
+                    "headline": "Allows three goals in win",
+                    "first_name": "Linus",
+                    "last_name": "Ullmark",
+                    "provider": "Rotowire.com",
+                    "text": "Ullmark stopped 22 of 25 shots in Saturday's 4-3 preseason win over the Canadiens.\n\nAdvice: Ullmark allowed Brett Berard's opening goal 3:49 into the game but kept Montreal off the board for the remainder of the first two periods while Ottawa built a 3-1 advantage. The Canadiens then struck twice in a span of 1:46 during the third, with Alex Belzile and Sasha Pastujov beating Ullmark to tie the contest, but a later goal from William Eklund gave Ullmark and Ottawa the win. Ullmark posted a 28-12-8 record with three shutouts, a 2.73 GAA and an .891 save percentage in 49 regular-season appearances for Ottawa in 2025-26. While this wasn't his finest performance with the regular season right around the corner, he's slated to open the 2026-27 campaign as the first-choice goaltender for the Senators.",
+                    "advice": "Ullmark allowed Brett Berard's opening goal 3:49 into the game but kept Montreal off the board for the remainder of the first two periods while Ottawa built a 3-1 advantage. The Canadiens then struck twice in a span of 1:46 during the third, with Alex Belzile and Sasha Pastujov beating Ullmark to tie the contest, but a later goal from William Eklund gave Ullmark and Ottawa the win. Ullmark posted a 28-12-8 record with three shutouts, a 2.73 GAA and an .891 save percentage in 49 regular-season appearances for Ottawa in 2025-26. While this wasn't his finest performance with the regular season right around the corner, he's slated to open the 2026-27 campaign as the first-choice goaltender for the Senators.",
+                    "date": "2026-09-27",
+                    "time": 1790517708,
+                    "news": "Ullmark stopped 22 of 25 shots in Saturday's 4-3 preseason win over the Canadiens."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10959127",
+                    "player_id": "5853",
+                    "headline": "Making home start",
+                    "first_name": "Linus",
+                    "last_name": "Ullmark",
+                    "provider": "Rotowire.com",
+                    "text": "Ullmark will patrol the home crease in Saturday's preseason game against Montreal, per Bruce Garrioch of Postmedia.\n\nAdvice: Ullmark posted a 28-12-8 record with three shutouts, a 2.73 GAA and an .891 save percentage in 49 regular-season appearances for Ottawa in 2025-26. He will likely receive the bulk of the starts for the Senators again during the 2026-27 campaign.",
+                    "advice": "Ullmark posted a 28-12-8 record with three shutouts, a 2.73 GAA and an .891 save percentage in 49 regular-season appearances for Ottawa in 2025-26. He will likely receive the bulk of the starts for the Senators again during the 2026-27 campaign.",
+                    "date": "2026-09-26",
+                    "time": 1790456769,
+                    "news": "Ullmark will patrol the home crease in Saturday's preseason game against Montreal, per Bruce Garrioch of Postmedia."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10958831",
+                    "player_id": "5853",
+                    "headline": "Falters in preseason debut",
+                    "first_name": "Linus",
+                    "last_name": "Ullmark",
+                    "provider": "Rotowire.com",
+                    "text": "Ullmark stopped 20 of 23 shots in Wednesday's 4-2 preseason loss to the Maple Leafs. The fourth goal was an empty-netter.\n\nAdvice: Ullmark got the whole game, but the Senators as a whole struggled. The 33-year-old netminder is eligible for one more preseason game, though it's not yet clear if he'll make a start when the Senators have another split-squad set against the Canadiens on Saturday. In any case, expect Ullmark to handle the bulk of the workload in goal in 2026-27.",
+                    "advice": "Ullmark got the whole game, but the Senators as a whole struggled. The 33-year-old netminder is eligible for one more preseason game, though it's not yet clear if he'll make a start when the Senators have another split-squad set against the Canadiens on Saturday. In any case, expect Ullmark to handle the bulk of the workload in goal in 2026-27.",
+                    "date": "2026-09-24",
+                    "time": 1790221550,
+                    "news": "Ullmark stopped 20 of 23 shots in Wednesday's 4-2 preseason loss to the Maple Leafs. The fourth goal was an empty-netter."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8674",
+              "player_id": "8674",
+              "name": {
+                "full": "JJ Peterka",
+                "first": "JJ",
+                "last": "Peterka",
+                "ascii_first": "JJ",
+                "ascii_last": "Peterka"
+              },
+              "editorial_player_key": "nhl.p.8674",
+              "editorial_team_key": "nhl.t.1",
+              "editorial_team_full_name": "Boston Bruins",
+              "editorial_team_abbr": "BOS",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "10",
+              "display_position": "LW,RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "LW",
+              "eligible_positions": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 53,
+                "delta": "0"
+              },
+              "ownership": {
+                "ownership_type": "freeagents"
+              }
+            }
+          }
+        ],
+        "players:attributes": {
+          "count": 25
+        }
+      },
+      "@time": "90.833902359009ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}

@@ -1,0 +1,1597 @@
+{
+  "path": "/league/477.l.48535/scoreboard",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/league/477.l.48535/scoreboard",
+      "league": {
+        "league_key": "477.l.48535",
+        "league_id": "48535",
+        "name": "Method Fantasy League",
+        "draft_status": "postdraft",
+        "num_teams": 8,
+        "max_teams": "10",
+        "edit_key": "2026-09-29",
+        "weekly_deadline": "intraday",
+        "roster_type": "date",
+        "league_update_timestamp": null,
+        "scoring_type": "head",
+        "scoring_label": "H2H Cat",
+        "league_type": "private",
+        "renew": "465_53136",
+        "renewed": null,
+        "felo_tier": "bronze",
+        "is_highscore": null,
+        "is_guillotine": "0",
+        "matchup_week": 1,
+        "iris_group_chat_id": null,
+        "allow_add_to_dl_extra_pos": 1,
+        "is_pro_league": "0",
+        "is_cash_league": "0",
+        "current_week": 1,
+        "start_week": "1",
+        "start_date": "2026-09-29",
+        "end_week": "27",
+        "end_date": "2027-04-10",
+        "current_date": "2026-09-29",
+        "is_plus_league": "0",
+        "game_code": "nhl",
+        "season": "2026",
+        "scoreboard": {
+          "week": 1,
+          "matchups": [
+            {
+              "matchup": {
+                "week": "1",
+                "week_start": "2026-09-29",
+                "week_end": "2026-10-04",
+                "status": "midevent",
+                "is_playoffs": "0",
+                "is_consolation": "0",
+                "is_matchup_of_the_week": "0",
+                "stat_winners": [
+                  {
+                    "stat_winner": {
+                      "stat_id": "1",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "2",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "4",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "5",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "8",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "11",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "12",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "14",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "31",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "19",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "23",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "26",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "27",
+                      "is_tied": 1
+                    }
+                  }
+                ],
+                "teams": [
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.1",
+                      "team_id": "1",
+                      "name": "Drunk Dahlin",
+                      "previous_season_team_rank": 2,
+                      "waiver_priority": 5,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 4,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "1",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "is_commissioner": "1",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 34,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.7",
+                      "team_id": "7",
+                      "name": "michael's Superb Team",
+                      "waiver_priority": 7,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 1,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "7",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 33,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  }
+                ],
+                "teams:attributes": {
+                  "count": 2
+                }
+              }
+            },
+            {
+              "matchup": {
+                "week": "1",
+                "week_start": "2026-09-29",
+                "week_end": "2026-10-04",
+                "status": "midevent",
+                "is_playoffs": "0",
+                "is_consolation": "0",
+                "is_matchup_of_the_week": "0",
+                "stat_winners": [
+                  {
+                    "stat_winner": {
+                      "stat_id": "1",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "2",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "4",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "5",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "8",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "11",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "12",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "14",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "31",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "19",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "23",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "26",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "27",
+                      "is_tied": 1
+                    }
+                  }
+                ],
+                "teams": [
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.2",
+                      "team_id": "2",
+                      "name": "I drop my best players",
+                      "previous_season_team_rank": 1,
+                      "waiver_priority": 1,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 8,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "2",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 38,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.8",
+                      "team_id": "8",
+                      "name": "DraftAndRun",
+                      "waiver_priority": 2,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 7,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "8",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 37,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  }
+                ],
+                "teams:attributes": {
+                  "count": 2
+                }
+              }
+            },
+            {
+              "matchup": {
+                "week": "1",
+                "week_start": "2026-09-29",
+                "week_end": "2026-10-04",
+                "status": "midevent",
+                "is_playoffs": "0",
+                "is_consolation": "0",
+                "is_matchup_of_the_week": "0",
+                "stat_winners": [
+                  {
+                    "stat_winner": {
+                      "stat_id": "1",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "2",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "4",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "5",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "8",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "11",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "12",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "14",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "31",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "19",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "23",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "26",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "27",
+                      "is_tied": 1
+                    }
+                  }
+                ],
+                "teams": [
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.3",
+                      "team_id": "3",
+                      "name": "Dicks Picks 2026",
+                      "waiver_priority": 3,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 6,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "3",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 39,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.6",
+                      "team_id": "6",
+                      "name": "Ben's Astonishing Team",
+                      "is_owned_by_current_login": 1,
+                      "waiver_priority": 8,
+                      "number_of_moves": 2,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 2,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "6",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "is_current_login": "1",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 26,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  }
+                ],
+                "teams:attributes": {
+                  "count": 2
+                }
+              }
+            },
+            {
+              "matchup": {
+                "week": "1",
+                "week_start": "2026-09-29",
+                "week_end": "2026-10-04",
+                "status": "midevent",
+                "is_playoffs": "0",
+                "is_consolation": "0",
+                "is_matchup_of_the_week": "0",
+                "stat_winners": [
+                  {
+                    "stat_winner": {
+                      "stat_id": "1",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "2",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "4",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "5",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "8",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "11",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "12",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "14",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "31",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "19",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "23",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "26",
+                      "is_tied": 1
+                    }
+                  },
+                  {
+                    "stat_winner": {
+                      "stat_id": "27",
+                      "is_tied": 1
+                    }
+                  }
+                ],
+                "teams": [
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.4",
+                      "team_id": "4",
+                      "name": "apple seider 🧃🐐",
+                      "previous_season_team_rank": 4,
+                      "waiver_priority": 6,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 3,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "4",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 41,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "team": {
+                      "team_key": "477.l.48535.t.5",
+                      "team_id": "5",
+                      "name": "LA BAMBA BABY!!",
+                      "previous_season_team_rank": 5,
+                      "waiver_priority": 4,
+                      "number_of_moves": 0,
+                      "number_of_trades": 0,
+                      "roster_adds": {
+                        "coverage_type": "week",
+                        "coverage_value": 1,
+                        "value": "0"
+                      },
+                      "league_scoring_type": "head",
+                      "draft_position": 5,
+                      "has_draft_grade": 0,
+                      "managers": [
+                        {
+                          "manager": {
+                            "manager_id": "5",
+                            "nickname": "REDACTED",
+                            "guid": "REDACTED",
+                            "email": "REDACTED"
+                          }
+                        }
+                      ],
+                      "team_stats": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "stats": [
+                          {
+                            "stat": {
+                              "stat_id": "1",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "2",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "4",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "5",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "8",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "11",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "12",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "14",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "31",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "19",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "22",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "23",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "25",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "24",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "26",
+                              "value": null
+                            }
+                          },
+                          {
+                            "stat": {
+                              "stat_id": "27",
+                              "value": null
+                            }
+                          }
+                        ]
+                      },
+                      "team_points": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": "0"
+                      },
+                      "team_remaining_games": {
+                        "coverage_type": "week",
+                        "week": "1",
+                        "total": {
+                          "remaining_games": 41,
+                          "live_games": 0,
+                          "completed_games": 0
+                        }
+                      }
+                    }
+                  }
+                ],
+                "teams:attributes": {
+                  "count": 2
+                }
+              }
+            }
+          ],
+          "matchups:attributes": {
+            "count": 4
+          }
+        }
+      },
+      "@time": "75.448989868164ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}

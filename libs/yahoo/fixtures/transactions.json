@@ -1,0 +1,179 @@
+{
+  "path": "/league/477.l.48535/transactions",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/league/477.l.48535/transactions",
+      "league": {
+        "league_key": "477.l.48535",
+        "league_id": "48535",
+        "name": "Method Fantasy League",
+        "draft_status": "postdraft",
+        "num_teams": 8,
+        "max_teams": "10",
+        "edit_key": "2026-09-29",
+        "weekly_deadline": "intraday",
+        "roster_type": "date",
+        "league_update_timestamp": null,
+        "scoring_type": "head",
+        "scoring_label": "H2H Cat",
+        "league_type": "private",
+        "renew": "465_53136",
+        "renewed": null,
+        "felo_tier": "bronze",
+        "is_highscore": null,
+        "is_guillotine": "0",
+        "matchup_week": 1,
+        "iris_group_chat_id": null,
+        "allow_add_to_dl_extra_pos": 1,
+        "is_pro_league": "0",
+        "is_cash_league": "0",
+        "current_week": 1,
+        "start_week": "1",
+        "start_date": "2026-09-29",
+        "end_week": "27",
+        "end_date": "2027-04-10",
+        "current_date": "2026-09-29",
+        "is_plus_league": "0",
+        "game_code": "nhl",
+        "season": "2026",
+        "transactions": [
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.10",
+              "transaction_id": "10",
+              "type": "add",
+              "status": "successful",
+              "timestamp": "1790495668",
+              "players": [
+                {
+                  "player": {
+                    "player_key": "477.p.6377",
+                    "player_id": "6377",
+                    "name": {
+                      "full": "Kevin Fiala",
+                      "first": "Kevin",
+                      "last": "Fiala",
+                      "ascii_first": "Kevin",
+                      "ascii_last": "Fiala"
+                    },
+                    "editorial_team_abbr": "LA",
+                    "display_position": "LW",
+                    "position_type": "P",
+                    "transaction_data": {
+                      "type": "add",
+                      "source_type": "waivers",
+                      "destination_type": "team",
+                      "destination_team_key": "477.l.48535.t.6",
+                      "destination_team_name": "Ben's Astonishing Team"
+                    }
+                  }
+                }
+              ],
+              "players:attributes": {
+                "count": 1
+              }
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.9",
+              "transaction_id": "9",
+              "type": "add",
+              "status": "successful",
+              "timestamp": "1790495668",
+              "players": [
+                {
+                  "player": {
+                    "player_key": "477.p.4351",
+                    "player_id": "4351",
+                    "name": {
+                      "full": "Brad Marchand",
+                      "first": "Brad",
+                      "last": "Marchand",
+                      "ascii_first": "Brad",
+                      "ascii_last": "Marchand"
+                    },
+                    "editorial_team_abbr": "FLA",
+                    "display_position": "LW,RW",
+                    "position_type": "P",
+                    "transaction_data": {
+                      "type": "add",
+                      "source_type": "waivers",
+                      "destination_type": "team",
+                      "destination_team_key": "477.l.48535.t.6",
+                      "destination_team_name": "Ben's Astonishing Team"
+                    }
+                  }
+                }
+              ],
+              "players:attributes": {
+                "count": 1
+              }
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.8",
+              "transaction_id": "8",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789427439"
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.7",
+              "transaction_id": "7",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789427397"
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.6",
+              "transaction_id": "6",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789418260"
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.5",
+              "transaction_id": "5",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789417299"
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.4",
+              "transaction_id": "4",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789415498"
+            }
+          },
+          {
+            "transaction": {
+              "transaction_key": "477.l.48535.tr.3",
+              "transaction_id": "3",
+              "type": "commish",
+              "status": "successful",
+              "timestamp": "1789415498"
+            }
+          }
+        ],
+        "transactions:attributes": {
+          "count": 8
+        }
+      },
+      "@time": "51.163911819458ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}

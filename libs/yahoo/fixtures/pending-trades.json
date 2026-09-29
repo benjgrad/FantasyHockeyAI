@@ -1,0 +1,47 @@
+{
+  "path": "/league/477.l.48535/transactions;types=pending_trade;team_key=477.l.48535.t.6",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/league/477.l.48535/transactions;types=pending_trade;team_key=477.l.48535.t.6",
+      "league": {
+        "league_key": "477.l.48535",
+        "league_id": "48535",
+        "name": "Method Fantasy League",
+        "draft_status": "postdraft",
+        "num_teams": 8,
+        "max_teams": "10",
+        "edit_key": "2026-09-29",
+        "weekly_deadline": "intraday",
+        "roster_type": "date",
+        "league_update_timestamp": null,
+        "scoring_type": "head",
+        "scoring_label": "H2H Cat",
+        "league_type": "private",
+        "renew": "465_53136",
+        "renewed": null,
+        "felo_tier": "bronze",
+        "is_highscore": null,
+        "is_guillotine": "0",
+        "matchup_week": 1,
+        "iris_group_chat_id": null,
+        "allow_add_to_dl_extra_pos": 1,
+        "is_pro_league": "0",
+        "is_cash_league": "0",
+        "current_week": 1,
+        "start_week": "1",
+        "start_date": "2026-09-29",
+        "end_week": "27",
+        "end_date": "2027-04-10",
+        "current_date": "2026-09-29",
+        "is_plus_league": "0",
+        "game_code": "nhl",
+        "season": "2026",
+        "transactions": []
+      },
+      "@time": "37.626028060913ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}

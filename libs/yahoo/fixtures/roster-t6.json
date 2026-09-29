@@ -1,0 +1,1336 @@
+{
+  "path": "/team/477.l.48535.t.6/roster;date=2026-09-29/players;out=player_notes,percent_owned",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/team/477.l.48535.t.6/roster;date=2026-09-29/players;out=player_notes,percent_owned",
+      "team": {
+        "team_key": "477.l.48535.t.6",
+        "team_id": "6",
+        "name": "Ben's Astonishing Team",
+        "is_owned_by_current_login": 1,
+        "waiver_priority": 8,
+        "number_of_moves": 2,
+        "number_of_trades": 0,
+        "roster_adds": {
+          "coverage_type": "week",
+          "coverage_value": 1,
+          "value": "0"
+        },
+        "league_scoring_type": "head",
+        "draft_position": 2,
+        "has_draft_grade": 0,
+        "managers": [
+          {
+            "manager": {
+              "manager_id": "6",
+              "nickname": "REDACTED",
+              "guid": "REDACTED",
+              "is_current_login": "1",
+              "email": "REDACTED"
+            }
+          }
+        ],
+        "roster": {
+          "coverage_type": "date",
+          "date": "2026-09-29",
+          "is_prescoring": 0,
+          "is_editable": 1,
+          "players": [
+            {
+              "player": {
+                "player_key": "477.p.5980",
+                "player_id": "5980",
+                "name": {
+                  "full": "Nathan MacKinnon",
+                  "first": "Nathan",
+                  "last": "MacKinnon",
+                  "ascii_first": "Nathan",
+                  "ascii_last": "MacKinnon"
+                },
+                "editorial_player_key": "nhl.p.5980",
+                "editorial_team_key": "nhl.t.17",
+                "editorial_team_full_name": "Colorado Avalanche",
+                "editorial_team_abbr": "COL",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "29",
+                "display_position": "C",
+                "is_undroppable": "1",
+                "position_type": "P",
+                "primary_position": "C",
+                "eligible_positions": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790355780,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "C",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10958991",
+                      "player_id": "5980",
+                      "headline": "Set to make preseason debut Friday",
+                      "first_name": "Nathan",
+                      "last_name": "MacKinnon",
+                      "provider": "Rotowire.com",
+                      "text": "MacKinnon will make his first and only preseason appearance Friday against the Jets, Evan Rawal of the Denver Gazette reports.\n\nAdvice: MacKinnon didn't appear in Colorado's first two preseason games, but he'll suit up Friday before sitting again Saturday against the Mammoth. Despite his limited appearances during the preseason, the 31-year-old is healthy ahead of the regular season and is in line for a massive workload once again after he recorded 53 goals, 74 assists, 64 hits, 39 PIM and 35 blocked shots while averaging 22:16 of ice time across 80 regular-season appearances during the 2025-26 campaign.",
+                      "advice": "MacKinnon didn't appear in Colorado's first two preseason games, but he'll suit up Friday before sitting again Saturday against the Mammoth. Despite his limited appearances during the preseason, the 31-year-old is healthy ahead of the regular season and is in line for a massive workload once again after he recorded 53 goals, 74 assists, 64 hits, 39 PIM and 35 blocked shots while averaging 22:16 of ice time across 80 regular-season appearances during the 2025-26 campaign.",
+                      "date": "2026-09-25",
+                      "time": 1790355780,
+                      "news": "MacKinnon will make his first and only preseason appearance Friday against the Jets, Evan Rawal of the Denver Gazette reports."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 100,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.6777",
+                "player_id": "6777",
+                "name": {
+                  "full": "Sebastian Aho",
+                  "first": "Sebastian",
+                  "last": "Aho",
+                  "ascii_first": "Sebastian",
+                  "ascii_last": "Aho"
+                },
+                "editorial_player_key": "nhl.p.6777",
+                "editorial_team_key": "nhl.t.7",
+                "editorial_team_full_name": "Carolina Hurricanes",
+                "editorial_team_abbr": "CAR",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "20",
+                "display_position": "C",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "C",
+                "eligible_positions": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "C",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 95,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5691",
+                "player_id": "5691",
+                "name": {
+                  "full": "Filip Forsberg",
+                  "first": "Filip",
+                  "last": "Forsberg",
+                  "ascii_first": "Filip",
+                  "ascii_last": "Forsberg"
+                },
+                "editorial_player_key": "nhl.p.5691",
+                "editorial_team_key": "nhl.t.27",
+                "editorial_team_full_name": "Nashville Predators",
+                "editorial_team_abbr": "NSH",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "9",
+                "display_position": "LW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "LW",
+                "eligible_positions": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "LW",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 97,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.7636",
+                "player_id": "7636",
+                "name": {
+                  "full": "Drake Batherson",
+                  "first": "Drake",
+                  "last": "Batherson",
+                  "ascii_first": "Drake",
+                  "ascii_last": "Batherson"
+                },
+                "editorial_player_key": "nhl.p.7636",
+                "editorial_team_key": "nhl.t.14",
+                "editorial_team_full_name": "Ottawa Senators",
+                "editorial_team_abbr": "OTT",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "19",
+                "display_position": "LW,RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "LW",
+                "eligible_positions": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "LW",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 94,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5696",
+                "player_id": "5696",
+                "name": {
+                  "full": "Tom Wilson",
+                  "first": "Tom",
+                  "last": "Wilson",
+                  "ascii_first": "Tom",
+                  "ascii_last": "Wilson"
+                },
+                "editorial_player_key": "nhl.p.5696",
+                "editorial_team_key": "nhl.t.23",
+                "editorial_team_full_name": "Washington Capitals",
+                "editorial_team_abbr": "WSH",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "43",
+                "display_position": "RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "RW",
+                "eligible_positions": [
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790391418,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "RW",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10959065",
+                      "player_id": "5696",
+                      "headline": "Goal, assist on power play in win",
+                      "first_name": "Tom",
+                      "last_name": "Wilson",
+                      "provider": "Rotowire.com",
+                      "text": "Wilson scored a goal on five shots and added an assist in Friday's 3-2 preseason overtime win over the Bruins.\n\nAdvice: Wilson is one of the players who could be most affected by the Capitals' busy offseason, but a lot of his production is independent of offense. The gritty winger looks poised to see middle-six minutes and power-play time in 2026-27. He's topped the 30-goal and 60-point marks in two straight campaigns, though he might take a slight dip on offense this year due to the added talent on the roster. Wilson still remains a top-tier option in banger leagues with the capability for 200 hits and 100 PIM.",
+                      "advice": "Wilson is one of the players who could be most affected by the Capitals' busy offseason, but a lot of his production is independent of offense. The gritty winger looks poised to see middle-six minutes and power-play time in 2026-27. He's topped the 30-goal and 60-point marks in two straight campaigns, though he might take a slight dip on offense this year due to the added talent on the roster. Wilson still remains a top-tier option in banger leagues with the capability for 200 hits and 100 PIM.",
+                      "date": "2026-09-26",
+                      "time": 1790391418,
+                      "news": "Wilson scored a goal on five shots and added an assist in Friday's 3-2 preseason overtime win over the Bruins."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 87,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.6395",
+                "player_id": "6395",
+                "name": {
+                  "full": "Adrian Kempe",
+                  "first": "Adrian",
+                  "last": "Kempe",
+                  "ascii_first": "Adrian",
+                  "ascii_last": "Kempe"
+                },
+                "editorial_player_key": "nhl.p.6395",
+                "editorial_team_key": "nhl.t.8",
+                "editorial_team_full_name": "Los Angeles Kings",
+                "editorial_team_abbr": "LA",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "9",
+                "display_position": "RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "RW",
+                "eligible_positions": [
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "RW",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 98,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5992",
+                "player_id": "5992",
+                "name": {
+                  "full": "Josh Morrissey",
+                  "first": "Josh",
+                  "last": "Morrissey",
+                  "ascii_first": "Josh",
+                  "ascii_last": "Morrissey"
+                },
+                "editorial_player_key": "nhl.p.5992",
+                "editorial_team_key": "nhl.t.28",
+                "editorial_team_full_name": "Winnipeg Jets",
+                "editorial_team_abbr": "WPG",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "44",
+                "display_position": "D",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "D",
+                "eligible_positions": [
+                  {
+                    "position": "D"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "D",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 96,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5995",
+                "player_id": "5995",
+                "name": {
+                  "full": "Nikita Zadorov",
+                  "first": "Nikita",
+                  "last": "Zadorov",
+                  "ascii_first": "Nikita",
+                  "ascii_last": "Zadorov"
+                },
+                "editorial_player_key": "nhl.p.5995",
+                "editorial_team_key": "nhl.t.1",
+                "editorial_team_full_name": "Boston Bruins",
+                "editorial_team_abbr": "BOS",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "91",
+                "display_position": "D",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "D",
+                "eligible_positions": [
+                  {
+                    "position": "D"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "D",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 39,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.7117",
+                "player_id": "7117",
+                "name": {
+                  "full": "Mikhail Sergachev",
+                  "first": "Mikhail",
+                  "last": "Sergachev",
+                  "ascii_first": "Mikhail",
+                  "ascii_last": "Sergachev"
+                },
+                "editorial_player_key": "nhl.p.7117",
+                "editorial_team_key": "nhl.t.60",
+                "editorial_team_full_name": "Utah Mammoth",
+                "editorial_team_abbr": "UTA",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "98",
+                "display_position": "D",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "D",
+                "eligible_positions": [
+                  {
+                    "position": "D"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  }
+                ],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790177595,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "D",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10958743",
+                      "player_id": "7117",
+                      "headline": "Gets two helpers in exhibition win",
+                      "first_name": "Mikhail",
+                      "last_name": "Sergachev",
+                      "provider": "Rotowire.com",
+                      "text": "Sergachev registered two assists in a 6-3 exhibition win over Los Angeles on Tuesday.\n\nAdvice: Sergachev had 10 goals and 59 points in 78 regular-season appearances in 2025-26. That marked his second straight 50-plus-point campaign, and the third time he has reached that milestone in the past four years. The exception was 2023-24 when he was limited to 34 regular-season appearances. Sergachev is expected to be a great source of offense again in 2026-27, especially on the power play.",
+                      "advice": "Sergachev had 10 goals and 59 points in 78 regular-season appearances in 2025-26. That marked his second straight 50-plus-point campaign, and the third time he has reached that milestone in the past four years. The exception was 2023-24 when he was limited to 34 regular-season appearances. Sergachev is expected to be a great source of offense again in 2026-27, especially on the power play.",
+                      "date": "2026-09-23",
+                      "time": 1790177595,
+                      "news": "Sergachev registered two assists in a 6-3 exhibition win over Los Angeles on Tuesday."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 96,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.8296",
+                "player_id": "8296",
+                "name": {
+                  "full": "Thomas Harley",
+                  "first": "Thomas",
+                  "last": "Harley",
+                  "ascii_first": "Thomas",
+                  "ascii_last": "Harley"
+                },
+                "editorial_player_key": "nhl.p.8296",
+                "editorial_team_key": "nhl.t.9",
+                "editorial_team_full_name": "Dallas Stars",
+                "editorial_team_abbr": "DAL",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "55",
+                "display_position": "D",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "D",
+                "eligible_positions": [
+                  {
+                    "position": "D"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  }
+                ],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790100729,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "D",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10958693",
+                      "player_id": "8296",
+                      "headline": "Nets opening goal Monday",
+                      "first_name": "Thomas",
+                      "last_name": "Harley",
+                      "provider": "Rotowire.com",
+                      "text": "Harley scored a goal, fired two shots on net and recorded three blocked shots in Monday's 2-1 preseason win over St. Louis.\n\nAdvice: Harley sparked the Stars' offense Monday, as he scored the first goal 15 minutes into the contest. The 25-year-old blueliner took a small step back offensively in 2025-26, where he posted six goals and 36 points across 70 regular-season outings, so his goal should help ease any early-season nerves. He did have a career year for blocked shots, deflecting 148 attempts, making him a strong choice to return to the Stars' top defensive pairing to start the 2026-27 campaign.",
+                      "advice": "Harley sparked the Stars' offense Monday, as he scored the first goal 15 minutes into the contest. The 25-year-old blueliner took a small step back offensively in 2025-26, where he posted six goals and 36 points across 70 regular-season outings, so his goal should help ease any early-season nerves. He did have a career year for blocked shots, deflecting 148 attempts, making him a strong choice to return to the Stars' top defensive pairing to start the 2026-27 campaign.",
+                      "date": "2026-09-22",
+                      "time": 1790100729,
+                      "news": "Harley scored a goal, fired two shots on net and recorded three blocked shots in Monday's 2-1 preseason win over St. Louis."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 84,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.4471",
+                "player_id": "4471",
+                "name": {
+                  "full": "Steven Stamkos",
+                  "first": "Steven",
+                  "last": "Stamkos",
+                  "ascii_first": "Steven",
+                  "ascii_last": "Stamkos"
+                },
+                "editorial_player_key": "nhl.p.4471",
+                "editorial_team_key": "nhl.t.27",
+                "editorial_team_full_name": "Nashville Predators",
+                "editorial_team_abbr": "NSH",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "91",
+                "display_position": "C,RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "C",
+                "eligible_positions": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "Util",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 87,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.8653",
+                "player_id": "8653",
+                "name": {
+                  "full": "Seth Jarvis",
+                  "first": "Seth",
+                  "last": "Jarvis",
+                  "ascii_first": "Seth",
+                  "ascii_last": "Jarvis"
+                },
+                "status": "IR-NR",
+                "status_full": "Injured Reserve",
+                "injury_note": "Shoulder",
+                "on_disabled_list": "1",
+                "editorial_player_key": "nhl.p.8653",
+                "editorial_team_key": "nhl.t.7",
+                "editorial_team_full_name": "Carolina Hurricanes",
+                "editorial_team_abbr": "CAR",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "24",
+                "display_position": "LW,RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "LW",
+                "eligible_positions": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  },
+                  {
+                    "position": "IR"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790532005,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "BN",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10959216",
+                      "player_id": "8653",
+                      "headline": "Moves to non-roster list",
+                      "first_name": "Seth",
+                      "last_name": "Jarvis",
+                      "provider": "Rotowire.com",
+                      "text": "Jarvis (shoulder) was placed on the injured non-roster list Sunday.\n\nAdvice: Jarvis was initially pegged to miss about 4-6 months after having shoulder surgery in June. However, he believes he could return ahead of schedule after taking to the ice during training camp. Jarvis amassed 32 goals, 66 points, 224 shots on net and 81 hits in 71 games for the Hurricanes during the 2025-26 regular season.",
+                      "advice": "Jarvis was initially pegged to miss about 4-6 months after having shoulder surgery in June. However, he believes he could return ahead of schedule after taking to the ice during training camp. Jarvis amassed 32 goals, 66 points, 224 shots on net and 81 hits in 71 games for the Hurricanes during the 2025-26 regular season.",
+                      "date": "2026-09-27",
+                      "time": 1790532005,
+                      "news": "Jarvis (shoulder) was placed on the injured non-roster list Sunday."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 78,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.7516",
+                "player_id": "7516",
+                "name": {
+                  "full": "Nico Hischier",
+                  "first": "Nico",
+                  "last": "Hischier",
+                  "ascii_first": "Nico",
+                  "ascii_last": "Hischier"
+                },
+                "editorial_player_key": "nhl.p.7516",
+                "editorial_team_key": "nhl.t.11",
+                "editorial_team_full_name": "New Jersey Devils",
+                "editorial_team_abbr": "NJ",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "13",
+                "display_position": "C",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "C",
+                "eligible_positions": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "BN",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 82,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.30905",
+                "player_id": "30905",
+                "name": {
+                  "full": "Alexander Nikishin",
+                  "first": "Alexander",
+                  "last": "Nikishin",
+                  "ascii_first": "Alexander",
+                  "ascii_last": "Nikishin"
+                },
+                "status": "NA",
+                "status_full": "Not Active",
+                "injury_note": "Contract Dispute",
+                "editorial_player_key": "nhl.p.30905",
+                "editorial_team_key": "nhl.t.7",
+                "editorial_team_full_name": "Carolina Hurricanes",
+                "editorial_team_abbr": "CAR",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": null,
+                "display_position": "D",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "D",
+                "eligible_positions": [
+                  {
+                    "position": "D"
+                  },
+                  {
+                    "position": "Util"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "BN",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 43,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.4351",
+                "player_id": "4351",
+                "name": {
+                  "full": "Brad Marchand",
+                  "first": "Brad",
+                  "last": "Marchand",
+                  "ascii_first": "Brad",
+                  "ascii_last": "Marchand"
+                },
+                "status": "IR",
+                "status_full": "Injured Reserve",
+                "injury_note": "Lower Body",
+                "on_disabled_list": "1",
+                "editorial_player_key": "nhl.p.4351",
+                "editorial_team_key": "nhl.t.26",
+                "editorial_team_full_name": "Florida Panthers",
+                "editorial_team_abbr": "FLA",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "63",
+                "display_position": "LW,RW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "LW",
+                "eligible_positions": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "Util"
+                  },
+                  {
+                    "position": "IR"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "IR",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 54,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.6377",
+                "player_id": "6377",
+                "name": {
+                  "full": "Kevin Fiala",
+                  "first": "Kevin",
+                  "last": "Fiala",
+                  "ascii_first": "Kevin",
+                  "ascii_last": "Fiala"
+                },
+                "status": "IR",
+                "status_full": "Injured Reserve",
+                "injury_note": "Lower Leg",
+                "on_disabled_list": "1",
+                "editorial_player_key": "nhl.p.6377",
+                "editorial_team_key": "nhl.t.8",
+                "editorial_team_full_name": "Los Angeles Kings",
+                "editorial_team_abbr": "LA",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "22",
+                "display_position": "LW",
+                "is_undroppable": "0",
+                "position_type": "P",
+                "primary_position": "LW",
+                "eligible_positions": [
+                  {
+                    "position": "LW"
+                  },
+                  {
+                    "position": "Util"
+                  },
+                  {
+                    "position": "IR"
+                  }
+                ],
+                "eligible_positions_to_add": [
+                  {
+                    "position": "C"
+                  },
+                  {
+                    "position": "RW"
+                  },
+                  {
+                    "position": "D"
+                  }
+                ],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "IR",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 35,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5699",
+                "player_id": "5699",
+                "name": {
+                  "full": "Andrei Vasilevskiy",
+                  "first": "Andrei",
+                  "last": "Vasilevskiy",
+                  "ascii_first": "Andrei",
+                  "ascii_last": "Vasilevskiy"
+                },
+                "editorial_player_key": "nhl.p.5699",
+                "editorial_team_key": "nhl.t.20",
+                "editorial_team_full_name": "Tampa Bay Lightning",
+                "editorial_team_abbr": "TB",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "88",
+                "display_position": "G",
+                "is_undroppable": "1",
+                "position_type": "G",
+                "primary_position": "G",
+                "eligible_positions": [
+                  {
+                    "position": "G"
+                  }
+                ],
+                "eligible_positions_to_add": [],
+                "has_player_notes": 1,
+                "player_notes_last_timestamp": 1790309331,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "G",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10958941",
+                      "player_id": "5699",
+                      "headline": "Struggles in Thursday's outing",
+                      "first_name": "Andrei",
+                      "last_name": "Vasilevskiy",
+                      "provider": "Rotowire.com",
+                      "text": "Vasilevskiy stopped 20 of 24 shots in Thursday's 5-3 preseason loss to the Panthers. The fifth goal was an empty-netter.\n\nAdvice: This was more about routine than results, but it's not great the Vasilevskiy struggled against what was essentially the AHL Charlotte roster. Vasilevskiy allowed five goals on 37 shots over his two preseason outings. We'll next see him between the pipes when the Lightning open their regular season next Thursday at Madison Square Garden against the Rangers.",
+                      "advice": "This was more about routine than results, but it's not great the Vasilevskiy struggled against what was essentially the AHL Charlotte roster. Vasilevskiy allowed five goals on 37 shots over his two preseason outings. We'll next see him between the pipes when the Lightning open their regular season next Thursday at Madison Square Garden against the Rangers.",
+                      "date": "2026-09-25",
+                      "time": 1790309331,
+                      "news": "Vasilevskiy stopped 20 of 24 shots in Thursday's 5-3 preseason loss to the Panthers. The fifth goal was an empty-netter."
+                    }
+                  },
+                  {
+                    "player_note": {
+                      "id": "10958841",
+                      "player_id": "5699",
+                      "headline": "Patrolling home crease",
+                      "first_name": "Andrei",
+                      "last_name": "Vasilevskiy",
+                      "provider": "Rotowire.com",
+                      "text": "Vasilevskiy will start Thursday's home game against the Panthers, per Lightning reporter Gabby Shirley.\n\nAdvice: Vasilevskiy started off the 2026-27 preseason on the right foot in an outing where he allowed just one goal on 13 shot attempts. The reigning Vezina Trophy winner was a force last season, compiling a 39-15-4 record, a 2.31 GAA and a .911 save percentage across 58 regular-season outings. Thursday's preseason outing will likely be Vasilevskiy's final or penultimate tune-up game before he looks to dominate once again in the regular season.",
+                      "advice": "Vasilevskiy started off the 2026-27 preseason on the right foot in an outing where he allowed just one goal on 13 shot attempts. The reigning Vezina Trophy winner was a force last season, compiling a 39-15-4 record, a 2.31 GAA and a .911 save percentage across 58 regular-season outings. Thursday's preseason outing will likely be Vasilevskiy's final or penultimate tune-up game before he looks to dominate once again in the regular season.",
+                      "date": "2026-09-24",
+                      "time": 1790260404,
+                      "news": "Vasilevskiy will start Thursday's home game against the Panthers, per Lightning reporter Gabby Shirley."
+                    }
+                  },
+                  {
+                    "player_note": {
+                      "id": "10958592",
+                      "player_id": "5699",
+                      "headline": "Effective in preseason debut",
+                      "first_name": "Andrei",
+                      "last_name": "Vasilevskiy",
+                      "provider": "Rotowire.com",
+                      "text": "Vasilevskiy turned aside 12 of 13 shots during Sunday's preseason win over Nashville.\n\nAdvice: Vasilevskiy played the entire game during his start in Sunday's preseason opener. Although he didn't face many shots, he was sharp during his first preseason tune-up. The 32-year-old has established himself as one of the league's top netminders, most recently going 39-15-4 with a 2.31 GAA and .911 save percentage across 58 regular-season appearances last year. He should continue to serve as the Lightning's clear No. 1 option in the crease during the 2026-27 campaign.",
+                      "advice": "Vasilevskiy played the entire game during his start in Sunday's preseason opener. Although he didn't face many shots, he was sharp during his first preseason tune-up. The 32-year-old has established himself as one of the league's top netminders, most recently going 39-15-4 with a 2.31 GAA and .911 save percentage across 58 regular-season appearances last year. He should continue to serve as the Lightning's clear No. 1 option in the crease during the 2026-27 campaign.",
+                      "date": "2026-09-21",
+                      "time": 1789965750,
+                      "news": "Vasilevskiy turned aside 12 of 13 shots during Sunday's preseason win over Nashville."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 100,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.5820",
+                "player_id": "5820",
+                "name": {
+                  "full": "Connor Hellebuyck",
+                  "first": "Connor",
+                  "last": "Hellebuyck",
+                  "ascii_first": "Connor",
+                  "ascii_last": "Hellebuyck"
+                },
+                "status": "NA",
+                "status_full": "Not Active",
+                "injury_note": "Suspension",
+                "editorial_player_key": "nhl.p.5820",
+                "editorial_team_key": "nhl.t.28",
+                "editorial_team_full_name": "Winnipeg Jets",
+                "editorial_team_abbr": "WPG",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "37",
+                "display_position": "G",
+                "is_undroppable": "1",
+                "position_type": "G",
+                "primary_position": "G",
+                "eligible_positions": [
+                  {
+                    "position": "G"
+                  }
+                ],
+                "eligible_positions_to_add": [],
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "G",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 97,
+                  "delta": "0"
+                }
+              }
+            },
+            {
+              "player": {
+                "player_key": "477.p.7163",
+                "player_id": "7163",
+                "name": {
+                  "full": "Filip Gustavsson",
+                  "first": "Filip",
+                  "last": "Gustavsson",
+                  "ascii_first": "Filip",
+                  "ascii_last": "Gustavsson"
+                },
+                "status": "IR",
+                "status_full": "Injured Reserve",
+                "injury_note": "Hip",
+                "on_disabled_list": "1",
+                "editorial_player_key": "nhl.p.7163",
+                "editorial_team_key": "nhl.t.30",
+                "editorial_team_full_name": "Minnesota Wild",
+                "editorial_team_abbr": "MIN",
+                "is_keeper": {
+                  "status": null,
+                  "cost": null,
+                  "kept": null
+                },
+                "uniform_number": "32",
+                "display_position": "G",
+                "is_undroppable": "0",
+                "position_type": "G",
+                "primary_position": "G",
+                "eligible_positions": [
+                  {
+                    "position": "G"
+                  },
+                  {
+                    "position": "IR"
+                  }
+                ],
+                "eligible_positions_to_add": [],
+                "has_player_notes": 1,
+                "has_recent_player_notes": 1,
+                "player_notes_last_timestamp": 1790630918,
+                "selected_position": {
+                  "coverage_type": "date",
+                  "date": "2026-09-29",
+                  "position": "BN",
+                  "is_flex": 0
+                },
+                "is_editable": 1,
+                "player_notes": [
+                  {
+                    "player_note": {
+                      "id": "10959336",
+                      "player_id": "7163",
+                      "headline": "Moves to injured reserve",
+                      "first_name": "Filip",
+                      "last_name": "Gustavsson",
+                      "provider": "Rotowire.com",
+                      "text": "Gustavsson (hip) was placed on injured reserve Monday, according to Dylan Loucks of The Hockey News.\n\nAdvice: Gustavsson is expected to be out until at least early November. He posted a 28-15-6 record with two shutouts, a 2.69 GAA and a .903 save percentage in 50 appearances for Minnesota during the 2025-26 regular season. Once he returns, Gustavsson will be in the mix for starts with Jesper Wallstedt.",
+                      "advice": "Gustavsson is expected to be out until at least early November. He posted a 28-15-6 record with two shutouts, a 2.69 GAA and a .903 save percentage in 50 appearances for Minnesota during the 2025-26 regular season. Once he returns, Gustavsson will be in the mix for starts with Jesper Wallstedt.",
+                      "date": "2026-09-28",
+                      "time": 1790630918,
+                      "news": "Gustavsson (hip) was placed on injured reserve Monday, according to Dylan Loucks of The Hockey News."
+                    }
+                  }
+                ],
+                "percent_owned": {
+                  "coverage_type": "week",
+                  "week": 1,
+                  "value": 31,
+                  "delta": "0"
+                }
+              }
+            }
+          ],
+          "minimum_games": {
+            "coverage_type": "week",
+            "coverage_value": 1,
+            "value": "0"
+          },
+          "players:attributes": {
+            "count": 19
+          }
+        }
+      },
+      "@time": "66.992998123169ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}

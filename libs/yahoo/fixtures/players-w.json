@@ -1,0 +1,497 @@
+{
+  "path": "/league/477.l.48535/players;status=W;sort=OR;start=0;count=25;out=percent_owned,ownership,player_notes",
+  "body": {
+    "fantasy_content": {
+      "xml:lang": "en-US",
+      "yahoo:uri": "/fantasy/v2/league/477.l.48535/players;status=W;sort=OR;start=0;count=25;out=percent_owned,ownership,player_notes",
+      "league": {
+        "league_key": "477.l.48535",
+        "league_id": "48535",
+        "name": "Method Fantasy League",
+        "draft_status": "postdraft",
+        "num_teams": 8,
+        "max_teams": "10",
+        "edit_key": "2026-09-29",
+        "weekly_deadline": "intraday",
+        "roster_type": "date",
+        "league_update_timestamp": null,
+        "scoring_type": "head",
+        "scoring_label": "H2H Cat",
+        "league_type": "private",
+        "renew": "465_53136",
+        "renewed": null,
+        "felo_tier": "bronze",
+        "is_highscore": null,
+        "is_guillotine": "0",
+        "matchup_week": 1,
+        "iris_group_chat_id": null,
+        "allow_add_to_dl_extra_pos": 1,
+        "is_pro_league": "0",
+        "is_cash_league": "0",
+        "current_week": 1,
+        "start_week": "1",
+        "start_date": "2026-09-29",
+        "end_week": "27",
+        "end_date": "2027-04-10",
+        "current_date": "2026-09-29",
+        "is_plus_league": "0",
+        "game_code": "nhl",
+        "season": "2026",
+        "players": [
+          {
+            "player": {
+              "player_key": "477.p.9380",
+              "player_id": "9380",
+              "name": {
+                "full": "Amadeus Lombardi",
+                "first": "Amadeus",
+                "last": "Lombardi",
+                "ascii_first": "Amadeus",
+                "ascii_last": "Lombardi"
+              },
+              "editorial_player_key": "nhl.p.9380",
+              "editorial_team_key": "nhl.t.11",
+              "editorial_team_full_name": "New Jersey Devils",
+              "editorial_team_abbr": "NJ",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "93",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.34096",
+              "player_id": "34096",
+              "name": {
+                "full": "T.J. Hughes",
+                "first": "T.J.",
+                "last": "Hughes",
+                "ascii_first": "T.J.",
+                "ascii_last": "Hughes"
+              },
+              "editorial_player_key": "nhl.p.34096",
+              "editorial_team_key": "nhl.t.17",
+              "editorial_team_full_name": "Colorado Avalanche",
+              "editorial_team_abbr": "COL",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "13",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790393735,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "value": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-01",
+                "display_date": "2026-10-01",
+                "ownership_type": "waivers"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959078",
+                    "player_id": "34096",
+                    "headline": "Making case for roster spot",
+                    "first_name": "T.J.",
+                    "last_name": "Hughes",
+                    "provider": "Rotowire.com",
+                    "text": "Hughes had a hat trick, an assist and a plus-4 rating in Friday's 5-2 preseason win over the Jets.\n\nAdvice: Per Aarif Deen of Colorado Hockey Now, Hughes will get another audition Saturday versus the Mammoth. Hughes has already potted four goals this preseason. He was a standout with 57 points in 40 games for the University of Michigan in 2025-26, and he's been praised for his hockey IQ and his poise so far. While the Avalanche don't have an obvious prominent spot to give Hughes yet, he could start out in the bottom six if he makes the team out of camp.",
+                    "advice": "Per Aarif Deen of Colorado Hockey Now, Hughes will get another audition Saturday versus the Mammoth. Hughes has already potted four goals this preseason. He was a standout with 57 points in 40 games for the University of Michigan in 2025-26, and he's been praised for his hockey IQ and his poise so far. While the Avalanche don't have an obvious prominent spot to give Hughes yet, he could start out in the bottom six if he makes the team out of camp.",
+                    "date": "2026-09-26",
+                    "time": 1790393735,
+                    "news": "Hughes had a hat trick, an assist and a plus-4 rating in Friday's 5-2 preseason win over the Jets."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30558",
+              "player_id": "30558",
+              "name": {
+                "full": "Charlie Stramel",
+                "first": "Charlie",
+                "last": "Stramel",
+                "ascii_first": "Charlie",
+                "ascii_last": "Stramel"
+              },
+              "editorial_player_key": "nhl.p.30558",
+              "editorial_team_key": "nhl.t.30",
+              "editorial_team_full_name": "Minnesota Wild",
+              "editorial_team_abbr": "MIN",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "15",
+              "display_position": "C",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "C",
+              "eligible_positions": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.8988",
+              "player_id": "8988",
+              "name": {
+                "full": "William Trudeau",
+                "first": "William",
+                "last": "Trudeau",
+                "ascii_first": "William",
+                "ascii_last": "Trudeau"
+              },
+              "editorial_player_key": "nhl.p.8988",
+              "editorial_team_key": "nhl.t.27",
+              "editorial_team_full_name": "Nashville Predators",
+              "editorial_team_abbr": "NSH",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": null,
+              "display_position": "D",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "D",
+              "eligible_positions": [
+                {
+                  "position": "D"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                }
+              ],
+              "has_player_notes": 1,
+              "player_notes_last_timestamp": 1790447391,
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              },
+              "player_notes": [
+                {
+                  "player_note": {
+                    "id": "10959105",
+                    "player_id": "8988",
+                    "headline": "Claimed by Nashville",
+                    "first_name": "William",
+                    "last_name": "Trudeau",
+                    "provider": "Rotowire.com",
+                    "text": "Trudeau was claimed off waivers by Nashville on Saturday, per Elliotte Friedman of Sportsnet.\n\nAdvice: After the Rangers waived Trudeau on Friday, the Predators took notice and scooped up the 23-year-old blueliner. He spent the entirety of the 2025-26 campaign with AHL Laval, where he compiled eight goals, 20 points and 54 PIM across 62 regular-season outings. With the Predators claiming the young blueliner, Trudeau could begin the 2026-27 campaign in the NHL.",
+                    "advice": "After the Rangers waived Trudeau on Friday, the Predators took notice and scooped up the 23-year-old blueliner. He spent the entirety of the 2025-26 campaign with AHL Laval, where he compiled eight goals, 20 points and 54 PIM across 62 regular-season outings. With the Predators claiming the young blueliner, Trudeau could begin the 2026-27 campaign in the NHL.",
+                    "date": "2026-09-26",
+                    "time": 1790447391,
+                    "news": "Trudeau was claimed off waivers by Nashville on Saturday, per Elliotte Friedman of Sportsnet."
+                  }
+                },
+                {
+                  "player_note": {
+                    "id": "10959026",
+                    "player_id": "8988",
+                    "headline": "Hits waivers",
+                    "first_name": "William",
+                    "last_name": "Trudeau",
+                    "provider": "Rotowire.com",
+                    "text": "Trudeau was put on waivers by the Rangers on Friday, per Renaud Lavoie of TVA Sports.\n\nAdvice: Trudeau had eight goals, 20 points and 54 PIM in 62 regular-season appearances with AHL Laval in 2025-26. The 23-year-old defenseman has participated in four AHL campaigns, but he hasn't made his NHL debut.",
+                    "advice": "Trudeau had eight goals, 20 points and 54 PIM in 62 regular-season appearances with AHL Laval in 2025-26. The 23-year-old defenseman has participated in four AHL campaigns, but he hasn't made his NHL debut.",
+                    "date": "2026-09-25",
+                    "time": 1790361259,
+                    "news": "Trudeau was put on waivers by the Rangers on Friday, per Renaud Lavoie of TVA Sports."
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.31129",
+              "player_id": "31129",
+              "name": {
+                "full": "Judd Caulfield",
+                "first": "Judd",
+                "last": "Caulfield",
+                "ascii_first": "Judd",
+                "ascii_last": "Caulfield"
+              },
+              "editorial_player_key": "nhl.p.31129",
+              "editorial_team_key": "nhl.t.25",
+              "editorial_team_full_name": "Anaheim Ducks",
+              "editorial_team_abbr": "ANA",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "28",
+              "display_position": "RW",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "RW",
+              "eligible_positions": [
+                {
+                  "position": "RW"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "D"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.30840",
+              "player_id": "30840",
+              "name": {
+                "full": "William Wallinder",
+                "first": "William",
+                "last": "Wallinder",
+                "ascii_first": "William",
+                "ascii_last": "Wallinder"
+              },
+              "editorial_player_key": "nhl.p.30840",
+              "editorial_team_key": "nhl.t.5",
+              "editorial_team_full_name": "Detroit Red Wings",
+              "editorial_team_abbr": "DET",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "54",
+              "display_position": "D",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "D",
+              "eligible_positions": [
+                {
+                  "position": "D"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              }
+            }
+          },
+          {
+            "player": {
+              "player_key": "477.p.33352",
+              "player_id": "33352",
+              "name": {
+                "full": "Anton Johansson",
+                "first": "Anton",
+                "last": "Johansson",
+                "ascii_first": "Anton",
+                "ascii_last": "Johansson"
+              },
+              "editorial_player_key": "nhl.p.33352",
+              "editorial_team_key": "nhl.t.5",
+              "editorial_team_full_name": "Detroit Red Wings",
+              "editorial_team_abbr": "DET",
+              "is_keeper": {
+                "status": null,
+                "cost": null,
+                "kept": null
+              },
+              "uniform_number": "42",
+              "display_position": "D",
+              "is_undroppable": "0",
+              "position_type": "P",
+              "primary_position": "D",
+              "eligible_positions": [
+                {
+                  "position": "D"
+                },
+                {
+                  "position": "Util"
+                }
+              ],
+              "eligible_positions_to_add": [
+                {
+                  "position": "C"
+                },
+                {
+                  "position": "LW"
+                },
+                {
+                  "position": "RW"
+                }
+              ],
+              "percent_owned": {
+                "coverage_type": "week",
+                "week": 1,
+                "delta": "0"
+              },
+              "ownership": {
+                "waiver_date": "2026-10-02",
+                "display_date": "2026-10-02",
+                "ownership_type": "waivers"
+              }
+            }
+          }
+        ],
+        "players:attributes": {
+          "count": 7
+        }
+      },
+      "@time": "87.12100982666ms",
+      "@copyright": "Certain Data by Sportradar, Stats Perform and Rotowire",
+      "@refresh_rate": "30"
+    }
+  }
+}
