@@ -43,6 +43,10 @@ quality; Yahoo only adds ADP polish, so the model got the fresh hours.
 **Ranking is coherent but unvalidated against any market.** Without ADP the only check is
 judgement, which is why Q-005 matters.
 
+**In parallel, not touching the draft:** the agent layer (M0c, M4b, M5–M7) is being built in
+the `../FantasyHockeyAI-agents` worktree on branch `agents` ([D-009](#d-009)), with Ben's
+permission system for autonomy ([D-008](#d-008)). It merges after the draft, with Ben's go-ahead.
+
 **Blocking on Ben:** [Q-001](#q-001) — what the Yahoo app-creation form offers. Everything about
 the data path depends on it.
 
@@ -75,11 +79,11 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | ID | Milestone | Status | Acceptance | Spec |
 |---|---|---|---|---|
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
-| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `todo` | Migrations apply at startup; JSON caches migrated | §16, §19 |
-| **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` | `todo` | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
-| **M5** | Lineup job — **3 days dry-run, then `allow`** | `todo` | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
-| **M6** | Waivers and free agency (`ask` — needs approval) | `todo` | Proposals carry evidence; nothing writes without approval | §12.8 |
-| **M7** | Trades (`ask` — needs approval) | `todo` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
+| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done on `agents` (43 tests); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
+| **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done` on `agents` 17:45 — llm, prompts, pipeline + permission gate, 22 tools, Lineup/Waivers/Trades/Matchup agents, GM router; `fha run/ask/pending/show/approve/reject`, `fha perms`. 578 tests. **Not yet run against the live API** (no calls during the draft) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
+| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — exact solver + intraday lock done on `agents`; agent not yet wired | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
+| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — §12.8 scoring done on `agents` | Proposals carry evidence; nothing writes without approval | §12.8 |
+| **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
 | **M8** | Discord digest + approval buttons; systemd unit | `todo` | Only Ben's user ID can approve; every press re-checked | §15 |
 | **M9** | Season strategy, weekly retro, evals in CI | `todo` | `eval:smoke` runs on every PR | §12.6, §19.3, §20 |
 
@@ -114,7 +118,7 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 | **Q-010** | Join a Yahoo **mock draft** before 21:00 to capture the pick protocol (U2)? | Ben | Whether picks could ever be submitted programmatically | **DONE 13:45 (PC session).** Protocol captured; two headless picks confirmed; autopick on/off decoded (`5\|`/`6\|`). `docs/investigations/2026-09-24-yahoo-writes-and-draft-room.md` §4, §8 |
 | **Q-007b** | Spike a low-risk **write** to learn how writes authenticate (U1)? | Ben | M5–M7 | **DONE 13:25 (PC session).** Pre-rank save and reset spiked end to end (form POST, crumb). Ben's rankings are restored to default. `docs/investigations/2026-09-24-yahoo-writes-and-draft-room.md` §3 |
 | **Q-002** | Is Playwright acting in Ben's logged-in Yahoo account acceptable? ToS for automating the *website UI* is unconfirmed; the API terms prohibit reverse-engineering the API and require the attribution "Fantasy data provided by Yahoo Fantasy" | Ben | The Browser adapter, and every write if the API stays unprovisioned | OPEN — not needed before M5 |
-| **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | OPEN — not needed before M4b |
+| **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | **ANSWERED 17:00 — `claude-opus-5` for every agent**, adaptive thinking. Supersedes §18.2's per-agent tiers |
 | **Q-004** | Is n8n wanted at all, given the built-in scheduler plus systemd? | Ben | M8 | OPEN — leaning no; scheduler + systemd is sufficient |
 | **Q-005** | Where does ADP come from? | us | §12.5 scarcity, §12.2 step 8 sanity check | **ANSWERED 14:45.** A public consensus board with ADP and multi-position eligibility, in `libs/market`; 252 players joined. Yahoo's own `draft_analysis` is also reachable via the website API if we want it |
 | **Q-006** | What are the actual league settings? | — | Everything | **ANSWERED 15:20.** 8 teams, H2H categories, 17 rounds, 90 s/pick. Skaters: G A +/- PIM PPP SHP GWG SOG HIT. Goalies: W GAA SV% SHO. Roster C2 LW2 RW2 D4 Util1 G2 BN4 IR2. Intraday lock, rolling waivers, no FAAB, max 3 adds/week |
@@ -137,6 +141,9 @@ first use and update the row.
 | **U-07** | Whether SHP and GWG appear in the NHL skater summary endpoint | §11.3 | Inspect the field list | **VERIFIED 12:42** — yes: `shPoints` and `gameWinningGoals`. `penaltyMinutes` is also on summary, so the `/skater/penalties` call is unnecessary |
 | **U-08** | DailyFaceoff (or equivalent) starting-goalie page structure, and its terms | §11.4 | Fetch and inspect; read the terms | UNVERIFIED — not needed before M5 |
 | **U-09** | Yahoo NHL lineup lock: by game time or daily, and the field name/values | §12.4 | Read raw settings | **VERIFIED 14:15 (PC session)**: "Daily - Today" (`intraday`). Per Yahoo's usual meaning, each player locks at his own game start [not yet observed with a live roster]. The safe default above matches |
+| **U-10** | Which injury statuses each reserve slot accepts (IR: O, IR, IR-LT, IR-NR; IR+: those plus DTD; NA: NA) | §12.3 | Read Yahoo's roster page with an injured player on the roster | UNVERIFIED — `DEFAULT_RESERVE_STATUSES` in `libs/model/src/lineupRules.ts`; the solver and the validator share it |
+| **U-11** | Weekly category variance model for win probabilities (Poisson counts, PIM ×2, …) | §12.6 | Fit against real weekly scoreboards after 3–4 weeks | UNVERIFIED — `sdOverride` in `libs/model/src/matchup.ts` replaces it |
+| **U-12** | Yahoo write endpoints for a custom lineup, add/drop and trades | §10.4, Q-007 | Capture them from the website with a real post-draft roster | UNVERIFIED — so there is **no Yahoo execution adapter yet**; only DryRun and Manual. Writing one against unobserved endpoints would be a stub that looks implemented (§24.11) |
 
 **Source URLs for re-verification** stay in the spec at **§26 (research register)** — source
 links are stable reference material and belong next to the claims they support, unlike the
@@ -154,6 +161,27 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+<a id="d-008"></a>
+### D-008 — 2026-09-24 — Agent autonomy is a code-enforced permission system
+Ben wants the in-season system fully AI-driven, with trades under a permission system: some
+players locked, some needing approval, and tools that can be switched off. The result is
+`config/permissions.yaml`, enforced by `libs/pipeline/src/gate.ts`:
+**per plan kind** `allow | ask | deny` (missing ⇒ deny); **per player** `locked` (never
+dropped or traded away) and `ask` (any plan touching them waits for Ben); **per tool** on/off
+(off ⇒ removed from every agent's tool list *and* its plans denied); a kill switch; and
+`dryRun`, on by default. Shipped defaults: lineups and in-cap add/drops/claims `allow`,
+trades `ask`, top-6 by VORP protected. Edited with `fha perms …`, which resolves names only on
+an exact match (P3). *Supersedes the standing decision that add/drops need approval; they
+are now allowed within the 3-per-week cap unless Ben changes the file.*
+
+<a id="d-009"></a>
+### D-009 — 2026-09-24 — The agent layer is built beside the draft, not in it
+The draft client, board and pre-flight all run live source from the main tree, and
+`Restart=always` reloads it. So the agent layer is built in a separate worktree on the
+`agents` branch, with its own `node_modules`. It makes no Yahoo requests (hermetic
+`fixtures/league/mock-week1.json`, labelled `source: mock`) and no live Anthropic calls
+during the draft. It merges only after the draft ends.
 
 <a id="d-005"></a>
 ### D-007 — 2026-09-24 — The Yahoo bridge is a file interface, not a code dependency
@@ -329,7 +357,7 @@ trust. All post-draft; nothing here changes tonight.
   enum only covers keys we listed.
 - **P5 wants an explicit `abstain`/`noop` tool**, not a prose escape hatch — and forced `any`
   actively fights it, because the model must call something.
-- **P6's stop-reason list**: the reference documents **six** (`end_turn`, `max_tokens`,
+- **P6's stop-reason list** (update 17:20: SDK 0.128 *types* a seventh, `model_context_window_exceeded`, so `libs/llm` maps it to its own failure; any other value is `unknown_stop`): the reference documents **six** (`end_turn`, `max_tokens`,
   `stop_sequence`, `tool_use`, `pause_turn`, `refusal`). The research claimed seven including
   `model_context_window_exceeded`; **that seventh is unconfirmed**, so handle unknown values as
   a named failure rather than branching on a value we cannot verify. `stop_details` is populated

@@ -6,6 +6,12 @@
     { "path": "libs/model" },
     { "path": "libs/market" },
     { "path": "libs/yahoo" },
+    { "path": "libs/store" },
+    { "path": "libs/llm" },
+    { "path": "libs/prompts" },
+    { "path": "libs/tools" },
+    { "path": "libs/pipeline" },
+    { "path": "libs/agents" },
     { "path": "apps/gm" },
     { "path": "apps/web" }
   ]

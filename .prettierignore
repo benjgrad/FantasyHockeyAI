@@ -6,3 +6,4 @@ docs/
 .claude/
 prototypes/
 tools/
+fixtures/**/*.json

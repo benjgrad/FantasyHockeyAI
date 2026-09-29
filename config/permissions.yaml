@@ -1,0 +1,39 @@
+# What the agents may do without asking Ben. Enforced in code by libs/pipeline/src/gate.ts (P2):
+# a prompt can never widen any of this. Edit by hand or with `fha perms …`.
+#
+# Precedence, most restrictive first: paused → tool off → kind deny/missing → locked player
+# leaving → limit exceeded → ask-listed or protected player → the kind's mode.
+
+# Nothing executes while true; every plan is logged as "would execute". Leave on for the first
+# days in season, until the dry-run diffs look right (M5).
+dryRun: true
+
+# Kill switch. `fha stop` sets it, `fha resume` clears it.
+paused: false
+
+# Per plan kind: allow (execute), ask (queue for Ben's approval), deny. A missing kind is deny.
+plans:
+  lineup: { mode: allow }
+  addDrop: { mode: allow, limits: { maxPerWeek: 3 } }
+  waiverClaim: { mode: allow, limits: { maxPerWeek: 3 } }
+  tradePropose: { mode: ask, limits: { minTradeGain: 0.25 } }
+  tradeRespond: { mode: ask }
+
+# Players by playerKey. Use `fha perms lock "<name>"` so names are resolved safely (P3).
+players:
+  # Never dropped, never traded away. Acquiring or moving them in the lineup is unaffected.
+  locked: []
+  # Any plan touching them needs Ben's approval, even when the kind is allow.
+  ask: []
+
+# Propose tools. false removes the tool from every agent AND denies any plan it produced.
+tools:
+  proposeLineup: true
+  proposeAddDrop: true
+  proposeWaiverClaim: true
+  proposeTrade: true
+  proposeTradeResponse: true
+
+# Our top-N by rest-of-season VORP need approval before they can be dropped or traded.
+protected:
+  topNByVorp: 6
