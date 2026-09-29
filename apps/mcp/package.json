@@ -1,0 +1,19 @@
+{
+  "name": "@fha/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fha-mcp": "./dist/server.js"
+  },
+  "dependencies": {
+    "@fha/core": "*",
+    "@fha/llm": "*",
+    "@fha/pipeline": "*",
+    "@fha/store": "*",
+    "@fha/tools": "*",
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "yaml": "*",
+    "zod": "*"
+  }
+}

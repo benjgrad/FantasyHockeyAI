@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    { "path": "../../libs/core" },
+    { "path": "../../libs/llm" },
+    { "path": "../../libs/pipeline" },
+    { "path": "../../libs/store" },
+    { "path": "../../libs/tools" }
+  ]
+}
