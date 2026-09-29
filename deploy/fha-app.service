@@ -1,0 +1,27 @@
+[Unit]
+Description=FantasyHockeyAI web app (chat, team, decisions, settings)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/Projects/FantasyHockeyAI
+# Secrets live in an environment file, not here, so they are not world-readable in the unit:
+#   FHA_PUBLIC_URL=https://hockey.gradyserver.com
+#   FHA_SECRET_KEY=<openssl rand -base64 48>
+#   FHA_ALLOWED_SUBS=<your Personal OS subject>
+#   FHA_OIDC_ISSUER=https://os.gradyserver.com   (default)
+#   FHA_APP_PORT=8720                            (default)
+#   ANTHROPIC_API_KEY=...                        (optional; chat is off without it)
+# chmod 600 the file.
+EnvironmentFile=%h/.config/fha/app.env
+ExecStart=%h/Documents/Projects/FantasyHockeyAI/deploy/fha-app.sh
+Restart=always
+RestartSec=3
+# 78 = EX_CONFIG: a configuration error. Restarting cannot fix it, so don't loop.
+RestartPreventExitStatus=78
+StartLimitIntervalSec=0
+StandardOutput=append:%h/Documents/Projects/FantasyHockeyAI/data/app.log
+StandardError=append:%h/Documents/Projects/FantasyHockeyAI/data/app.log
+
+[Install]
+WantedBy=default.target

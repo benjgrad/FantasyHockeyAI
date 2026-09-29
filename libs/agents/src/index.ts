@@ -5,3 +5,5 @@ export * from './toolAgent.js';
 export * from './agents.js';
 export * from './gm.js';
 export * from './testing.js';
+export * from './assistantHistory.js';
+export * from './assistant.js';

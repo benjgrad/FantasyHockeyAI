@@ -16,6 +16,7 @@
     { "path": "libs/agents" },
     { "path": "apps/gm" },
     { "path": "apps/mcp" },
-    { "path": "apps/web" }
+    { "path": "apps/web" },
+    { "path": "apps/app" }
   ]
 }

@@ -30,7 +30,12 @@ const AGENT_TOOLS: Record<string, string[]> = {
   'matchup.system': ['getMatchup', 'getSchedule', 'setCategoryWeights'],
 };
 
-const EXPECTED_IDS = [...Object.keys(AGENT_TOOLS), 'gm.router', 'gm.summary'].sort();
+const EXPECTED_IDS = [
+  ...Object.keys(AGENT_TOOLS),
+  'assistant.system',
+  'gm.router',
+  'gm.summary',
+].sort();
 
 describe('validatePrompts', () => {
   it('loads and renders every shipped prompt', () => {

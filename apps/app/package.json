@@ -1,0 +1,29 @@
+{
+  "name": "@fha/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The FantasyHockeyAI web app server: Sign in with Personal OS, the Yahoo connection, settings, the team view, decisions, chat with the assistant agent, and web push. Serves apps/app/client/dist.",
+  "scripts": {
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@fha/agents": "*",
+    "@fha/api": "*",
+    "@fha/auth": "*",
+    "@fha/core": "*",
+    "@fha/llm": "*",
+    "@fha/model": "*",
+    "@fha/nhl": "*",
+    "@fha/pipeline": "*",
+    "@fha/prompts": "*",
+    "@fha/store": "*",
+    "@fha/tools": "*",
+    "@fha/yahoo": "*",
+    "web-push": "^3.6.7",
+    "zod": "*"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
+  }
+}

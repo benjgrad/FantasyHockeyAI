@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"],
+  "references": [
+    { "path": "../../libs/agents" },
+    { "path": "../../libs/api" },
+    { "path": "../../libs/auth" },
+    { "path": "../../libs/core" },
+    { "path": "../../libs/llm" },
+    { "path": "../../libs/model" },
+    { "path": "../../libs/nhl" },
+    { "path": "../../libs/pipeline" },
+    { "path": "../../libs/prompts" },
+    { "path": "../../libs/store" },
+    { "path": "../../libs/tools" },
+    { "path": "../../libs/yahoo" }
+  ]
+}
