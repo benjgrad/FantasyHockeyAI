@@ -14,6 +14,19 @@ import {
 } from './repos/misc.js';
 import { runsRepo, type RunsRepo } from './repos/runs.js';
 import { usageRepo, type UsageRepo } from './repos/usage.js';
+import { conversationsRepo, type ConversationsRepo } from './repos/conversations.js';
+import { eventsRepo, type EventsRepo } from './repos/events.js';
+import {
+  notificationPrefsRepo,
+  notificationsRepo,
+  pushSubscriptionsRepo,
+  type NotificationPrefsRepo,
+  type NotificationsRepo,
+  type PushSubscriptionsRepo,
+} from './repos/notifications.js';
+import { permissionsRepo, type PermissionsRepo } from './repos/permissions.js';
+import { oidcClientsRepo, usersRepo, type OidcClientsRepo, type UsersRepo } from './repos/users.js';
+import { yahooConnectionsRepo, type YahooConnectionsRepo } from './repos/yahoo.js';
 
 /**
  * The only door to SQLite (§16). Callers get typed repositories; no SQL string lives outside
@@ -29,6 +42,16 @@ export interface Store {
   usage: UsageRepo;
   strategy: StrategyRepo;
   kv: KvRepo;
+  // The web app (migration 002): every row below belongs to a user.
+  users: UsersRepo;
+  oidcClients: OidcClientsRepo;
+  yahooConnections: YahooConnectionsRepo;
+  permissions: PermissionsRepo;
+  conversations: ConversationsRepo;
+  events: EventsRepo;
+  pushSubscriptions: PushSubscriptionsRepo;
+  notifications: NotificationsRepo;
+  notificationPrefs: NotificationPrefsRepo;
   /** Migration versions this open applied; empty when the file was already current. */
   readonly migrationsApplied: readonly number[];
   /**
@@ -65,6 +88,15 @@ export function openStore(path: string, opts: StoreOptions = {}): Store {
     usage: usageRepo(db, now),
     strategy: strategyRepo(db, now),
     kv: kvRepo(db, now),
+    users: usersRepo(db, now),
+    oidcClients: oidcClientsRepo(db, now),
+    yahooConnections: yahooConnectionsRepo(db, now),
+    permissions: permissionsRepo(db, now),
+    conversations: conversationsRepo(db, now),
+    events: eventsRepo(db, now),
+    pushSubscriptions: pushSubscriptionsRepo(db, now),
+    notifications: notificationsRepo(db, now),
+    notificationPrefs: notificationPrefsRepo(db, now),
     migrationsApplied: applied,
     transaction: (fn) => db.transaction(fn)(),
     close: () => db.close(),

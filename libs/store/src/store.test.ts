@@ -65,10 +65,10 @@ describe('openStore', () => {
 describe('migrate', () => {
   it('is idempotent when run repeatedly on one connection', () => {
     const db = openDb(':memory:');
-    expect(migrate(db, now)).toEqual([1]);
+    expect(migrate(db, now)).toEqual([1, 2]);
     expect(migrate(db, now)).toEqual([]);
-    const rows = db.prepare('SELECT version FROM schema_migrations').all();
-    expect(rows).toEqual([{ version: 1 }]);
+    const rows = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
+    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
     db.close();
   });
 
@@ -77,10 +77,10 @@ describe('migrate', () => {
     migrate(db, now);
     const extra = [
       ...MIGRATIONS,
-      { version: 3, name: 'c', sql: 'ALTER TABLE t2 ADD COLUMN y TEXT;' },
-      { version: 2, name: 'b', sql: 'CREATE TABLE t2 (x TEXT);' },
+      { version: 101, name: 'c', sql: 'ALTER TABLE t2 ADD COLUMN y TEXT;' },
+      { version: 100, name: 'b', sql: 'CREATE TABLE t2 (x TEXT);' },
     ];
-    expect(migrate(db, now, extra)).toEqual([2, 3]);
+    expect(migrate(db, now, extra)).toEqual([100, 101]);
     expect(migrate(db, now, extra)).toEqual([]);
     db.close();
   });
@@ -90,8 +90,8 @@ describe('migrate', () => {
     migrate(db, now);
     const broken = [
       ...MIGRATIONS,
-      { version: 2, name: 'ok', sql: 'CREATE TABLE t2 (x TEXT);' },
-      { version: 3, name: 'bad', sql: 'THIS IS NOT SQL;' },
+      { version: 100, name: 'ok', sql: 'CREATE TABLE t2 (x TEXT);' },
+      { version: 101, name: 'bad', sql: 'THIS IS NOT SQL;' },
     ];
     expect(() => migrate(db, now, broken)).toThrow();
     const t2 = db.prepare(`SELECT name FROM sqlite_master WHERE name = 't2'`).get();
