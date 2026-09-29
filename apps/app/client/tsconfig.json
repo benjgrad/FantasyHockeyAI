@@ -1,0 +1,26 @@
+{
+  "// note": "Not part of the root `tsc --build`: a bundled browser app wants DOM libs and bundler resolution, not the NodeNext config the libs share. Type-checked by `npm run typecheck:client` in validate. @fha/api and @fha/core resolve to their sources (both are pure zod), so the client never type-checks against a stale dist.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@fha/api": ["../../../libs/api/src/index.ts"],
+      "@fha/core": ["../../../libs/core/src/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts"]
+}

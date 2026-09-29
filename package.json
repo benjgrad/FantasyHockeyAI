@@ -7,18 +7,22 @@
   },
   "workspaces": [
     "libs/*",
-    "apps/*"
+    "apps/*",
+    "apps/app/client"
   ],
   "scripts": {
     "build": "tsc --build",
+    "build:client": "npm run build -w @fha/app-client",
+    "dev:client": "npm run dev -w @fha/app-client",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "type-check": "tsc --build --dry 2>/dev/null || tsc --noEmit -p tsconfig.json",
+    "typecheck:client": "npm run typecheck -w @fha/app-client",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "validate": "npm run format:check && npm run lint && npm run type-check && npm run test && npm run build",
+    "validate": "npm run format:check && npm run lint && npm run type-check && npm run typecheck:client && npm run test && npm run build && npm run build:client",
     "fha": "tsx apps/gm/src/cli.ts"
   },
   "devDependencies": {
