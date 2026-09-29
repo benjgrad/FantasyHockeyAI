@@ -3,7 +3,7 @@ import { ANSWER_STOPS, type AnyToolSpec, type LoopResult, type ToolResult } from
 import { renderPrompt } from '@fha/prompts';
 import { newRunState, toolsFor, type RunContext } from '@fha/tools';
 import type { AgentDeps } from './deps.js';
-import { JOB_NAMES, type JobName, type JobResult } from './gm.js';
+import { SPECIALIST_JOBS, type JobName, type JobResult } from './gm.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
 import {
   HISTORY_LIMIT,
@@ -83,7 +83,7 @@ export interface AssistantContext extends RunContext {
 type ChatTool = AnyToolSpec<AssistantContext>;
 
 const SpecialistInput = z.object({
-  job: z.enum(JOB_NAMES).describe('lineup, waivers, trades or matchup'),
+  job: z.enum(SPECIALIST_JOBS).describe('lineup, waivers, trades or matchup'),
   note: z
     .string()
     .max(2000)

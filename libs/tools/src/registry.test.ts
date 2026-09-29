@@ -27,6 +27,14 @@ describe('registry', () => {
     expect(ALL_TOOLS['getRosterHealth']?.risk).toBe('read');
   });
 
+  it('getLeagueEvents is a read tool, and only the league reviewer holds it', () => {
+    expect(ALL_TOOLS['getLeagueEvents']?.risk).toBe('read');
+    const holders = AGENT_NAMES.filter((a) => AGENT_TOOLS[a].includes('getLeagueEvents'));
+    expect(holders).toEqual(['leagueReview']);
+    // Read-only: it recommends; actions come from the other agents.
+    expect(AGENT_TOOLS.leagueReview.filter((n) => ALL_TOOLS[n]?.risk !== 'read')).toEqual([]);
+  });
+
   it('a tool switched off in permissions is not shown to the model (P2)', () => {
     const perms = mockPermissions({ tools: { proposeTrade: false } });
     const names = toolsFor('trades', perms).map((t) => t.name);

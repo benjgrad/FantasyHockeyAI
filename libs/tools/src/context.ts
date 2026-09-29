@@ -21,6 +21,12 @@ export interface RunContext {
   settings: LeagueSettings;
   permissions: Permissions;
   store: Store;
+  /**
+   * The app user this run acts for, when there is one (the web app and its daemon; the CLI has
+   * none). Per-user reads such as `getLeagueEvents` use it; it comes from the session or the
+   * daemon's connection list, never from a tool argument (P8).
+   */
+  userId?: string;
   /** The action pipeline, injected. Propose tools hand it plans; they never execute anything. */
   submit: (plan: Plan) => Promise<SubmitOutcome>;
   log?: (event: ToolEvent) => void;

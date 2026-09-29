@@ -24,6 +24,8 @@ export interface YahooConnection {
 
 export interface YahooConnectionsRepo {
   get(userId: string): YahooConnection | undefined;
+  /** Every connection, oldest user first: how the daemon finds whose league to look after. */
+  list(): YahooConnection[];
   /**
    * Stores freshly pasted cookies as `connected`. Call it only after the cookies passed a
    * `whoami` check. A reconnect keeps the previous league/team selection.
@@ -84,11 +86,13 @@ export function yahooConnectionsRepo(db: Db, now: Clock): YahooConnectionsRepo {
     `UPDATE yahoo_connections SET status = ?, last_error = ?, updated_at = ? WHERE user_id = ?`,
   );
   const remove = db.prepare('DELETE FROM yahoo_connections WHERE user_id = ?');
+  const all = db.prepare('SELECT * FROM yahoo_connections ORDER BY rowid');
   return {
     get(userId) {
       const r = select.get(userId) as YahooRow | undefined;
       return r === undefined ? undefined : toConnection(r);
     },
+    list: () => (all.all() as YahooRow[]).map(toConnection),
     saveCredentials(userId, cookiesEnc) {
       const at = now().toISOString();
       save.run(userId, cookiesEnc, at, at);

@@ -1,11 +1,9 @@
-import { z } from 'zod';
-import { PushSubscribeRequest } from '@fha/api';
+import { PushSubscribeRequest, PushUnsubscribeRequest } from '@fha/api';
 import { HttpError, readJson, sendJson } from './http.js';
 import type { Route } from './router.js';
 import type { Services } from './services.js';
 
 /** Web push: the VAPID key, subscribe and unsubscribe this browser, and a test push. */
-const Unsubscribe = z.object({ endpoint: z.string().url() });
 
 export function pushRoutes(s: Services): Route[] {
   return [
@@ -14,14 +12,8 @@ export function pushRoutes(s: Services): Route[] {
       path: '/api/push/vapid',
       auth: 'user',
       handle: ({ res }) => {
-        if (s.push.publicKey === undefined) {
-          throw new HttpError(
-            503,
-            'push_not_configured',
-            'Push notifications are not set up on this server.',
-          );
-        }
-        sendJson(res, 200, { publicKey: s.push.publicKey });
+        // Null when the server has no VAPID keys: the client says push is off (contract).
+        sendJson(res, 200, { publicKey: s.push.publicKey ?? null });
         return Promise.resolve();
       },
     },
@@ -48,7 +40,7 @@ export function pushRoutes(s: Services): Route[] {
       path: '/api/push/unsubscribe',
       auth: 'user',
       handle: async ({ req, res, user }) => {
-        const { endpoint } = await readJson(req, Unsubscribe);
+        const { endpoint } = await readJson(req, PushUnsubscribeRequest);
         // Only the owner's subscription: another user's endpoint is left alone.
         if (s.store.pushSubscriptions.forUser(user.id).some((x) => x.endpoint === endpoint)) {
           s.store.pushSubscriptions.remove(endpoint);

@@ -10,6 +10,7 @@ import {
   DECISION_STATUSES,
   type ApprovalRecord,
   type DecisionRecord,
+  type DecisionStatus,
   type Store,
 } from '@fha/store';
 import { gateStateFor, validationContextFor } from '@fha/tools';
@@ -28,7 +29,7 @@ import { userPermissions } from './permissions.js';
 export interface DecisionCard {
   planId: string;
   kind: string;
-  status: string;
+  status: DecisionStatus;
   summary: string;
   rationale: string;
   gateReasons: string[];

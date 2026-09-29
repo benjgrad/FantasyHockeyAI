@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { categoryValue } from '@fha/model';
 import { defineTool, fail, ok } from '../context.js';
 import { fmt, scoringCategories, table } from '../derive.js';
-import { currentMatchup } from '../modelInputs.js';
+import { currentMatchup, opponentIsDerived } from '../modelInputs.js';
 
 /** getMatchup (§12.6): this week's category projection against the opponent. */
 
@@ -30,9 +30,12 @@ export const getMatchup = defineTool({
       suggestedWeight: m.plan.weights[c] ?? 1,
     }));
     const digits = (c: string) => (c === 'SV%' ? 3 : c === 'GAA' ? 2 : 1);
+    const derived = opponentIsDerived(view);
     const summary = [
       `Week ${view.snap.week} vs ${m.opponent.name}, rest of week ${m.from}..${m.to} (projected; no banked totals in this data).`,
-      'Opponent derived from the league order (the real Yahoo schedule is not in this data).',
+      derived
+        ? 'Opponent derived from the league order (the real Yahoo schedule is not in this data).'
+        : "Opponent from Yahoo's scoreboard.",
       table(
         ['cat', 'us', 'them', 'P(win)', 'weight'],
         rows.map((r) => [
@@ -50,7 +53,7 @@ export const getMatchup = defineTool({
         {
           week: view.snap.week,
           opponent: m.opponent.name,
-          opponentDerived: true,
+          opponentDerived: derived,
           from: m.from,
           to: m.to,
           categories: rows,

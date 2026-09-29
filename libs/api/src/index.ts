@@ -15,6 +15,25 @@ import { z } from 'zod';
 export const ApiError = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
 export type ApiError = z.infer<typeof ApiError>;
 
+/**
+ * Error codes a client may branch on. Others exist (`invalid_request`, `not_found`, …) and are
+ * shown as their message; these ones change what the UI offers:
+ * - `signed_out` (401): go to sign-in.
+ * - `yahoo_not_connected` / `yahoo_reconnect_required` (409): send Ben to Settings → Yahoo.
+ * - `llm_not_configured` (503): the server has no ANTHROPIC_API_KEY, so chat is off; the rest of
+ *   the app works. Not retryable until the server is reconfigured.
+ * - `not_pending` / `expired` (409): the decision was already settled; refresh the card.
+ */
+export const ERROR_CODES = [
+  'signed_out',
+  'yahoo_not_connected',
+  'yahoo_reconnect_required',
+  'llm_not_configured',
+  'not_pending',
+  'expired',
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
 // ── session ──────────────────────────────────────────────────────────────────────────────────
 // GET  /auth/login?returnTo=/path   → 302 to Personal OS
 // GET  /auth/callback               → sets the session cookie, 302 to returnTo
@@ -117,10 +136,25 @@ export type TeamView = z.infer<typeof TeamView>;
 // GET /api/team → TeamView ; POST /api/team/refresh → TeamView (records a fresh snapshot)
 
 // ── decisions / approvals ───────────────────────────────────────────────────────────────────
+/** A plan's life (§9), matching `DECISION_STATUSES` in `@fha/store`. */
+export const DecisionStatus = z.enum([
+  'proposed',
+  'invalid',
+  'pending',
+  'approved',
+  'rejected',
+  'expired',
+  'executed',
+  'failed',
+  'unverified',
+  'denied',
+  'dry_run',
+]);
+export type DecisionStatus = z.infer<typeof DecisionStatus>;
 export const DecisionCard = z.object({
   planId: z.string(),
   kind: z.string(),
-  status: z.string(),
+  status: DecisionStatus,
   summary: z.string(),
   rationale: z.string(),
   gateReasons: z.array(z.string()),
@@ -130,7 +164,9 @@ export const DecisionCard = z.object({
   result: z.string().nullable(),
 });
 export type DecisionCard = z.infer<typeof DecisionCard>;
-// GET  /api/decisions?status=pending|all → { decisions: DecisionCard[] }
+export const DecisionList = z.object({ decisions: z.array(DecisionCard) });
+// GET  /api/decisions?status=pending|all → DecisionList (all: the newest 100)
+// GET  /api/decisions/:planId → DecisionCard, or 404 not_found (what a push deep-links to)
 // POST /api/decisions/:planId/approve → DecisionCard
 // POST /api/decisions/:planId/reject  { reason? } → DecisionCard
 
@@ -161,8 +197,22 @@ export const ChatMessage = z.object({
   decisions: z.array(DecisionCard),
   createdAt: z.string(),
 });
-// GET /api/conversations → { conversations: {id, title, updatedAt}[] }
-// GET /api/conversations/:id → { id, title, messages: ChatMessage[] }
+export type ChatMessage = z.infer<typeof ChatMessage>;
+export const ConversationSummary = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  updatedAt: z.string(),
+});
+export type ConversationSummary = z.infer<typeof ConversationSummary>;
+export const ConversationList = z.object({ conversations: z.array(ConversationSummary) });
+export const ConversationDetail = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  messages: z.array(ChatMessage),
+});
+export type ConversationDetail = z.infer<typeof ConversationDetail>;
+// GET /api/conversations → ConversationList (newest first)
+// GET /api/conversations/:id → ConversationDetail, or 404
 
 // ── notifications ───────────────────────────────────────────────────────────────────────────
 export const NotificationKind = z.enum([
@@ -181,8 +231,24 @@ export const PushSubscribeRequest = z.object({
   endpoint: z.string().url(),
   keys: z.object({ p256dh: z.string(), auth: z.string() }),
 });
-// GET  /api/push/vapid → { publicKey }
-// POST /api/push/subscribe PushSubscribeRequest → { ok: true } ; POST /api/push/unsubscribe { endpoint }
-// POST /api/push/test → { sent: number }
+/** `publicKey` is null when the server has no VAPID keys: push is off, everything else works. */
+export const VapidKey = z.object({ publicKey: z.string().nullable() });
+export const PushUnsubscribeRequest = z.object({ endpoint: z.string().url() });
+export const PushOk = z.object({ ok: z.literal(true) });
+export const PushTestResult = z.object({ sent: z.number().int().nonnegative() });
+export const NotificationItem = z.object({
+  id: z.number(),
+  /** A NotificationKind; kept open so a newer server's kind still renders. */
+  kind: z.string(),
+  title: z.string(),
+  body: z.string().nullable(),
+  url: z.string().nullable(),
+  createdAt: z.string(),
+  readAt: z.string().nullable(),
+});
+export const NotificationList = z.object({ notifications: z.array(NotificationItem) });
+// GET  /api/push/vapid → VapidKey
+// POST /api/push/subscribe PushSubscribeRequest → PushOk ; POST /api/push/unsubscribe PushUnsubscribeRequest → PushOk
+// POST /api/push/test → PushTestResult
 // GET  /api/settings/notifications → NotificationPrefs ; PUT NotificationPrefs → NotificationPrefs
-// GET  /api/notifications → { notifications: {id, kind, title, body, url, createdAt, readAt}[] }
+// GET  /api/notifications → NotificationList (unread, newest first)

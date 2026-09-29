@@ -61,6 +61,7 @@ export async function buildSnapshot(i: SnapshotInputs): Promise<BuiltSnapshot> {
     details.set(y.player.playerKey, y.detail);
   }
   const valued = valueOrEmpty(i, [...players.values()]);
+  const opponent = await readOpponent(i, teams);
   const snapshot: LeagueSnapshot = {
     recordedAt: i.recordedAt,
     source: 'yahoo',
@@ -68,6 +69,7 @@ export async function buildSnapshot(i: SnapshotInputs): Promise<BuiltSnapshot> {
     teamKey: i.teamKey,
     date: i.date,
     week: meta.currentWeek ?? 1,
+    ...(opponent === undefined ? {} : { opponentTeamKey: opponent }),
     teams: teams.map((t) => ({
       teamKey: t.teamKey,
       name: t.name,
@@ -113,6 +115,25 @@ async function readTransactions(i: SnapshotInputs): Promise<Transaction[]> {
   }
   const seen = new Set<string>();
   return out.filter((t) => !seen.has(t.transactionKey) && seen.add(t.transactionKey));
+}
+
+/**
+ * This week's real opponent from Yahoo's scoreboard. Without it the tools fall back to the
+ * league order (a stand-in), so a failure here degrades with a warning (P9).
+ */
+async function readOpponent(
+  i: SnapshotInputs,
+  teams: readonly { teamKey: string }[],
+): Promise<string | undefined> {
+  try {
+    const m = await i.source.ourMatchup();
+    const other = m?.teams.find((t) => t.teamKey !== i.teamKey)?.teamKey;
+    if (other !== undefined && teams.some((t) => t.teamKey === other)) return other;
+    i.warn('scoreboard has no opponent for us this week; using the league order');
+  } catch (e) {
+    i.warn(`scoreboard unavailable: ${errText(e)}`);
+  }
+  return undefined;
 }
 
 async function readSchedule(i: SnapshotInputs): Promise<LeagueSnapshot['schedule']> {

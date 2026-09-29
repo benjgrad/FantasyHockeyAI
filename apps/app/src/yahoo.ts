@@ -4,6 +4,7 @@ import {
   YahooAuthError,
   createWebSessionReader,
   type LeagueMeta,
+  type Matchup,
   type MyTeam,
   type RosterRead,
   type YahooCredentials,
@@ -27,6 +28,10 @@ export interface LiveLeagueSource {
   rosterDetailed(teamKey: TeamKey, date: string): Promise<RosterRead>;
   playersDetailed(q: YahooPlayerQuery): Promise<YahooPlayer[]>;
   transactions(q: { type?: Transaction['type']; teamKey?: TeamKey }): Promise<Transaction[]>;
+  /** Status, notes and ownership for specific players (the daemon's watch list). */
+  playersByKey(keys: readonly string[]): Promise<YahooPlayer[]>;
+  /** Our head-to-head matchup this week, from Yahoo's scoreboard. */
+  ourMatchup(): Promise<Matchup | undefined>;
 }
 
 export interface YahooAccess {

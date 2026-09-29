@@ -67,12 +67,20 @@ interface InjuryDetail {
   returnDate?: string;
 }
 
+/**
+ * The newest news note on a player (the snapshot's status line skipped), which is where Yahoo's
+ * Rotowire feed says how long he is out ("4-6 months after surgery in June").
+ */
+function newestNote(view: LeagueView, p: Player): string | undefined {
+  return (view.snap.news[p.playerKey] ?? []).find((l) => !l.startsWith('Status:'));
+}
+
 /** A player's availability as of the snapshot date (§12, draft-night flaw 4). */
 export function availabilityOf(view: LeagueView, p: Player): Availability {
   const detail = p as Player & InjuryDetail;
   return availability({
     status: p.status,
-    injuryNote: detail.injuryNote,
+    injuryNote: detail.injuryNote ?? newestNote(view, p),
     returnDate: detail.returnDate,
     now: view.snap.date,
   });

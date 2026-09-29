@@ -43,6 +43,11 @@ export const LeagueSnapshot = z
     /** The "today" of the snapshot, America/New_York. */
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     week: z.number().int().positive(),
+    /**
+     * This week's opponent from Yahoo's scoreboard, when it was read. Absent (a recorded or mock
+     * snapshot, or the scoreboard was unavailable), consumers fall back to the league order.
+     */
+    opponentTeamKey: TeamKey.optional(),
     teams: z.array(
       z.object({ teamKey: TeamKey, name: z.string(), managerNickname: z.string().optional() }),
     ),

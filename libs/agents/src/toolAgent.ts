@@ -90,6 +90,7 @@ export class ToolAgent implements Agent {
       settings: deps.settings,
       permissions,
       store: deps.store,
+      ...(deps.userId === undefined ? {} : { userId: deps.userId }),
       submit: deps.submit,
       ...(deps.log === undefined ? {} : { log: deps.log }),
       state,

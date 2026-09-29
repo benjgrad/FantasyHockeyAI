@@ -22,7 +22,10 @@ Vasilevskiy, Hellebuyck · bench Gustavsson (G), Stamkos, Hischier, Nikishin (D)
 Phase 0 consolidate (**done**: `agents` merged, validate green) → **1** availability as a
 first-class input → **2** live `libs/yahoo` reader + Yahoo write capture → **3** MCP server →
 **4** Sign in with Personal OS, Connect Yahoo settings page, permissions editor → **5**
-chat-centred web app → **6** daemon, news/status subscriptions, web push.
+chat-centred web app → **6** daemon, news/status subscriptions, web push (**code done
+2026-09-29**, D-013: scheduler + serial queue + lock inside `apps/app`, four Yahoo watchers,
+event → action rules, the Monday `leagueReview` agent and the 09:00 digest; `FHA_DAEMON=1` in
+the unit file; not yet run against the live league).
 
 **The pressing problem:** four drafted players were unavailable at draft time (Jarvis O,
 Hellebuyck NA, Gustavsson O, Nikishin O). Nothing in the model read availability ([Draft-night
@@ -82,10 +85,10 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
 | **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
-| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; waits on the daemon, a live LLM run, and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
+| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013); waits on a live LLM run and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
 | **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
-| **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push service, prefs, quiet hours done in `apps/app`; daemon in progress | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
+| **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; not deployed | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
 | **M-A** | Availability as a first-class input (`availability()`, `rosterHealth()`), draft-scoring fixes | `done` 2026-09-29 — every draft-night flaw has a failing-first scenario | Scenarios pass; live roster health matches Ben's diagnosis | §12 |
 | **M-MCP** | stdio MCP server over the agent tools (`apps/mcp`) | `done` 2026-09-29 | Tools listed from the registry; proposals gated; approval needs a human confirmation | §8, §9 |
@@ -154,6 +157,9 @@ first use and update the row.
 | **U-15** | Meaning of a goalie's `starting_status {date, is_starting}` in Yahoo player data | §11.4 | Watch it against confirmed starters for a week | UNVERIFIED — seen on one goalie; recorded as a hint only |
 | **U-16** | How far back Yahoo's `player_notes` feed goes | — | Compare notes over several days | UNVERIFIED — only recent notes come back |
 | **U-17** | Live shape of a Yahoo pending trade | §10.3 | Parse the first real offer | UNVERIFIED — parser follows the documented fields |
+| **U-18** | `percent_owned.delta` on free agents is a recent (daily) change, and the top 75 FAs by `sort=OR` contain the risers | — | Compare the watcher's top-50 risers with Yahoo's "trending" list for a week | UNVERIFIED — the status/news watcher ranks FAs by it (`apps/app/src/daemon/watchers.ts`) |
+| **U-19** | Rotowire notes' wording for absences ("4-6 months after surgery in June", "until at least early November", "a couple of weeks", "six-game suspension") | §12.1 | Check `daysOutFromNote` against real returns over the first month | UNVERIFIED — patterns written against the 2026-09-29 notes only (`libs/model/src/injuryNote.ts`); anything else falls back to U-13's defaults |
+| **U-20** | A roster read (`/roster;date=…/players`) carries `starting_status` for goalies | §11.4 | Look at a goalie on a game day | UNVERIFIED — the goalie watcher reads it there; absent, it records nothing (see U-15) |
 
 **Source URLs for re-verification** stay in the spec at **§26 (research register)** — source
 links are stable reference material and belong next to the claims they support, unlike the
@@ -171,6 +177,31 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-013 — 2026-09-29 — How the daemon behaves (Phase 6)
+- **Schedule** (§14.2, America/New_York via `Intl`, no new dependency): refresh 06:00 (snapshot
+  + expire approvals), matchup Mon/Thu 06:30, `leagueReview` Mon 07:00, waivers 08:00, digest
+  09:00, lineup 10:00 / 45 min before our first game / 16:30 (a pre-game run within 20 min of
+  another lineup run folds into it). Missed slots are **not** caught up after a restart.
+- **Watchers run beside the queue, not in it**: they are reads, and an injury poll must not wait
+  behind a multi-minute agent run. Only jobs are serial. Intervals: status/news 20 min
+  (06:00–24:00), transactions 30 min, goalie hints hourly on our goalies' game days (08:00+),
+  scoreboard hourly; ±10 % jitter; a Yahoo error backs off ×2 per failure (cap ×16) with no push.
+- **Rules only push and enqueue**: our player newly O/IR*/NA/SUSP, or a starter newly DTD on a
+  game day → injury push + lineup (+ waivers when roster health shows a thin position or an IR
+  move); back from out → push + lineup; an incoming trade offer → trades. Debounced 30 min per
+  player. Everything else is collected for the Monday review. Proposals still meet the gate.
+- **Failures**: every job writes a `runs` row; a failed job pushes once per job per user per day;
+  an expired Yahoo session marks the connection expired, pushes **one** reconnect notice per
+  session, and pauses that user's jobs and watchers until Settings reconnects it.
+- **The league review is read-only**: a `leagueReview` agent (new `AgentName`) with
+  `getLeagueEvents` plus reads; its reply becomes a `league` notification. It recommends; the
+  other agents act. Standings are not read yet (no reader method).
+- **The matchup opponent is Yahoo's**: a live snapshot records the scoreboard's opponent
+  (`opponentTeamKey`); the league-order stand-in remains only for recorded/mock snapshots or a
+  failed scoreboard read (with a warning), and `getMatchup` says which it used.
+- **The digest is deterministic** (no model). Decisions and approvals are not per-user in the
+  store yet, so the digest lists all of them: fine for one user, a gap before a second.
 
 ### D-012 — 2026-09-29 — One process: the daemon runs inside the app server
 §3.2's single-process model: the scheduler, watchers and serial job queue run in `apps/app`,

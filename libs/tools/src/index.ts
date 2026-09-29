@@ -9,6 +9,7 @@ export * from './registry.js';
 export * from './tools/control.js';
 export * from './tools/league.js';
 export * from './tools/matchup.js';
+export * from './tools/leagueEvents.js';
 export * from './tools/proposeRoster.js';
 export * from './tools/proposeTrade.js';
 export * from './tools/roster.js';

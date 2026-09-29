@@ -4,6 +4,7 @@ import {
   playProbability,
   reserveAllows,
 } from './lineupRules.js';
+import { daysOutFromNote } from './injuryNote.js';
 
 /**
  * Player availability as a model input.
@@ -86,20 +87,7 @@ function addDays(date: string, days: number): string {
   return new Date((dayIndex(date) + days) * DAY_MS + DAY_MS / 2).toISOString().slice(0, 10);
 }
 
-/**
- * Days out read from a note, or undefined when it says nothing usable. Deliberately narrow [U]:
- * "season-ending" / "out for the season", "N weeks" / "N-M weeks" (upper bound), "N games".
- */
-export function daysOutFromNote(note: string | undefined): number | undefined {
-  if (note === undefined) return undefined;
-  const n = note.toLowerCase();
-  if (/season-ending|out for (the )?(rest of the )?season/.test(n)) return Number.POSITIVE_INFINITY;
-  const weeks = /(\d+)(?:\s*(?:-|to)\s*(\d+))?\s*weeks?/.exec(n);
-  if (weeks) return 7 * Number(weeks[2] ?? weeks[1]);
-  const games = /(\d+)\s*games?/.exec(n);
-  if (games) return Math.ceil(Number(games[1]) / NHL_GAMES_PER_DAY);
-  return undefined;
-}
+export { daysOutFromNote };
 
 function estimateDaysOut(input: AvailabilityInput): {
   days: number;
@@ -115,7 +103,7 @@ function estimateDaysOut(input: AvailabilityInput): {
       source: 'returnDate',
     };
   }
-  const fromNote = status === 'DTD' ? undefined : daysOutFromNote(input.injuryNote);
+  const fromNote = status === 'DTD' ? undefined : daysOutFromNote(input.injuryNote, input.now);
   if (fromNote !== undefined) return { days: fromNote, source: 'note' };
   return { days: DEFAULT_DAYS_OUT[status] ?? 0, source: 'default' };
 }

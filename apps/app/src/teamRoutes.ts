@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { HttpError, readJson, sendJson } from './http.js';
-import { approvePlan, listCards, rejectPlan } from './decisions.js';
+import { approvePlan, cardFor, listCards, rejectPlan } from './decisions.js';
 import type { Route } from './router.js';
 import { namesFor, type Services } from './services.js';
 import { teamView } from './team.js';
@@ -33,6 +33,19 @@ export function teamRoutes(s: Services): Route[] {
       handle: ({ res, url, user }) => {
         const which = url.searchParams.get('status') === 'all' ? 'all' : 'pending';
         sendJson(res, 200, { decisions: listCards(s.store, which, namesFor(s, user.id)) });
+        return Promise.resolve();
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/decisions/:planId',
+      auth: 'user',
+      handle: ({ res, params, user }) => {
+        // One card by id, for a push's deep link: the list is capped, so searching it misses
+        // older decisions.
+        const card = cardFor(s.store, params['planId'] ?? '', namesFor(s, user.id));
+        if (card === undefined) throw new HttpError(404, 'not_found', 'No such decision.');
+        sendJson(res, 200, card);
         return Promise.resolve();
       },
     },

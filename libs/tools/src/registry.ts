@@ -5,6 +5,7 @@ import type { AnyTool } from './context.js';
 import { dayStatus, weekBounds } from './derive.js';
 import { abstain, askBen, setCategoryWeights } from './tools/control.js';
 import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './tools/league.js';
+import { getLeagueEvents } from './tools/leagueEvents.js';
 import { getMatchup } from './tools/matchup.js';
 import { proposeAddDrop, proposeLineup, proposeWaiverClaim } from './tools/proposeRoster.js';
 import { proposeTrade, proposeTradeResponse } from './tools/proposeTrade.js';
@@ -27,6 +28,7 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     getGoalieStarts,
     getNews,
     getMatchup,
+    getLeagueEvents,
     getPendingTrades,
     evaluateTrade,
     proposeLineup,
@@ -84,6 +86,15 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'evaluateTrade',
     'proposeTrade',
     'proposeTradeResponse',
+    ...CONTROL,
+  ],
+  // Read-only by design: it may recommend, but actions come from the other agents.
+  leagueReview: [
+    'getLeagueContext',
+    'getLeagueEvents',
+    'getMatchup',
+    'getRosterHealth',
+    'getNews',
     ...CONTROL,
   ],
 };

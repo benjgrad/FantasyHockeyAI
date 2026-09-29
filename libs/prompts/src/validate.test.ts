@@ -28,6 +28,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'proposeTradeResponse',
   ],
   'matchup.system': ['getMatchup', 'getSchedule', 'setCategoryWeights'],
+  'leagueReview.system': ['getLeagueEvents', 'getMatchup', 'getRosterHealth', 'getNews'],
 };
 
 const EXPECTED_IDS = [

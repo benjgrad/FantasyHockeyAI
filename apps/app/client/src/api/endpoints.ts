@@ -1,11 +1,18 @@
+import type { ChatMessage, ConversationSummary } from '@fha/api';
 import {
-  ChatMessage,
+  ConversationDetail,
+  ConversationList,
   DecisionCard,
+  DecisionList,
   Me,
+  NotificationList,
   NotificationPrefs,
   PermissionsView,
   PlayerRef,
+  PushOk,
+  PushTestResult,
   TeamView,
+  VapidKey,
   YahooConnectResponse,
 } from '@fha/api';
 import { z } from 'zod';
@@ -21,27 +28,14 @@ export type TeamViewT = z.infer<typeof TeamView>;
 export type PlayerRefT = z.infer<typeof PlayerRef>;
 export type PermissionsViewT = z.infer<typeof PermissionsView>;
 export type NotificationPrefsT = z.infer<typeof NotificationPrefs>;
-export type ChatMessageT = z.infer<typeof ChatMessage>;
+export type ChatMessageT = ChatMessage;
 export type YahooTeamChoiceT = z.infer<typeof YahooConnectResponse>['teams'][number];
 
-const Ok = z.unknown();
+export type ConversationSummaryT = ConversationSummary;
+export type NotificationItemT = z.infer<typeof NotificationList>['notifications'][number];
 
-export const ConversationSummary = z.object({
-  id: z.string(),
-  title: z.string().nullable(),
-  updatedAt: z.string(),
-});
-export type ConversationSummaryT = z.infer<typeof ConversationSummary>;
-const ConversationList = z.object({ conversations: z.array(ConversationSummary) });
-const ConversationDetail = z.object({
-  id: z.string(),
-  title: z.string().nullable(),
-  messages: z.array(ChatMessage),
-});
-const Decisions = z.object({ decisions: z.array(DecisionCard) });
+/** Not in the contract yet: the search route's response (the server builds it in settingsRoutes). */
 const PlayerSearch = z.object({ players: z.array(PlayerRef) });
-const Vapid = z.object({ publicKey: z.string().nullable() });
-const TestSent = z.object({ sent: z.number() });
 
 export const api = {
   me: () => requestJson(f, '/api/me', Me),
@@ -73,7 +67,9 @@ export const api = {
   refreshTeam: () => requestJson(f, '/api/team/refresh', TeamView, { method: 'POST' }),
 
   decisions: (status: 'pending' | 'all') =>
-    requestJson(f, `/api/decisions?status=${status}`, Decisions),
+    requestJson(f, `/api/decisions?status=${status}`, DecisionList),
+  decision: (planId: string) =>
+    requestJson(f, `/api/decisions/${encodeURIComponent(planId)}`, DecisionCard),
   approve: (planId: string) =>
     requestJson(f, `/api/decisions/${encodeURIComponent(planId)}/approve`, DecisionCard, {
       method: 'POST',
@@ -88,15 +84,16 @@ export const api = {
   conversation: (id: string) =>
     requestJson(f, `/api/conversations/${encodeURIComponent(id)}`, ConversationDetail),
 
-  vapid: () => requestJson(f, '/api/push/vapid', Vapid),
+  vapid: () => requestJson(f, '/api/push/vapid', VapidKey),
   subscribe: (endpoint: string, p256dh: string, auth: string) =>
-    requestJson(f, '/api/push/subscribe', Ok, {
+    requestJson(f, '/api/push/subscribe', PushOk, {
       method: 'POST',
       body: { endpoint, keys: { p256dh, auth } },
     }),
   unsubscribe: (endpoint: string) =>
-    requestJson(f, '/api/push/unsubscribe', Ok, { method: 'POST', body: { endpoint } }),
-  testPush: () => requestJson(f, '/api/push/test', TestSent, { method: 'POST' }),
+    requestJson(f, '/api/push/unsubscribe', PushOk, { method: 'POST', body: { endpoint } }),
+  testPush: () => requestJson(f, '/api/push/test', PushTestResult, { method: 'POST' }),
+  notifications: () => requestJson(f, '/api/notifications', NotificationList),
   notificationPrefs: () => requestJson(f, '/api/settings/notifications', NotificationPrefs),
   saveNotificationPrefs: (prefs: NotificationPrefsT) =>
     requestJson(f, '/api/settings/notifications', NotificationPrefs, {

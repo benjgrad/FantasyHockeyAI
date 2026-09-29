@@ -13,7 +13,12 @@ import { failed } from './response.js';
  * and whose confidence is actually used (P4, P5).
  */
 
-export const JOB_NAMES = ['lineup', 'waivers', 'trades', 'matchup'] as const;
+/** The jobs a specialist does end to end: what free text and the chat can route to. */
+export const SPECIALIST_JOBS = ['lineup', 'waivers', 'trades', 'matchup'] as const;
+export type SpecialistJob = (typeof SPECIALIST_JOBS)[number];
+
+/** Every scheduled agent job. `leagueReview` is the daemon's weekly league-changes digest. */
+export const JOB_NAMES = [...SPECIALIST_JOBS, 'leagueReview'] as const;
 export type JobName = (typeof JOB_NAMES)[number];
 
 export interface JobSpec {
@@ -27,13 +32,17 @@ export const JOB_TABLE: Readonly<Record<JobName, JobSpec>> = {
   waivers: { agent: 'waivers', intent: 'Scout free agents and waivers for roster upgrades.' },
   trades: { agent: 'trades', intent: 'Answer pending trade offers and look for trades to offer.' },
   matchup: { agent: 'matchup', intent: "Set this week's category weights for the matchup." },
+  leagueReview: {
+    agent: 'leagueReview',
+    intent: "Review the past week's league changes and write Ben a short digest.",
+  },
 };
 
 export const isJobName = (s: string): s is JobName => (JOB_NAMES as readonly string[]).includes(s);
 
 // ── free-text routing ────────────────────────────────────────────────────────────────────────
 
-export const ROUTES = [...JOB_NAMES, 'answer', 'unknown'] as const;
+export const ROUTES = [...SPECIALIST_JOBS, 'answer', 'unknown'] as const;
 
 /** Router output. `params` are Ben's words as he wrote them; code resolves any names later. */
 export const RouteSchema = z.object({

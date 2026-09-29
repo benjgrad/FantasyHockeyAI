@@ -1,8 +1,8 @@
-import type { ChatEvent } from '@fha/api';
+import type { ChatEvent, DecisionCard } from '@fha/api';
 import { describe, expect, it } from 'vitest';
 import { applyEvent, assistantTurn, turnFromMessage, type Turn } from './thread';
 
-const card = {
+const card: DecisionCard = {
   planId: 'p1',
   kind: 'lineup',
   status: 'pending',

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { ChatEvent, DecisionCard, PermissionsView } from '@fha/api';
+import {
+  ChatEvent,
+  ConversationDetail,
+  ConversationList,
+  DecisionCard,
+  PermissionsView,
+} from '@fha/api';
 import { fakeMessage, type FakeTurn } from '@fha/llm';
 import { call, connected, startHarness, type Harness } from './testing.js';
 
@@ -99,16 +105,24 @@ describe('POST /api/chat', () => {
     });
     expect(again.status).toBe(409);
 
+    // One card by id (a push's deep link), without searching the capped list.
+    const one = await call(h, `/api/decisions/${card?.planId ?? ''}`, { cookie });
+    expect(DecisionCard.parse(await one.json())).toMatchObject({
+      planId: card?.planId,
+      status: 'dry_run',
+    });
+    expect((await call(h, '/api/decisions/nope', { cookie })).status).toBe(404);
+
     // The conversation replays with its decision card.
     const convId = evs[0]?.type === 'conversation' ? evs[0].conversationId : '';
-    const conv = (await (await call(h, `/api/conversations/${convId}`, { cookie })).json()) as {
-      messages: { role: string; text: string; decisions: DecisionCard[] }[];
-    };
+    const conv = ConversationDetail.parse(
+      await (await call(h, `/api/conversations/${convId}`, { cookie })).json(),
+    );
     expect(conv.messages.map((m) => m.role)).toEqual(['user', 'assistant']);
     expect(conv.messages[1]?.decisions[0]?.status).toBe('dry_run');
-    const list = (await (await call(h, '/api/conversations', { cookie })).json()) as {
-      conversations: { title: string }[];
-    };
+    const list = ConversationList.parse(
+      await (await call(h, '/api/conversations', { cookie })).json(),
+    );
     expect(list.conversations[0]?.title).toBe('set my lineup');
   });
 

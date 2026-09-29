@@ -153,13 +153,25 @@ export function evaluateTradeKeys(
 }
 
 /**
- * This week's opponent. A snapshot carries no Yahoo matchup schedule, so the opponent is
- * derived deterministically: the other teams in snapshot order, rotated by week (week 1 plays
- * the first). [U] until the snapshot records Yahoo's real scoreboard.
+ * This week's opponent: Yahoo's scoreboard when the snapshot recorded it (a live snapshot for
+ * its own week), otherwise derived deterministically from the league order, rotated by week
+ * (week 1 plays the first). The derived opponent is a stand-in [U], flagged by
+ * {@link opponentIsDerived}.
  */
 export function opponentFor(view: LeagueView, week: number): LeagueTeam | undefined {
+  const real = view.snap.opponentTeamKey;
+  if (real !== undefined && week === view.snap.week) {
+    const t = view.otherTeams().find((x) => x.teamKey === real);
+    if (t !== undefined) return t;
+  }
   const others = view.otherTeams();
   return others.length === 0 ? undefined : others[(week - 1) % others.length];
+}
+
+/** True when {@link opponentFor} had to fall back to the league order for the current week. */
+export function opponentIsDerived(view: LeagueView): boolean {
+  const real = view.snap.opponentTeamKey;
+  return real === undefined || !view.otherTeams().some((t) => t.teamKey === real);
 }
 
 /**

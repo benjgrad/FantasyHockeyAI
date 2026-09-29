@@ -14,6 +14,13 @@ WorkingDirectory=%h/Documents/Projects/FantasyHockeyAI
 #   ANTHROPIC_API_KEY=...                        (optional; chat is off without it)
 # chmod 600 the file.
 EnvironmentFile=%h/.config/fha/app.env
+# The daemon (scheduler, Yahoo watchers, event rules, digest) runs inside this process (§3.2).
+# It holds data/fha.lock while running; a second instance with the daemon on exits 78. Set
+# FHA_DAEMON=0 in app.env to serve the web app without it. Jobs follow permissions: dry run
+# until Ben switches it off, and live plans go to the Manual adapter (no Yahoo writes, U-12).
+Environment=FHA_DAEMON=1
+# SIGTERM lets the running job finish (an agent run can take a few minutes) before exit.
+TimeoutStopSec=300
 ExecStart=%h/Documents/Projects/FantasyHockeyAI/deploy/fha-app.sh
 Restart=always
 RestartSec=3

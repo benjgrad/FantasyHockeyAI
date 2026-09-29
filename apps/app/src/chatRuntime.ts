@@ -21,23 +21,37 @@ export function llmFor(store: Store, createMessage: CreateMessage): LlmClient {
   });
 }
 
-export function assistantDeps(
+/**
+ * One user's agent dependencies: the same wiring for the chat's specialists and the daemon's
+ * scheduled jobs, so both meet the same pipeline, gate and per-user permissions.
+ */
+export function agentDepsFor(
   s: Services,
   userId: string,
   league: LeagueState,
   llm: LlmClient,
-): AssistantDeps {
+): AgentDeps {
   const pipeline = pipelineFor(s.wiring, userId, league);
-  const now = s.now().toISOString();
-  const agentDeps: AgentDeps = {
+  return {
     llm,
     prompts: s.prompts,
     settings: league.settings,
     view: league.view,
     permissions: () => userPermissions(s.store, s.config.permissionsFile, userId),
     store: s.store,
+    userId,
     submit: (plan) => submitPlan(plan, pipeline),
   };
+}
+
+export function assistantDeps(
+  s: Services,
+  userId: string,
+  league: LeagueState,
+  llm: LlmClient,
+): AssistantDeps {
+  const now = s.now().toISOString();
+  const agentDeps = agentDepsFor(s, userId, league, llm);
   return {
     ...agentDeps,
     now,

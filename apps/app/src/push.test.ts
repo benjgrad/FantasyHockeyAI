@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { NotificationList, VapidKey } from '@fha/api';
 import { ConfigError, loadConfig } from './config.js';
 import { inQuietHours, noticeFromPipeline } from './push.js';
 import { call, signIn, startHarness, type Harness } from './testing.js';
@@ -33,7 +34,7 @@ describe('push routes', () => {
     expect(h.store.pushSubscriptions.forUser(userId)).toHaveLength(0);
   });
 
-  it('refuses a non-https endpoint, and push is 503 without VAPID keys', async () => {
+  it('refuses a non-https endpoint, and the VAPID key is null without keys', async () => {
     h = await startHarness({ vapid: false });
     const { cookie } = await signIn(h);
     const bad = await call(h, '/api/push/subscribe', {
@@ -41,7 +42,9 @@ describe('push routes', () => {
       body: { ...SUB, endpoint: 'http://push.example/x' },
     });
     expect(bad.status).toBe(400);
-    expect((await call(h, '/api/push/vapid', { cookie })).status).toBe(503);
+    const vapid = await call(h, '/api/push/vapid', { cookie });
+    expect(vapid.status).toBe(200);
+    expect(VapidKey.parse(await vapid.json())).toEqual({ publicKey: null });
   });
 });
 
@@ -60,9 +63,9 @@ describe('notify', () => {
       url: '/decisions/p1',
       planId: 'p1',
     });
-    const list = (await (await call(h, '/api/notifications', { cookie })).json()) as {
-      notifications: { title: string }[];
-    };
+    const list = NotificationList.parse(
+      await (await call(h, '/api/notifications', { cookie })).json(),
+    );
     expect(list.notifications.map((n) => n.title)).toEqual(['Approval needed']);
   });
 

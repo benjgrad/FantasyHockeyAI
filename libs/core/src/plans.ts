@@ -17,7 +17,15 @@ export const PLAN_KINDS = [
 export const PlanKind = z.enum(PLAN_KINDS);
 export type PlanKind = z.infer<typeof PlanKind>;
 
-export const AGENT_NAMES = ['gm', 'draft', 'lineup', 'waivers', 'matchup', 'trades'] as const;
+export const AGENT_NAMES = [
+  'gm',
+  'draft',
+  'lineup',
+  'waivers',
+  'matchup',
+  'trades',
+  'leagueReview',
+] as const;
 export const AgentName = z.enum(AGENT_NAMES);
 export type AgentName = z.infer<typeof AgentName>;
 

@@ -5,13 +5,19 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LeagueSnapshot, type Player } from '@fha/core';
+import { LeagueSnapshot, type Player, type Transaction } from '@fha/core';
 import { scriptedCreateMessage, type ScriptedCreate } from '@fha/llm';
 import type { ScheduleDay } from '@fha/nhl';
 import { loadPrompts } from '@fha/prompts';
 import { openStore, type Store } from '@fha/store';
 import { MOCK_SETTINGS } from '@fha/tools';
-import { YahooAuthError, type MyTeam, type YahooCredentials } from '@fha/yahoo';
+import {
+  YahooAuthError,
+  type Matchup,
+  type MyTeam,
+  type PlayerDetail,
+  type YahooCredentials,
+} from '@fha/yahoo';
 import { createApp, type App } from './app.js';
 import type { AppConfig } from './config.js';
 import type { PushSend } from './push.js';
@@ -104,14 +110,50 @@ function idToken(key: KeyObject, kid: string, s: FakeOidc): string {
 export interface FakeYahoo extends YahooAccess {
   /** When true, every league read fails as an expired session. */
   expired: boolean;
+  /** When true, every league read fails as a network error (Yahoo down, P9). */
+  down: boolean;
   seen: YahooCredentials[];
+  /** Status overrides by playerKey (`undefined` = healthy), applied to every read. */
+  status: Map<string, string | undefined>;
+  /** Extra Yahoo detail (notes, goalie starting flag) by playerKey. */
+  details: Map<string, Partial<PlayerDetail>>;
+  /** League transactions; pending trades are those of type `pending_trade`. */
+  txs: Transaction[];
+  matchup: Matchup | undefined;
+  /** Every league read, by method name. */
+  reads: string[];
+}
+
+function detailFor(fake: FakeYahoo, playerKey: string): PlayerDetail {
+  return {
+    playerKey,
+    onDisabledList: false,
+    reserveEligible: [],
+    hasRecentNotes: false,
+    notes: [],
+    undroppable: false,
+    ...fake.details.get(playerKey),
+  };
+}
+
+function withStatus(fake: FakeYahoo, p: Player): Player {
+  if (!fake.status.has(p.playerKey)) return p;
+  const status = fake.status.get(p.playerKey);
+  const rest = Object.fromEntries(Object.entries(p).filter(([k]) => k !== 'status')) as Player;
+  return status === undefined ? rest : { ...rest, status };
 }
 
 export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
   const byKey = new Map(snap.players.map((p) => [p.playerKey, p]));
   const fake: FakeYahoo = {
     expired: false,
+    down: false,
     seen: [],
+    status: new Map(),
+    details: new Map(),
+    txs: [],
+    matchup: undefined,
+    reads: [],
     myTeams: (c) => {
       fake.seen.push(c);
       if (c.T === BAD_COOKIE) return Promise.reject(new YahooAuthError('401 from Yahoo'));
@@ -125,26 +167,47 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
       return Promise.resolve([team]);
     },
     reader: (): LiveLeagueSource => {
-      const guard = <T>(v: T): Promise<T> =>
-        fake.expired ? Promise.reject(new YahooAuthError('session expired')) : Promise.resolve(v);
+      const guard = <T>(what: string, v: () => T): Promise<T> => {
+        fake.reads.push(what);
+        if (fake.expired) return Promise.reject(new YahooAuthError('session expired'));
+        if (fake.down) return Promise.reject(new TypeError('fetch failed'));
+        return Promise.resolve(v());
+      };
+      const detailed = (keys: readonly string[]) =>
+        keys.flatMap((k) => {
+          const p = byKey.get(k);
+          return p === undefined
+            ? []
+            : [{ player: withStatus(fake, p), detail: detailFor(fake, k) }];
+        });
       return {
-        settingsAndMeta: () => guard({ settings: MOCK_SETTINGS, meta: { currentWeek: snap.week } }),
-        teams: () => guard(snap.teams),
+        settingsAndMeta: () =>
+          guard('settings', () => ({ settings: MOCK_SETTINGS, meta: { currentWeek: snap.week } })),
+        teams: () => guard('teams', () => snap.teams),
         rosterDetailed: (teamKey, date) =>
-          guard({
-            roster: {
-              teamKey,
-              date,
-              entries: (snap.rosters[teamKey] ?? []).flatMap((e) => {
-                const player: Player | undefined = byKey.get(e.playerKey);
-                return player === undefined ? [] : [{ player, slot: e.slot }];
-              }),
-            },
-            details: new Map(),
-            editable: true,
+          guard('roster', () => {
+            const entries = (snap.rosters[teamKey] ?? []).flatMap((e) => {
+              const player: Player | undefined = byKey.get(e.playerKey);
+              return player === undefined
+                ? []
+                : [{ player: withStatus(fake, player), slot: e.slot }];
+            });
+            const details = new Map(
+              entries
+                .filter((e) => fake.details.has(e.player.playerKey))
+                .map((e) => [e.player.playerKey, detailFor(fake, e.player.playerKey)]),
+            );
+            return { roster: { teamKey, date, entries }, details, editable: true };
           }),
-        playersDetailed: () => guard([]),
-        transactions: () => guard([]),
+        playersDetailed: () => guard('players', () => []),
+        playersByKey: (keys) => guard('playersByKey', () => detailed(keys)),
+        transactions: (q) =>
+          guard('transactions', () =>
+            fake.txs.filter((t) =>
+              q.type === 'pending_trade' ? t.type === 'pending_trade' : t.type !== 'pending_trade',
+            ),
+          ),
+        ourMatchup: () => guard('scoreboard', () => fake.matchup),
       };
     },
   };
@@ -218,6 +281,8 @@ export async function startHarness(
     snapshotDir: join(dir, 'snapshots'),
     permissionsFile: PERMISSIONS,
     valuationSnapshot: FIXTURE,
+    daemon: false,
+    lockPath: join(dir, 'fha.lock'),
   };
   const app = createApp(
     {

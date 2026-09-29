@@ -18,6 +18,8 @@ export interface AgentDeps {
   /** Read at the start of each run, so an edit to permissions.yaml applies to the next run. */
   permissions: () => Permissions;
   store: Store;
+  /** The app user the run acts for (web app, daemon); absent on the CLI. See `RunContext`. */
+  userId?: string;
   /** The action pipeline. Propose tools hand it plans; agents never execute anything (P1/P2). */
   submit: (plan: Plan) => Promise<SubmitOutcome>;
   log?: (event: ToolEvent) => void;

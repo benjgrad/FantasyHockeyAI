@@ -60,6 +60,20 @@ describe('yahooConnections', () => {
     expect(store.yahooConnections.markStatus('ghost', 'expired')).toBe(false);
   });
 
+  it('lists every connection, oldest first', () => {
+    const { store } = memStore();
+    expect(store.yahooConnections.list()).toEqual([]);
+    const a = store.users.upsertBySub('sub-a');
+    const b = store.users.upsertBySub('sub-b');
+    store.yahooConnections.saveCredentials(a.id, 'ca');
+    store.yahooConnections.saveCredentials(b.id, 'cb');
+    store.yahooConnections.markStatus(b.id, 'expired', 'x');
+    expect(store.yahooConnections.list().map((c) => [c.userId, c.status])).toEqual([
+      [a.id, 'connected'],
+      [b.id, 'expired'],
+    ]);
+  });
+
   it('removes a connection', () => {
     const { store } = memStore();
     const u = store.users.upsertBySub('sub-1');

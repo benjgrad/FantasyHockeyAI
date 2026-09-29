@@ -182,6 +182,37 @@ describe('failure stops (P6) and never throwing (§6.1)', () => {
     expect((await badPrompt.handle(h.request())).status).toBe('failed');
   });
 
+  it('the league reviewer reads its user’s events and returns the digest text, proposing nothing', async () => {
+    const h = agentHarness('leagueReview', [
+      call('getLeagueEvents', { sinceDays: 7 }),
+      say('Quiet week: no notable moves.'),
+    ]);
+    const user = h.store.users.upsertBySub('sub-1');
+    h.store.events.record({
+      userId: user.id,
+      kind: 'player.news',
+      payload: {
+        playerKey: OURS,
+        name: 'Someone',
+        ours: true,
+        noteId: 'n1',
+        at: '2026-10-12T00:00:00.000Z',
+        headline: 'Skates on the top line',
+        news: null,
+      },
+    });
+    const r = await createAgent('leagueReview', { ...h.deps, userId: user.id }).handle(
+      h.request({ job: 'leagueReview' }),
+    );
+    expect(r).toMatchObject({
+      status: 'noop',
+      message: 'Quiet week: no notable moves.',
+      plans: [],
+    });
+    expect(toolNames(h.fake.bodies[0])).not.toContain('proposeLineup');
+    expect(JSON.stringify(h.fake.bodies[1]?.messages)).toContain('Skates on the top line');
+  });
+
   it('a request for another team is refused before the model is called (P8)', async () => {
     const h = agentHarness('lineup', []);
     const req = h.request();

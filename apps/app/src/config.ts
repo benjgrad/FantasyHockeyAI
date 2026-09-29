@@ -46,6 +46,10 @@ export interface AppConfig {
   permissionsFile: string;
   /** A recorded `fha snapshot record` file whose valuations seed live snapshots. */
   valuationSnapshot: string | undefined;
+  /** Run the scheduler and watchers in this process (`FHA_DAEMON=1`; off by default and in tests). */
+  daemon: boolean;
+  /** The single-instance lock the daemon holds (§3.2). */
+  lockPath: string;
 }
 
 const Env = z.object({
@@ -73,6 +77,8 @@ const Env = z.object({
   FHA_SNAPSHOT_DIR: z.string().default('data/snapshots'),
   FHA_PERMISSIONS_FILE: z.string().default('config/permissions.yaml'),
   FHA_VALUATION_SNAPSHOT: z.string().optional(),
+  FHA_DAEMON: z.enum(['0', '1', '']).default('0'),
+  FHA_LOCK_FILE: z.string().default('data/fha.lock'),
 });
 
 const VapidFile = z.object({
@@ -116,6 +122,8 @@ export function loadConfig(
     permissionsFile: at(e.FHA_PERMISSIONS_FILE),
     valuationSnapshot:
       e.FHA_VALUATION_SNAPSHOT === undefined ? undefined : at(e.FHA_VALUATION_SNAPSHOT),
+    daemon: e.FHA_DAEMON === '1',
+    lockPath: at(e.FHA_LOCK_FILE),
   };
 }
 

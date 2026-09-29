@@ -30,6 +30,13 @@ export const AGENT_CONFIGS = {
   },
   trades: { name: 'trades', promptId: 'trades.system', maxIterations: 12, maxTokens: 4_000 },
   matchup: { name: 'matchup', promptId: 'matchup.system', maxIterations: 5, maxTokens: 2_000 },
+  /** The weekly league-changes analysis: reads events, writes a digest, proposes nothing. */
+  leagueReview: {
+    name: 'leagueReview',
+    promptId: 'leagueReview.system',
+    maxIterations: 6,
+    maxTokens: 3_000,
+  },
 } as const satisfies Record<string, ToolAgentConfig>;
 
 export type SeasonAgentName = keyof typeof AGENT_CONFIGS;
