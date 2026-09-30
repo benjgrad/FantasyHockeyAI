@@ -8,8 +8,13 @@ import { extname, resolve, sep } from 'node:path';
  * opens the app at that route.
  *
  * Path traversal is refused by resolving inside the root and checking the result stays there.
- * `/sw.js` is never cached: a stale service worker would pin every user to an old client.
- * Hashed assets under /assets/ are immutable and cached for a year.
+ *
+ * Caching, which the PWA depends on:
+ * - `/sw.js`, `index.html` and the manifest are `no-cache` (revalidated every time): a stale
+ *   worker would pin every installed app to an old client, and a stale index.html would point
+ *   at hashed assets a deploy already removed.
+ * - Hashed assets under /assets/ are immutable and cached for a year: the URL is the revision.
+ * - Other public files (icons) get an hour.
  */
 const MIME: Readonly<Record<string, string>> = {
   '.html': 'text/html; charset=utf-8',
@@ -17,7 +22,7 @@ const MIME: Readonly<Record<string, string>> = {
   '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
-  '.webmanifest': 'application/manifest+json',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
@@ -26,13 +31,25 @@ const MIME: Readonly<Record<string, string>> = {
   '.map': 'application/json; charset=utf-8',
 };
 
-function cacheControl(path: string): string {
+/** The Cache-Control for a served URL path (`/index.html` for the SPA fallback). */
+export function cacheControl(path: string): string {
   if (path === '/sw.js' || path.endsWith('.html') || path.endsWith('.webmanifest')) {
     return 'no-cache';
   }
   return path.startsWith('/assets/')
     ? 'public, max-age=31536000, immutable'
     : 'public, max-age=3600';
+}
+
+/** Every header a static file is served with, by its URL path and the file's extension. */
+export function staticHeaders(urlPath: string, fileExt: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'content-type': MIME[fileExt] ?? 'application/octet-stream',
+    'cache-control': cacheControl(urlPath),
+  };
+  // The worker lives at the root and controls the root; stated so a proxy can't narrow it.
+  if (urlPath === '/sw.js') headers['service-worker-allowed'] = '/';
+  return headers;
 }
 
 /** The file under `root` a URL path names, or undefined when it escapes the root or is absent. */
@@ -52,7 +69,9 @@ export function resolveStatic(root: string, urlPath: string): string | undefined
 }
 
 export function serveStatic(res: ServerResponse, root: string, urlPath: string): void {
-  const file = resolveStatic(root, urlPath === '/' ? '/index.html' : urlPath);
+  // `/` is index.html for caching too: it must be no-cache, or a deploy hides behind it.
+  const requested = urlPath === '/' ? '/index.html' : urlPath;
+  const file = resolveStatic(root, requested);
   // A missing asset is a real 404; only route-like paths (no extension) fall back to the SPA.
   const spa =
     file === undefined && extname(urlPath) === '' ? resolveStatic(root, '/index.html') : undefined;
@@ -63,10 +82,7 @@ export function serveStatic(res: ServerResponse, root: string, urlPath: string):
     res.end(missing ? 'client not built: run the client build (apps/app/client)' : 'not found');
     return;
   }
-  const shownPath = target === file ? urlPath : '/index.html';
-  res.writeHead(200, {
-    'content-type': MIME[extname(target)] ?? 'application/octet-stream',
-    'cache-control': cacheControl(shownPath),
-  });
+  const shownPath = target === file ? requested : '/index.html';
+  res.writeHead(200, staticHeaders(shownPath, extname(target)));
   res.end(readFileSync(target));
 }

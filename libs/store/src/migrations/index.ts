@@ -1,5 +1,6 @@
 import { sql as core001 } from './001_core.js';
 import { sql as app002 } from './002_app.js';
+import { sql as chatTurns003 } from './003_chat_turns.js';
 
 export interface Migration {
   /** Strictly increasing; the applied set is tracked by this number, never by name. */
@@ -15,4 +16,5 @@ export interface Migration {
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'core', sql: core001 },
   { version: 2, name: 'app', sql: app002 },
+  { version: 3, name: 'chat_turns', sql: chatTurns003 },
 ];

@@ -1,21 +1,13 @@
-import type { ChatEvent } from '@fha/api';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-} from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { RequestError, describeError } from '../api/client';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { api } from '../api/endpoints';
 import { ConversationList } from '../chat/ConversationList';
-import { streamChat } from '../chat/sse';
-import { applyEvent, assistantTurn, turnFromMessage, userTurn, type Turn } from '../chat/thread';
+import { turnFromMessage, type Turn } from '../chat/thread';
 import { TurnView } from '../chat/TurnView';
+import { useChatTurns } from '../chat/useChatTurns';
 import { ErrorNote } from '../components/ErrorNote';
+import { chatPrefillFrom } from '../players/sheet';
 
 const SUGGESTIONS = [
   'How’s my lineup today?',
@@ -24,48 +16,37 @@ const SUGGESTIONS = [
   'Evaluate a trade for ',
 ];
 
-let turnSeq = 0;
-const nextId = (): string => `t${(turnSeq += 1)}`;
-
 export function Chat() {
   const { conversationId = null } = useParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [drawer, setDrawer] = useState(false);
-  const [live, setLive] = useState<Turn[]>([]);
   const [text, setText] = useState('');
-  const [streaming, setStreaming] = useState(false);
-  const [sendError, setSendError] = useState<unknown>(null);
-  /** The conversation this page just created by streaming: its history is already on screen. */
-  const createdHere = useRef<string | null>(null);
-  const abort = useRef<AbortController | null>(null);
+  // "Ask the GM about him" on a player sheet arrives here with the question in router state.
+  const prefill = chatPrefillFrom(useLocation().state);
+  useEffect(() => {
+    if (prefill) setText(prefill);
+  }, [prefill]);
+  const {
+    live,
+    streaming,
+    connection,
+    sendError,
+    createdHere,
+    send: sendTurn,
+    stop,
+  } = useChatTurns(conversationId);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
   const history = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => api.conversation(conversationId ?? ''),
-    enabled: conversationId !== null && conversationId !== createdHere.current,
+    enabled: conversationId !== null && conversationId !== createdHere,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
 
-  // Switching conversation drops the live turns of the previous one.
-  useEffect(() => {
-    if (conversationId !== null && conversationId === createdHere.current) return;
-    // Left the conversation created here: coming back loads it from history like any other.
-    createdHere.current = null;
-    abort.current?.abort();
-    setLive([]);
-    setSendError(null);
-  }, [conversationId]);
-
-  useEffect(() => () => abort.current?.abort(), []);
-
   const turns: Turn[] = [
-    ...(conversationId !== createdHere.current
-      ? (history.data?.messages.map(turnFromMessage) ?? [])
-      : []),
+    ...(conversationId !== createdHere ? (history.data?.messages.map(turnFromMessage) ?? []) : []),
     ...live,
   ];
 
@@ -73,49 +54,12 @@ export function Chat() {
     bottom.current?.scrollIntoView({ block: 'end' });
   }, [turns.length, live]);
 
-  const send = useCallback(
-    async (message: string) => {
-      const trimmed = message.trim();
-      if (!trimmed || streaming) return;
-      const reply = nextId();
-      setLive((l) => [...l, userTurn(nextId(), trimmed), assistantTurn(reply)]);
-      setText('');
-      setSendError(null);
-      setStreaming(true);
-      const controller = new AbortController();
-      abort.current = controller;
-      const onEvent = (event: ChatEvent) => {
-        if (event.type === 'conversation' && event.conversationId !== conversationId) {
-          createdHere.current = event.conversationId;
-          void navigate(`/c/${encodeURIComponent(event.conversationId)}`, { replace: true });
-          return;
-        }
-        setLive((l) => l.map((t) => (t.id === reply ? applyEvent(t, event) : t)));
-      };
-      try {
-        await streamChat({ conversationId, text: trimmed }, onEvent, controller.signal);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          setLive((l) =>
-            l.map((t) =>
-              t.id === reply
-                ? applyEvent(t, { type: 'error', code: 'stopped', message: 'Stopped.' })
-                : t,
-            ),
-          );
-        } else {
-          const code = error instanceof RequestError ? error.code : 'failed';
-          onEvent({ type: 'error', code, message: describeError(error) });
-          if (!(error instanceof RequestError)) setSendError(error);
-        }
-      } finally {
-        setStreaming(false);
-        void queryClient.invalidateQueries({ queryKey: ['conversations'] });
-        void queryClient.invalidateQueries({ queryKey: ['decisions'] });
-      }
-    },
-    [conversationId, navigate, queryClient, streaming],
-  );
+  const send = async (message: string) => {
+    if (!message.trim() || streaming) return;
+    setText('');
+    // Refused because a reply is still running here: it is reattached; keep the text.
+    if (!(await sendTurn(message))) setText(message);
+  };
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -173,6 +117,11 @@ export function Chat() {
             {turns.map((t) => (
               <TurnView key={t.id} turn={t} />
             ))}
+            {connection === 'reconnecting' ? (
+              <p className="text-xs text-mut" role="status">
+                Reconnecting…
+              </p>
+            ) : null}
             {sendError ? <ErrorNote error={sendError} /> : null}
             <div ref={bottom} />
           </div>
@@ -191,7 +140,7 @@ export function Chat() {
               onKeyDown={onKeyDown}
             />
             {streaming ? (
-              <button type="button" className="btn h-[44px]" onClick={() => abort.current?.abort()}>
+              <button type="button" className="btn h-[44px]" onClick={stop}>
                 Stop
               </button>
             ) : (

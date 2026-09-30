@@ -2,49 +2,78 @@ import { ChatEvent } from '@fha/api';
 import { send, type FetchLike } from '../api/client';
 
 /**
- * Streaming `POST /api/chat`. EventSource cannot POST, so this reads the response body with
- * fetch + ReadableStream and parses the `text/event-stream` framing itself.
+ * Reading a chat turn's `text/event-stream`. EventSource cannot POST, so this reads the
+ * response body with fetch + ReadableStream and parses the SSE framing itself.
  *
- * The contract puts one JSON ChatEvent on each `data:` line, so every data line is decoded on
- * its own; `event:`/`id:`/`retry:` fields and `:` comments (keep-alives) are ignored.
+ * The contract sends one frame per event: `id: <seq>` then one JSON ChatEvent on a `data:`
+ * line, ended by a blank line. `:` comments (keep-alives) and other fields are ignored.
  */
 
-/** Incremental line splitter: feed it chunks as they arrive, get complete data payloads out. */
+export interface SseFrame {
+  /** The frame's `id:` (a turn's seq), when it had one. */
+  id: string | undefined;
+  data: string;
+}
+
+/** Incremental SSE parser: feed it chunks as they arrive, get complete frames out. */
 export class SseParser {
   private buffer = '';
+  private id: string | undefined;
+  private data: string[] = [];
 
-  push(chunk: string): string[] {
+  push(chunk: string): SseFrame[] {
     this.buffer += chunk;
-    const out: string[] = [];
+    const out: SseFrame[] = [];
     let newline = this.buffer.search(/\r\n|\r|\n/);
     while (newline !== -1) {
-      const line = this.buffer.slice(0, newline);
       const width = this.buffer.startsWith('\r\n', newline) ? 2 : 1;
       // A lone `\r` at the very end may be the first half of `\r\n`: wait for the next chunk.
       if (this.buffer[newline] === '\r' && width === 1 && newline === this.buffer.length - 1) {
         break;
       }
+      const line = this.buffer.slice(0, newline);
       this.buffer = this.buffer.slice(newline + width);
-      const data = dataOf(line);
-      if (data !== null) out.push(data);
+      const frame = this.line(line);
+      if (frame !== undefined) out.push(frame);
       newline = this.buffer.search(/\r\n|\r|\n/);
     }
     return out;
   }
 
-  /** The stream ended: a final line with no newline still counts. */
-  flush(): string[] {
+  /** The stream ended: a last frame without its blank line still counts. */
+  flush(): SseFrame[] {
     const rest = this.buffer.replace(/\r$/, '');
     this.buffer = '';
-    const data = dataOf(rest);
-    return data === null ? [] : [data];
+    const out: SseFrame[] = [];
+    if (rest !== '') {
+      const frame = this.line(rest);
+      if (frame !== undefined) out.push(frame);
+    }
+    const last = this.line('');
+    if (last !== undefined) out.push(last);
+    return out;
   }
-}
 
-function dataOf(line: string): string | null {
-  if (!line.startsWith('data:')) return null;
-  const value = line.slice(5);
-  return value.startsWith(' ') ? value.slice(1) : value;
+  private line(line: string): SseFrame | undefined {
+    if (line === '') {
+      if (this.data.length === 0) {
+        this.id = undefined;
+        return undefined;
+      }
+      const frame = { id: this.id, data: this.data.join('\n') };
+      this.id = undefined;
+      this.data = [];
+      return frame;
+    }
+    if (line.startsWith(':')) return undefined;
+    const colon = line.indexOf(':');
+    const field = colon === -1 ? line : line.slice(0, colon);
+    let value = colon === -1 ? '' : line.slice(colon + 1);
+    if (value.startsWith(' ')) value = value.slice(1);
+    if (field === 'data') this.data.push(value);
+    else if (field === 'id') this.id = value;
+    return undefined;
+  }
 }
 
 /** A data payload as a ChatEvent; anything unreadable becomes an `error` event, never a throw. */
@@ -64,49 +93,68 @@ export function decodeChatEvent(data: string): ChatEvent {
   };
 }
 
+/** Shown when the stream is lost for good; the turn itself may still be running on the server. */
 export const CUT_OFF: ChatEvent = {
   type: 'error',
   code: 'stream_ended',
-  message: 'The reply was cut off before it finished.',
+  message:
+    'Lost the connection before the reply finished. It keeps going on the server — reopen this chat to see it.',
 };
 
-/** Decodes a whole byte stream into ChatEvents. Ends with `CUT_OFF` if `done` never arrived. */
+function seqOf(id: string | undefined): number | undefined {
+  if (id === undefined) return undefined;
+  const n = Number(id);
+  return Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * Decodes a byte stream into ChatEvents with their seq. Resolves `{ done }`: whether `done`
+ * arrived. A stream that stops without it is not an answer (P6); the caller decides whether to
+ * reconnect or report it.
+ */
 export async function readChatStream(
   body: ReadableStream<Uint8Array>,
-  onEvent: (event: ChatEvent) => void,
-): Promise<void> {
+  onEvent: (event: ChatEvent, seq: number | undefined) => void,
+): Promise<{ done: boolean }> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   const parser = new SseParser();
-  let finished = false;
-  const emit = (payloads: string[]): void => {
-    for (const data of payloads) {
-      const event = decodeChatEvent(data);
-      if (event.type === 'done') finished = true;
-      onEvent(event);
+  let done = false;
+  const emit = (frames: SseFrame[]): void => {
+    for (const f of frames) {
+      const event = decodeChatEvent(f.data);
+      if (event.type === 'done') done = true;
+      onEvent(event, seqOf(f.id));
     }
   };
   for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    emit(parser.push(decoder.decode(value, { stream: true })));
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    emit(parser.push(decoder.decode(chunk.value, { stream: true })));
   }
   emit(parser.push(decoder.decode()));
   emit(parser.flush());
-  // A stream that stops without `done` is a truncation, not a short answer (P6).
-  if (!finished) onEvent(CUT_OFF);
+  return { done };
 }
 
-export async function streamChat(
+const browserFetch: FetchLike = (input, init) => fetch(input, init);
+
+/** `POST /api/chat`: starts a turn. Throws a RequestError when the server refuses. */
+export function startChat(
   request: { conversationId: string | null; text: string },
-  onEvent: (event: ChatEvent) => void,
   signal?: AbortSignal,
-  fetchImpl: FetchLike = (input, init) => fetch(input, init),
-): Promise<void> {
-  const response = await send(fetchImpl, '/api/chat', { method: 'POST', body: request, signal });
-  if (!response.body) {
-    onEvent(CUT_OFF);
-    return;
-  }
-  await readChatStream(response.body, onEvent);
+  fetchImpl: FetchLike = browserFetch,
+): Promise<Response> {
+  return send(fetchImpl, '/api/chat', { method: 'POST', body: request, signal });
+}
+
+/** `GET /api/chat/turns/:turnId/events?after=`: the turn's events after `after`, then live ones. */
+export function resumeChat(
+  turnId: string,
+  after: number,
+  signal?: AbortSignal,
+  fetchImpl: FetchLike = browserFetch,
+): Promise<Response> {
+  const path = `/api/chat/turns/${encodeURIComponent(turnId)}/events?after=${after}`;
+  return send(fetchImpl, path, { signal });
 }

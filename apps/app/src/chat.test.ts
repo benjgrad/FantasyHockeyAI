@@ -48,7 +48,7 @@ async function lineupNeedsApproval(cookie: string): Promise<void> {
 }
 
 describe('POST /api/chat', () => {
-  it('streams conversation → tool chips → decision → text → done; the plan is gated; approve → dry_run', async () => {
+  it('streams turn → tool chips → decision → text → done; the plan is gated; approve → dry_run', async () => {
     h = await startHarness();
     const cookie = await connected(h);
     await lineupNeedsApproval(cookie);
@@ -68,7 +68,7 @@ describe('POST /api/chat', () => {
     expect(res.headers.get('content-type')).toContain('text/event-stream');
     const { events: evs } = await events(res);
     expect(evs.map((e) => (e.type === 'tool' ? `tool:${e.name}:${e.status}` : e.type))).toEqual([
-      'conversation',
+      'turn',
       'tool:getRoster:start',
       'tool:getRoster:ok',
       'tool:proposeLineup:start',
@@ -114,7 +114,7 @@ describe('POST /api/chat', () => {
     expect((await call(h, '/api/decisions/nope', { cookie })).status).toBe(404);
 
     // The conversation replays with its decision card.
-    const convId = evs[0]?.type === 'conversation' ? evs[0].conversationId : '';
+    const convId = evs[0]?.type === 'turn' ? evs[0].conversationId : '';
     const conv = ConversationDetail.parse(
       await (await call(h, `/api/conversations/${convId}`, { cookie })).json(),
     );
@@ -133,7 +133,7 @@ describe('POST /api/chat', () => {
     const { events: evs } = await events(
       await call(h, '/api/chat', { cookie, body: { conversationId: null, text: 'hi' } }),
     );
-    expect(evs.map((e) => e.type)).toEqual(['conversation', 'error', 'done']);
+    expect(evs.map((e) => e.type)).toEqual(['turn', 'error', 'done']);
     expect(evs[1]).toMatchObject({ type: 'error', code: 'max_tokens' });
   });
 
@@ -148,33 +148,6 @@ describe('POST /api/chat', () => {
     );
     expect(pings).toBeGreaterThan(0);
     expect(evs.at(-1)?.type).toBe('done');
-  });
-
-  it('a client disconnect aborts the model call', async () => {
-    h = await startHarness();
-    const cookie = await connected(h);
-    let aborted = false;
-    h.llm.script = [
-      (opts) =>
-        new Promise((_, reject) => {
-          opts?.signal?.addEventListener('abort', () => {
-            aborted = true;
-            reject(new Error('aborted'));
-          });
-        }),
-    ];
-    const ctl = new AbortController();
-    const res = await fetch(`${h.base}/api/chat`, {
-      method: 'POST',
-      headers: { cookie, origin: h.base, 'x-fha': '1', 'content-type': 'application/json' },
-      body: JSON.stringify({ conversationId: null, text: 'hi' }),
-      signal: ctl.signal,
-    });
-    const reader = res.body?.getReader();
-    await reader?.read(); // the conversation event
-    ctl.abort();
-    for (let i = 0; i < 50 && !aborted; i++) await new Promise((r) => setTimeout(r, 10));
-    expect(aborted).toBe(true);
   });
 
   it('no model configured → 503 llm_not_configured, before any stream', async () => {

@@ -4,6 +4,9 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { RequestError, describeError } from './api/client';
 import { api } from './api/endpoints';
 import { Layout } from './components/Layout';
+import { Compare } from './players/Compare';
+import { PlayerSheetHost } from './players/PlayerSheet';
+import { Players } from './players/Players';
 import { NAVIGATE_MESSAGE, navigateTargetFor } from './push/swMessages';
 import { Chat } from './routes/Chat';
 import { Decisions } from './routes/Decisions';
@@ -40,8 +43,12 @@ export function App() {
         <Route path="/decisions" element={<Decisions />} />
         <Route path="/decisions/:planId" element={<Decisions />} />
         <Route path="/settings" element={<Settings me={me.data} />} />
+        <Route path="/players" element={<Players />} />
+        <Route path="/players/:playerKey" element={<Players />} />
+        <Route path="/compare" element={<Compare />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <PlayerSheetHost />
     </Layout>
   );
 }

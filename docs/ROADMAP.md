@@ -83,7 +83,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | ID | Milestone | Status | Acceptance | Spec |
 |---|---|---|---|---|
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
-| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
+| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
 | **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013); waits on a live LLM run and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
 | **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified), off while `dryRun: true` | Proposals carry evidence; nothing writes without approval | §12.8 |
@@ -92,7 +92,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
 | **M-A** | Availability as a first-class input (`availability()`, `rosterHealth()`), draft-scoring fixes | `done` 2026-09-29 — every draft-night flaw has a failing-first scenario | Scenarios pass; live roster health matches Ben's diagnosis | §12 |
 | **M-MCP** | stdio MCP server over the agent tools (`apps/mcp`) | `done` 2026-09-29 | Tools listed from the registry; proposals gated; approval needs a human confirmation | §8, §9 |
-| **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` 2026-09-29 — **live at https://hockey.gradyserver.com** (nginx + Let's Encrypt, `fha-app` user service with the daemon). Registered itself with personal-os via DCR on first login. Next: Ben's first sign-in and Connect Yahoo | Sign-in round trip; approve from a decision card; push on the phone | §15 |
+| **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` 2026-09-29 — **live at https://hockey.gradyserver.com** (nginx + Let's Encrypt, `fha-app` user service with the daemon). Registered itself with personal-os via DCR on first login. Chat turns made durable (D-014; built, **not yet deployed** — needs an app restart, which applies migration 003). Next: Ben's first sign-in and Connect Yahoo | Sign-in round trip; approve from a decision card; push on the phone | §15 |
 | **M9** | Season strategy, weekly retro, evals in CI | `todo` | `eval:smoke` runs on every PR | §12.6, §19.3, §20 |
 
 ### Deferred from tonight
@@ -177,6 +177,26 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-014 — 2026-09-29 — Chat turns are durable; the HTTP stream only watches
+- A chat turn runs to completion on the server whatever the browser does. `POST /api/chat`
+  starts it with its own AbortController; a disconnect only detaches the stream. Only
+  `POST /api/chat/turns/:id/cancel` (the Stop button) or server shutdown aborts the model.
+- Every event gets a server-assigned `seq`, sent on the SSE `id:` line (the JSON is unchanged);
+  the first event is `turn {turnId, conversationId}` (it replaces `conversation`). A client
+  resumes with `GET /api/chat/turns/:id/events` + `Last-Event-ID` / `?after=`, which replays the
+  buffered events after that seq, then streams live ones. The client reconnects with backoff
+  (0.5 s doubling to 15 s, 10 tries), and at once on `visibilitychange`/`online`, de-duplicating
+  by seq; opening a chat reattaches to its running turn.
+- **Resuming replays events, never re-runs the turn (P7).** One running turn per conversation
+  (a second send → 409 `turn_in_progress` with its `turnId`). Finished turns stay in memory
+  30 min (max 10 per user), then resume answers 410 `turn_gone` and the client reloads the
+  conversation. A compact `chat_turns` row (migration 003) survives a restart: at startup a row
+  still `running` is marked failed (`interrupted`) and, if the chat ends on Ben's message, an
+  assistant message says the reply was cut off. Nothing is re-run.
+- A turn that ends with nobody watching (no stream saw `done` within 5 s) sends one push, new
+  kind `chat`: "Reply ready: <first line>", "N decisions need you", deep-linking `/c/<id>`.
+  Cancelled or shut-down turns push nothing.
 
 ### D-013 — 2026-09-29 — How the daemon behaves (Phase 6)
 - **Schedule** (§14.2, America/New_York via `Intl`, no new dependency): refresh 06:00 (snapshot

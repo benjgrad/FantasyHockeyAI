@@ -31,9 +31,9 @@ const APP_TABLES = [
 ];
 
 describe('migration 002 (app)', () => {
-  it('applies 1 and 2 to a fresh database', () => {
+  it('applies every migration to a fresh database', () => {
     const store = openStore(':memory:', { now });
-    expect(store.migrationsApplied).toEqual([1, 2]);
+    expect(store.migrationsApplied).toEqual(MIGRATIONS.map((m) => m.version));
     expect(store.users.upsertBySub('sub-1').oidcSub).toBe('sub-1');
     store.close();
   });
@@ -46,7 +46,7 @@ describe('migration 002 (app)', () => {
     v1.close();
 
     const upgraded = openStore(path, { now });
-    expect(upgraded.migrationsApplied).toEqual([2]);
+    expect(upgraded.migrationsApplied).toEqual(MIGRATIONS.slice(1).map((m) => m.version));
     expect(upgraded.kv.get('paused')).toBe('true');
     upgraded.close();
 

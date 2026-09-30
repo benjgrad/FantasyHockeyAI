@@ -17,3 +17,9 @@ export function navigateTargetFor(url: unknown): string | null {
   if (url.startsWith('//') || url.startsWith('/\\')) return null;
   return url;
 }
+
+/** Page → worker: activate the waiting worker now (the user tapped "Reload" on the banner). */
+export const SKIP_WAITING_MESSAGE = 'fha:skip-waiting';
+
+/** Page → worker: drop every cached API response (sign-out, so a shared device keeps nothing). */
+export const CLEAR_API_CACHE_MESSAGE = 'fha:clear-api-cache';

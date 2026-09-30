@@ -37,6 +37,15 @@ export function storedText(m: Pick<Message, 'role' | 'content'>): string {
   return parsed.success ? parsed.data.text : '';
 }
 
+/** Why a stored assistant turn failed, for the UI; undefined for a finished reply. */
+export function storedError(
+  m: Pick<Message, 'role' | 'content'>,
+): { code: string; message: string } | undefined {
+  if (m.role !== 'assistant') return undefined;
+  const parsed = StoredAssistantMessage.safeParse(m.content);
+  return parsed.success ? parsed.data.error : undefined;
+}
+
 /** One assistant turn as the model will see it next time: its notes, then what it said. */
 function replayAssistant(m: Message): string {
   const parsed = StoredAssistantMessage.safeParse(m.content);

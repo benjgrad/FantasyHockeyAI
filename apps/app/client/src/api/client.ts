@@ -1,5 +1,6 @@
 import { ApiError } from '@fha/api';
 import type { z } from 'zod';
+import { observeResponse } from '../pwa/staleStore';
 
 /**
  * The one way this client talks to the server. Every response is parsed with the contract's
@@ -96,6 +97,8 @@ export async function send(
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new RequestError(0, 'offline', OFFLINE_MESSAGE);
   }
+  // The service worker marks a response served from its offline cache; the banner reads it.
+  observeResponse(path, response.headers);
   if (!response.ok) throw errorFromResponse(response.status, await response.text());
   return response;
 }

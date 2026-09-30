@@ -65,10 +65,11 @@ describe('openStore', () => {
 describe('migrate', () => {
   it('is idempotent when run repeatedly on one connection', () => {
     const db = openDb(':memory:');
-    expect(migrate(db, now)).toEqual([1, 2]);
+    const versions = MIGRATIONS.map((m) => m.version);
+    expect(migrate(db, now)).toEqual(versions);
     expect(migrate(db, now)).toEqual([]);
     const rows = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
-    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(rows).toEqual(versions.map((version) => ({ version })));
     db.close();
   });
 

@@ -13,3 +13,4 @@ export * from './repos/permissions.js';
 export * from './repos/conversations.js';
 export * from './repos/events.js';
 export * from './repos/notifications.js';
+export * from './repos/chatTurns.js';

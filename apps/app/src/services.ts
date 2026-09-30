@@ -3,6 +3,7 @@ import type { CreateMessage } from '@fha/llm';
 import type { ScheduleDay } from '@fha/nhl';
 import type { PromptCatalog } from '@fha/prompts';
 import type { Store, User } from '@fha/store';
+import type { ChatTurns } from './chatTurns.js';
 import type { AppConfig } from './config.js';
 import type { PipelineWiring } from './decisions.js';
 import type { LeagueService } from './league.js';
@@ -51,6 +52,8 @@ export interface Services {
   prompts: PromptCatalog;
   /** Sign-in states already redeemed, until they expire: a replayed callback is refused. */
   usedStates: Map<string, number>;
+  /** Durable chat turns: they outlive the HTTP request that started them. */
+  chatTurns: ChatTurns;
 }
 
 export interface MeView {

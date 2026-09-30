@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/endpoints';
 import { ErrorNote } from './ErrorNote';
+import { LinkedSummary } from '../players/LinkedSummary';
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'text-warn',
@@ -70,7 +71,13 @@ export function DecisionCardView({
           {card.status}
         </span>
       </div>
-      <div className="mt-1 font-medium">{card.summary}</div>
+      <div className="mt-1 font-medium">
+        <LinkedSummary
+          planId={card.planId}
+          text={card.summary}
+          load={pending || highlight || compact || why}
+        />
+      </div>
       {card.deadline && pending ? (
         <div className="mt-0.5 text-xs text-mut">Decide by {formatWhen(card.deadline)}</div>
       ) : null}

@@ -3,11 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { api } from '../api/endpoints';
+import { clearApiCache } from '../pwa/cache';
+import { OnlineBadge } from '../pwa/OfflineStatus';
+import { PwaBanners } from '../pwa/PwaBanners';
 
 const TABS = [
   { to: '/', label: 'Chat', icon: '💬', end: true },
   { to: '/team', label: 'Team', icon: '🏒', end: false },
   { to: '/decisions', label: 'Decisions', icon: '✅', end: false },
+  { to: '/players', label: 'Players', icon: '🔎', end: false },
   { to: '/settings', label: 'Settings', icon: '⚙️', end: false },
 ];
 
@@ -47,9 +51,10 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
           </nav>
           <AccountMenu me={me} />
         </div>
+        <PwaBanners />
       </header>
       <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">{children}</main>
-      <nav className="sticky bottom-0 z-20 grid grid-cols-4 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+      <nav className="sticky bottom-0 z-20 grid grid-cols-5 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
         {TABS.map((t) => (
           <NavLink
             key={t.to}
@@ -82,6 +87,7 @@ function Count({ n }: { n: number }) {
 function ModeBadges({ me }: { me: Me }) {
   return (
     <div className="flex gap-1.5 text-[11px]">
+      <OnlineBadge />
       {me.paused ? <span className="text-bad">● Paused</span> : null}
       {me.dryRun ? (
         <span className="text-warn">● Dry run</span>
@@ -113,6 +119,8 @@ function AccountMenu({ me }: { me: Me }) {
 
   const signOut = async (everywhere: boolean) => {
     setBusy(true);
+    // A shared device must not keep this account's team data in the offline cache.
+    await clearApiCache();
     try {
       await (everywhere ? api.logoutEverywhere() : api.logout());
     } finally {

@@ -33,6 +33,10 @@ body {
   color: var(--color-ink);
   font: 15px/1.45 var(--font-sans);
   -webkit-tap-highlight-color: transparent;
+  /* viewport-fit=cover draws under the notch; the header and bottom nav pad top/bottom
+     themselves, and these keep content clear of a side notch or rounded corner. */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 @layer components {

@@ -1,5 +1,7 @@
 import type { ChatMessage, ConversationSummary } from '@fha/api';
 import {
+  ChatTurn,
+  ChatTurnList,
   ConversationDetail,
   ConversationList,
   DecisionCard,
@@ -83,6 +85,13 @@ export const api = {
   conversations: () => requestJson(f, '/api/conversations', ConversationList),
   conversation: (id: string) =>
     requestJson(f, `/api/conversations/${encodeURIComponent(id)}`, ConversationDetail),
+  /** The signed-in user's chat turns still running (to reattach after reopening the app). */
+  runningTurns: () => requestJson(f, '/api/chat/turns?status=running', ChatTurnList),
+  /** Stops a turn on the server (aborting the model), not just this client's stream. */
+  cancelTurn: (turnId: string) =>
+    requestJson(f, `/api/chat/turns/${encodeURIComponent(turnId)}/cancel`, ChatTurn, {
+      method: 'POST',
+    }),
 
   vapid: () => requestJson(f, '/api/push/vapid', VapidKey),
   subscribe: (endpoint: string, p256dh: string, auth: string) =>

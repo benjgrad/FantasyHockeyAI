@@ -1,6 +1,6 @@
 import type { ChatEvent } from '@fha/api';
 import { describe, expect, it } from 'vitest';
-import { CUT_OFF, SseParser, decodeChatEvent, readChatStream, streamChat } from './sse';
+import { SseParser, decodeChatEvent, readChatStream, resumeChat, startChat } from './sse';
 
 function streamOf(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -12,34 +12,44 @@ function streamOf(chunks: string[]): ReadableStream<Uint8Array> {
   });
 }
 
-async function collect(chunks: string[]): Promise<ChatEvent[]> {
-  const events: ChatEvent[] = [];
-  await readChatStream(streamOf(chunks), (e) => events.push(e));
-  return events;
+async function collect(
+  chunks: string[],
+): Promise<{ events: [ChatEvent, number | undefined][]; done: boolean }> {
+  const events: [ChatEvent, number | undefined][] = [];
+  const { done } = await readChatStream(streamOf(chunks), (e, seq) => events.push([e, seq]));
+  return { events, done };
 }
 
 describe('SseParser', () => {
-  it('yields one payload per data line, across chunk boundaries', () => {
+  it('yields one frame per blank-line-terminated block, across chunk boundaries', () => {
     const p = new SseParser();
-    expect(p.push('data: {"a"')).toEqual([]);
-    expect(p.push(':1}\n\ndata: 2\n')).toEqual(['{"a":1}', '2']);
+    expect(p.push('id: 1\ndata: {"a"')).toEqual([]);
+    expect(p.push(':1}\n\ndata: 2\n\n')).toEqual([
+      { id: '1', data: '{"a":1}' },
+      { id: undefined, data: '2' },
+    ]);
   });
 
-  it('ignores comments, event and id fields, and blank lines', () => {
+  it('ignores comments and unknown fields; the id belongs to its own frame only', () => {
     const p = new SseParser();
-    expect(p.push(': keep-alive\nevent: msg\nid: 4\n\ndata:x\n\n')).toEqual(['x']);
+    expect(p.push(': keep-alive\n\nevent: msg\nid: 4\n\ndata:x\n\n')).toEqual([
+      { id: undefined, data: 'x' },
+    ]);
   });
 
   it('handles CRLF, including a CR split from its LF', () => {
     const p = new SseParser();
     expect(p.push('data: a\r')).toEqual([]);
-    expect(p.push('\ndata: b\r\n')).toEqual(['a', 'b']);
+    expect(p.push('\n\r\ndata: b\r\n\r\n')).toEqual([
+      { id: undefined, data: 'a' },
+      { id: undefined, data: 'b' },
+    ]);
   });
 
-  it('flushes a final line without a newline', () => {
+  it('flushes a final frame without its blank line', () => {
     const p = new SseParser();
-    expect(p.push('data: last')).toEqual([]);
-    expect(p.flush()).toEqual(['last']);
+    expect(p.push('id: 9\ndata: last')).toEqual([]);
+    expect(p.flush()).toEqual([{ id: '9', data: 'last' }]);
   });
 });
 
@@ -58,24 +68,30 @@ describe('decodeChatEvent', () => {
 });
 
 describe('readChatStream', () => {
-  it('decodes a full reply', async () => {
-    const events = await collect([
-      'data: {"type":"conversation","conversationId":"c1"}\n\n',
-      'data: {"type":"text","delta":"Hel"}\n\ndata: {"type":"text","del',
+  it("decodes a full reply with each event's seq", async () => {
+    const { events, done } = await collect([
+      'id: 1\ndata: {"type":"turn","turnId":"t1","conversationId":"c1"}\n\n',
+      'id: 2\ndata: {"type":"text","delta":"Hel"}\n\nid: 3\ndata: {"type":"text","del',
       'ta":"lo"}\n\n',
-      'data: {"type":"done","usage":{"costUsd":0.01}}\n\n',
+      ': ping\n\nid: 4\ndata: {"type":"done","usage":{"costUsd":0.01}}\n\n',
     ]);
-    expect(events.map((e) => e.type)).toEqual(['conversation', 'text', 'text', 'done']);
+    expect(events.map(([e, seq]) => `${e.type}:${seq}`)).toEqual([
+      'turn:1',
+      'text:2',
+      'text:3',
+      'done:4',
+    ]);
+    expect(done).toBe(true);
   });
 
-  it('reports truncation when the stream ends without done', async () => {
-    const events = await collect(['data: {"type":"text","delta":"Hel"}\n\n']);
-    expect(events.at(-1)).toEqual(CUT_OFF);
+  it('reports a stream that ends without done (P6)', async () => {
+    const { done } = await collect(['id: 1\ndata: {"type":"text","delta":"Hel"}\n\n']);
+    expect(done).toBe(false);
   });
 
   it('decodes multi-byte characters split across chunks', async () => {
     const bytes = new TextEncoder().encode(
-      'data: {"type":"text","delta":"é"}\n\ndata: {"type":"done"}\n',
+      'data: {"type":"text","delta":"é"}\n\ndata: {"type":"done"}\n\n',
     );
     const cut = bytes.indexOf(0xc3) + 1;
     const stream = new ReadableStream<Uint8Array>({
@@ -91,22 +107,15 @@ describe('readChatStream', () => {
   });
 });
 
-describe('streamChat', () => {
-  it('posts with the CSRF header and streams the events', async () => {
+describe('startChat / resumeChat', () => {
+  it('posts with the CSRF header', async () => {
     let init: RequestInit | undefined;
-    const events: ChatEvent[] = [];
-    await streamChat(
-      { conversationId: null, text: 'hi' },
-      (e) => events.push(e),
-      undefined,
-      async (_url, i) => {
-        init = i;
-        return new Response(streamOf(['data: {"type":"done"}\n\n']), { status: 200 });
-      },
-    );
+    await startChat({ conversationId: null, text: 'hi' }, undefined, async (_url, i) => {
+      init = i;
+      return new Response(streamOf(['data: {"type":"done"}\n\n']), { status: 200 });
+    });
     expect(init?.method).toBe('POST');
     expect((init?.headers as Record<string, string>)['x-fha']).toBe('1');
-    expect(events).toEqual([{ type: 'done' }]);
   });
 
   it('throws the mapped error when the server refuses', async () => {
@@ -114,12 +123,20 @@ describe('streamChat', () => {
       error: { code: 'yahoo_not_connected', message: 'Connect Yahoo' },
     });
     await expect(
-      streamChat(
+      startChat(
         { conversationId: null, text: 'hi' },
-        () => undefined,
         undefined,
         async () => new Response(body, { status: 409 }),
       ),
     ).rejects.toMatchObject({ code: 'yahoo_not_connected' });
+  });
+
+  it('resumes after a seq with a GET', async () => {
+    let url = '';
+    await resumeChat('t 1', 7, undefined, async (u) => {
+      url = u;
+      return new Response('', { status: 200 });
+    });
+    expect(url).toBe('/api/chat/turns/t%201/events?after=7');
   });
 });

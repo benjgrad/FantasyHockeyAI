@@ -9,7 +9,7 @@ import {
   type AssistantDeps,
   type AssistantEvent,
 } from './assistant.js';
-import { replayHistory } from './assistantHistory.js';
+import { replayHistory, storedError } from './assistantHistory.js';
 import type { JobResult } from './gm.js';
 import { call, say, scriptedLlm, testPrompts, type Script } from './testing.js';
 
@@ -198,5 +198,14 @@ describe('replayHistory', () => {
         content: '<turn_notes>Tools called: getRoster (ok). Proposals made: p1.</turn_notes>\nok',
       },
     ]);
+  });
+});
+
+describe('storedError', () => {
+  it("is a failed assistant turn's error, and nothing otherwise", () => {
+    const error = { code: 'interrupted', message: 'restarted' };
+    expect(storedError({ role: 'assistant', content: { text: '', error } })).toEqual(error);
+    expect(storedError({ role: 'assistant', content: { text: 'ok' } })).toBeUndefined();
+    expect(storedError({ role: 'user', content: { text: 'hi', error } })).toBeUndefined();
   });
 });

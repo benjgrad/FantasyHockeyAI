@@ -69,4 +69,18 @@ describe('turnFromMessage', () => {
     expect(t.id).toBe('m3');
     expect(t.parts.map((p) => p.kind)).toEqual(['text', 'decision']);
   });
+
+  it('shows why a stored turn failed (e.g. interrupted by a restart)', () => {
+    const t = turnFromMessage({
+      id: 4,
+      role: 'assistant',
+      text: '',
+      decisions: [card],
+      error: { code: 'interrupted', message: 'The server restarted.' },
+    });
+    expect(t.parts).toEqual([
+      { kind: 'decision', card },
+      { kind: 'error', code: 'interrupted', message: 'The server restarted.' },
+    ]);
+  });
 });

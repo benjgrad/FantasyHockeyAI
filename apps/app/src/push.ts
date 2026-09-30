@@ -15,7 +15,8 @@ export type PushSend = (
   payload: string,
 ) => Promise<unknown>;
 
-export type NotificationKind = 'approval' | 'injury' | 'executed' | 'failed' | 'digest' | 'league';
+export type NotificationKind =
+  'approval' | 'injury' | 'executed' | 'failed' | 'digest' | 'league' | 'chat';
 export const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   'approval',
   'injury',
@@ -23,6 +24,7 @@ export const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   'failed',
   'digest',
   'league',
+  'chat',
 ];
 
 export interface Notice {

@@ -62,7 +62,8 @@ function main(): void {
     if (stopping) process.exit(1);
     stopping = true;
     server.close();
-    void (daemon?.stop() ?? Promise.resolve()).finally(() => {
+    // Running chat turns are aborted and store their end; a hard kill is caught by recover().
+    void Promise.all([daemon?.stop(), services.chatTurns.shutdown()]).finally(() => {
       store.close();
       process.exit(0);
     });

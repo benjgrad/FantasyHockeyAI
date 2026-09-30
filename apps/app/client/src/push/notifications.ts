@@ -1,4 +1,5 @@
 import { api } from '../api/endpoints';
+import { isIosDevice } from '../pwa/iosHint';
 
 /**
  * Turning push on and off for THIS device. Every missing piece is reported, not thrown: no
@@ -18,8 +19,9 @@ export function pushSupported(): boolean {
   );
 }
 
+/** iPhone/iPad, including iPadOS, which reports a desktop Mac user agent. */
 export function isIos(): boolean {
-  return /iPhone|iPad|iPod/.test(navigator.userAgent);
+  return isIosDevice(navigator.userAgent, navigator.maxTouchPoints);
 }
 
 export function permissionState(): PermissionState {

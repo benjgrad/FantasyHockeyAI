@@ -14,6 +14,7 @@ import {
 } from './repos/misc.js';
 import { runsRepo, type RunsRepo } from './repos/runs.js';
 import { usageRepo, type UsageRepo } from './repos/usage.js';
+import { chatTurnsRepo, type ChatTurnsRepo } from './repos/chatTurns.js';
 import { conversationsRepo, type ConversationsRepo } from './repos/conversations.js';
 import { eventsRepo, type EventsRepo } from './repos/events.js';
 import {
@@ -52,6 +53,8 @@ export interface Store {
   pushSubscriptions: PushSubscriptionsRepo;
   notifications: NotificationsRepo;
   notificationPrefs: NotificationPrefsRepo;
+  // Durable chat turns (migration 003).
+  chatTurns: ChatTurnsRepo;
   /** Migration versions this open applied; empty when the file was already current. */
   readonly migrationsApplied: readonly number[];
   /**
@@ -97,6 +100,7 @@ export function openStore(path: string, opts: StoreOptions = {}): Store {
     pushSubscriptions: pushSubscriptionsRepo(db, now),
     notifications: notificationsRepo(db, now),
     notificationPrefs: notificationPrefsRepo(db, now),
+    chatTurns: chatTurnsRepo(db, now),
     migrationsApplied: applied,
     transaction: (fn) => db.transaction(fn)(),
     close: () => db.close(),

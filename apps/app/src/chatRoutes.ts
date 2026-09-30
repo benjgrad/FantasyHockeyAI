@@ -1,45 +1,53 @@
-import type { ServerResponse } from 'node:http';
-import { ChatRequest } from '@fha/api';
-import { runAssistantTurn, storedText, type AssistantEvent } from '@fha/agents';
+import { ChatRequest, type ChatEvent } from '@fha/api';
+import { runAssistantTurn, storedError, storedText, type AssistantDeps } from '@fha/agents';
 import { cardFor } from './decisions.js';
 import { HttpError, readJson, sendJson } from './http.js';
 import type { Route } from './router.js';
 import { namesFor, type Services } from './services.js';
 import { assistantDeps, llmFor } from './chatRuntime.js';
+import { lastSeenSeq, streamTurn } from './chatStream.js';
+import { recordSummary, turnSummary, type TurnRun } from './chatTurns.js';
 
 /**
- * Chat with the assistant: `POST /api/chat` streams `ChatEvent`s as server-sent events, one JSON
- * object per `data:` line. Anything that fails before the stream starts (signed out, Yahoo not
- * connected, no model configured) is an ordinary JSON error, so the client can show it.
+ * Chat with the assistant. `POST /api/chat` starts a durable turn (see `chatTurns.ts`) and
+ * streams its events as SSE; a client that lost the stream resumes from its last seq with
+ * `GET /api/chat/turns/:turnId/events`. Anything that fails before the turn starts (signed out,
+ * Yahoo not connected, no model configured, a turn already running) is an ordinary JSON error.
  *
- * A comment line every 15 s keeps proxies from closing a quiet stream while a specialist runs.
- * When the browser goes away the model call is aborted through its AbortSignal; plans already
- * filed stay filed (P7).
+ * The turn is not tied to the request: a disconnect detaches the stream, and only
+ * `POST /api/chat/turns/:turnId/cancel` (or shutdown) aborts the model. Plans already filed stay
+ * filed (P7).
  */
 export const HEARTBEAT_MS = 15_000;
 const TITLE_CHARS = 60;
 
-type ChatEventOut =
-  | { type: 'conversation'; conversationId: string }
-  | Exclude<AssistantEvent, { type: 'plan' } | { type: 'done' }>
-  | { type: 'decision'; card: NonNullable<ReturnType<typeof cardFor>> }
-  | { type: 'done'; usage: { costUsd: number } };
-
-function startStream(res: ServerResponse): (e: ChatEventOut) => void {
-  res.writeHead(200, {
-    'content-type': 'text/event-stream; charset=utf-8',
-    'cache-control': 'no-cache, no-transform',
-    connection: 'keep-alive',
-    // nginx: do not buffer this response.
-    'x-accel-buffering': 'no',
-  });
-  res.flushHeaders();
-  return (e) => {
-    if (!res.writableEnded) res.write(`data: ${JSON.stringify(e)}\n\n`);
+/** The assistant's events as contract ChatEvents: a filed plan becomes its decision card. */
+function assistantRun(
+  s: Services,
+  deps: AssistantDeps,
+  names: (k: string) => string,
+  turn: { conversationId: string; text: string },
+): TurnRun {
+  return async (emit: (e: ChatEvent) => void, signal) => {
+    const r = await runAssistantTurn(deps, {
+      ...turn,
+      signal,
+      emit: (e) => {
+        if (e.type === 'plan') {
+          const card = cardFor(s.store, e.planId, names);
+          if (card !== undefined) emit({ type: 'decision', card });
+        } else if (e.type === 'done') {
+          emit({ type: 'done', usage: { costUsd: e.costUsd } });
+        } else {
+          emit(e);
+        }
+      },
+    });
+    return r.status;
   };
 }
 
-export function chatRoutes(s: Services, heartbeatMs = HEARTBEAT_MS): Route[] {
+function turnRoutes(s: Services, heartbeatMs: number): Route[] {
   return [
     {
       method: 'POST',
@@ -63,42 +71,86 @@ export function chatRoutes(s: Services, heartbeatMs = HEARTBEAT_MS): Route[] {
           throw new HttpError(404, 'not_found', 'No such conversation.');
         }
         const league = await s.league.get(user.id);
+        // From here to `start` is synchronous, so two sends cannot both pass this check.
+        const busy = existing === undefined ? undefined : s.chatTurns.runningIn(existing.id);
+        if (busy !== undefined) {
+          sendJson(res, 409, {
+            error: {
+              code: 'turn_in_progress',
+              message: 'A reply is still being written in this chat.',
+              turnId: busy.id,
+            },
+          });
+          return;
+        }
         const conversation =
           existing ?? s.store.conversations.create(user.id, body.text.slice(0, TITLE_CHARS));
         const deps = assistantDeps(s, user.id, league, llmFor(s.store, s.createMessage));
-
-        const send = startStream(res);
-        const abort = new AbortController();
-        res.on('close', () => {
-          if (!res.writableFinished) abort.abort(new Error('client disconnected'));
-        });
-        const heartbeat = setInterval(() => {
-          if (!res.writableEnded) res.write(': ping\n\n');
-        }, heartbeatMs);
         const names = (k: string) => league.view.player(k)?.name ?? k;
-        send({ type: 'conversation', conversationId: conversation.id });
-        try {
-          await runAssistantTurn(deps, {
-            conversationId: conversation.id,
-            text: body.text,
-            signal: abort.signal,
-            emit: (e) => {
-              if (e.type === 'plan') {
-                const card = cardFor(s.store, e.planId, names);
-                if (card !== undefined) send({ type: 'decision', card });
-              } else if (e.type === 'done') {
-                send({ type: 'done', usage: { costUsd: e.costUsd } });
-              } else {
-                send(e);
-              }
-            },
-          });
-        } finally {
-          clearInterval(heartbeat);
-          res.end();
-        }
+        const turn = s.chatTurns.start({
+          userId: user.id,
+          conversationId: conversation.id,
+          run: assistantRun(s, deps, names, { conversationId: conversation.id, text: body.text }),
+        });
+        streamTurn(s.chatTurns, turn, 0, res, heartbeatMs);
       },
     },
+    {
+      method: 'GET',
+      path: '/api/chat/turns',
+      auth: 'user',
+      handle: ({ res, url, user }) => {
+        const status = url.searchParams.get('status') ?? 'running';
+        if (status !== 'running' && status !== 'all') {
+          throw new HttpError(400, 'invalid_request', 'status must be running or all');
+        }
+        sendJson(res, 200, { turns: s.chatTurns.list(user.id, status).map(turnSummary) });
+        return Promise.resolve();
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/chat/turns/:turnId/events',
+      auth: 'user',
+      handle: ({ req, res, url, params, user }) => {
+        const id = params['turnId'] ?? '';
+        const turn = s.chatTurns.get(id, user.id);
+        if (turn === undefined) {
+          if (s.store.chatTurns.get(id, user.id) !== undefined) {
+            throw new HttpError(
+              410,
+              'turn_gone',
+              'That reply has finished; reload the conversation to see it.',
+            );
+          }
+          throw new HttpError(404, 'not_found', 'No such turn.');
+        }
+        streamTurn(s.chatTurns, turn, lastSeenSeq(req, url), res, heartbeatMs);
+        return Promise.resolve();
+      },
+    },
+    {
+      method: 'POST',
+      path: '/api/chat/turns/:turnId/cancel',
+      auth: 'user',
+      handle: ({ res, params, user }) => {
+        const id = params['turnId'] ?? '';
+        const turn = s.chatTurns.cancel(id, user.id);
+        if (turn !== undefined) {
+          sendJson(res, 200, turnSummary(turn));
+          return Promise.resolve();
+        }
+        const rec = s.store.chatTurns.get(id, user.id);
+        if (rec === undefined) throw new HttpError(404, 'not_found', 'No such turn.');
+        sendJson(res, 200, recordSummary(rec));
+        return Promise.resolve();
+      },
+    },
+  ];
+}
+
+function conversationRoutes(s: Services): Route[] {
+  return [
     {
       method: 'GET',
       path: '/api/conversations',
@@ -121,22 +173,27 @@ export function chatRoutes(s: Services, heartbeatMs = HEARTBEAT_MS): Route[] {
         const c = s.store.conversations.get(params['id'] ?? '', user.id);
         if (c === undefined) throw new HttpError(404, 'not_found', 'No such conversation.');
         const names = namesFor(s, user.id);
-        const messages = s.store.conversations.messages(c.id).flatMap((m) =>
-          m.role === 'user' || m.role === 'assistant'
-            ? [
-                {
-                  id: m.id,
-                  role: m.role,
-                  text: storedText(m),
-                  decisions: m.planIds.flatMap((id) => cardFor(s.store, id, names) ?? []),
-                  createdAt: m.createdAt,
-                },
-              ]
-            : [],
-        );
+        const messages = s.store.conversations.messages(c.id).flatMap((m) => {
+          if (m.role !== 'user' && m.role !== 'assistant') return [];
+          const error = storedError(m);
+          return [
+            {
+              id: m.id,
+              role: m.role,
+              text: storedText(m),
+              decisions: m.planIds.flatMap((id) => cardFor(s.store, id, names) ?? []),
+              ...(error === undefined ? {} : { error }),
+              createdAt: m.createdAt,
+            },
+          ];
+        });
         sendJson(res, 200, { id: c.id, title: c.title ?? 'New chat', messages });
         return Promise.resolve();
       },
     },
   ];
+}
+
+export function chatRoutes(s: Services, heartbeatMs = HEARTBEAT_MS): Route[] {
+  return [...turnRoutes(s, heartbeatMs), ...conversationRoutes(s)];
 }

@@ -1,6 +1,7 @@
 import type { Me } from '@fha/api';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { InstallAppCard } from '../pwa/InstallAppCard';
 import { NotificationSettings } from '../settings/NotificationSettings';
 import { PermissionsEditor } from '../settings/PermissionsEditor';
 import { YahooConnect } from '../settings/YahooConnect';
@@ -24,7 +25,15 @@ export function Settings({ me }: { me: Me }) {
       </section>
       <section id="notifications" className="flex flex-col gap-3">
         <h2 className="font-semibold">Notifications</h2>
+        <p className="text-xs text-mut">
+          On iPhone and iPad, push notifications only work in the installed app (Safari → Share →
+          Add to Home Screen, then open it from the Home Screen).
+        </p>
         <NotificationSettings />
+      </section>
+      <section id="app" className="flex flex-col gap-3">
+        <h2 className="font-semibold">App</h2>
+        <InstallAppCard />
       </section>
     </div>
   );

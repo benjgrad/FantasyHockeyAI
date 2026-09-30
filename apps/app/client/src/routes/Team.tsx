@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
 import { formatWhen } from '../components/DecisionCardView';
+import { PlayerLink } from '../players/PlayerLink';
+import { StrengthCard } from '../players/StrengthCard';
 import { availabilityTone, groupRoster, type Group, type RosterRowT } from '../team/roster';
 
 const GROUP_TITLE: Record<Group, string> = {
@@ -77,6 +79,7 @@ function TeamBody({ view }: { view: TeamView }) {
         ) : null,
       )}
       {view.categories.length > 0 ? <Categories view={view} /> : null}
+      <StrengthCard />
     </>
   );
 }
@@ -88,7 +91,9 @@ function PlayerRow({ row }: { row: RosterRowT }) {
       <span className="w-10 shrink-0 text-center font-mono text-xs text-mut">{row.slot}</span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="truncate font-medium">{row.name}</span>
+          <PlayerLink playerKey={row.playerKey} className="truncate font-medium">
+            {row.name}
+          </PlayerLink>
           <span
             className={`pill ${TONE[availabilityTone(a.playProb)]}`}
             title={a.note ?? undefined}

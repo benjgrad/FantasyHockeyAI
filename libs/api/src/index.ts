@@ -23,6 +23,10 @@ export type ApiError = z.infer<typeof ApiError>;
  * - `llm_not_configured` (503): the server has no ANTHROPIC_API_KEY, so chat is off; the rest of
  *   the app works. Not retryable until the server is reconfigured.
  * - `not_pending` / `expired` (409): the decision was already settled; refresh the card.
+ * - `turn_in_progress` (409): this conversation already has a running chat turn; the error
+ *   object also carries its `turnId`, so the client reattaches instead of sending again.
+ * - `turn_gone` (410): the turn finished long enough ago that its events were dropped; reload
+ *   the conversation, whose messages are the durable record.
  */
 export const ERROR_CODES = [
   'signed_out',
@@ -31,6 +35,8 @@ export const ERROR_CODES = [
   'llm_not_configured',
   'not_pending',
   'expired',
+  'turn_in_progress',
+  'turn_gone',
 ] as const;
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
@@ -175,9 +181,19 @@ export const ChatRequest = z.object({
   conversationId: z.string().nullable(),
   text: z.string().min(1).max(4000),
 });
-// POST /api/chat ChatRequest → text/event-stream of ChatEvent (one JSON object per `data:` line)
+/**
+ * A chat turn runs on the server to completion whether or not a browser is watching; the HTTP
+ * stream only observes it. `POST /api/chat` starts a turn and streams its events; a client that
+ * lost the stream resumes with `GET /api/chat/turns/:turnId/events`.
+ *
+ * SSE framing: one JSON ChatEvent per `data:` line, preceded by `id: <seq>`. `seq` is assigned
+ * by the server, starts at 1 and increases by one per event within a turn; it is carried on the
+ * `id:` line only (not in the JSON). Resuming with `Last-Event-ID: <seq>` (or `?after=<seq>`)
+ * replays every event after it, then streams live ones until `done`. `: ping` comment lines are
+ * keep-alives. The first event of every turn is `turn`; the last is `done`.
+ */
 export const ChatEvent = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('conversation'), conversationId: z.string() }),
+  z.object({ type: z.literal('turn'), turnId: z.string(), conversationId: z.string() }),
   z.object({ type: z.literal('text'), delta: z.string() }),
   z.object({
     type: z.literal('tool'),
@@ -190,11 +206,35 @@ export const ChatEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('done'), usage: z.object({ costUsd: z.number() }).optional() }),
 ]);
 export type ChatEvent = z.infer<typeof ChatEvent>;
+export const ChatTurnStatus = z.enum(['running', 'done', 'failed']);
+export const ChatTurn = z.object({
+  turnId: z.string(),
+  conversationId: z.string(),
+  status: ChatTurnStatus,
+  /** The seq of the newest event so far. */
+  lastSeq: z.number().int().nonnegative(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+});
+export type ChatTurn = z.infer<typeof ChatTurn>;
+export const ChatTurnList = z.object({ turns: z.array(ChatTurn) });
+/** The 409 body when a conversation already has a running turn. */
+export const TurnInProgressError = z.object({
+  error: z.object({ code: z.literal('turn_in_progress'), message: z.string(), turnId: z.string() }),
+});
+// POST /api/chat ChatRequest → text/event-stream of ChatEvent (see above);
+//      409 TurnInProgressError when the conversation already has a running turn.
+// GET  /api/chat/turns/:turnId/events (Last-Event-ID or ?after=seq) → text/event-stream of
+//      ChatEvent; 404 when unknown or not yours; 410 `turn_gone` when its events were dropped.
+// GET  /api/chat/turns?status=running → ChatTurnList (yours only; `running` is the default)
+// POST /api/chat/turns/:turnId/cancel → ChatTurn (aborts the model; idempotent once finished)
 export const ChatMessage = z.object({
   id: z.number(),
   role: z.enum(['user', 'assistant']),
   text: z.string(),
   decisions: z.array(DecisionCard),
+  /** Set when the assistant's turn failed (cut off, cancelled, interrupted by a restart). */
+  error: z.object({ code: z.string(), message: z.string() }).optional(),
   createdAt: z.string(),
 });
 export type ChatMessage = z.infer<typeof ChatMessage>;
@@ -222,6 +262,8 @@ export const NotificationKind = z.enum([
   'failed',
   'digest',
   'league',
+  /** A chat reply finished while no browser was watching it. */
+  'chat',
 ]);
 export const NotificationPrefs = z.object({
   kinds: z.record(NotificationKind, z.boolean()),
@@ -252,3 +294,185 @@ export const NotificationList = z.object({ notifications: z.array(NotificationIt
 // POST /api/push/test → PushTestResult
 // GET  /api/settings/notifications → NotificationPrefs ; PUT NotificationPrefs → NotificationPrefs
 // GET  /api/notifications → NotificationList (unread, newest first)
+
+// ── players: cards, compare, free-agent browser, category strength ─────────────────────────
+// The draft board's player card, adapted to the season. Every number is computed server-side
+// from the user's current league snapshot (P1); every playerKey in a request is resolved against
+// the league index and an unknown one is a 400 naming it, never a guess (P3).
+
+/** Who holds a player. `waivers` is reserved: snapshots do not record waiver status yet [U]. */
+export const PlayerOwner = z.object({
+  kind: z.enum(['us', 'team', 'freeAgent', 'waivers']),
+  teamKey: z.string().nullable(),
+  /** "us", the other team's name, "free agent" or "waivers". */
+  name: z.string(),
+});
+export const PlayerAvailability = z.object({
+  label: z.string(),
+  status: z.string().nullable(),
+  playProb: z.number(),
+  /** Where the estimate came from, so a guess is never shown as a fact. */
+  source: z.enum(['healthy', 'returnDate', 'note', 'default']),
+  expectedReturn: z.string().nullable(),
+  /** Team games he is expected to miss over the rest of the season. */
+  expectedGamesMissed: z.number(),
+  note: z.string().nullable(),
+});
+/** One scored category for one player, in the league's scoring order. */
+export const PlayerCategory = z.object({
+  cat: z.string(),
+  /** Rest-of-season projection: a count for counting stats, the rate itself for GAA / SV%. */
+  total: z.number().nullable(),
+  perGame: z.number().nullable(),
+  /** Against the rostered pool; always oriented so that higher is better (GAA included). */
+  z: z.number().nullable(),
+  /** The raw number is better when lower (GAA): colour a delta by `better`, not by sign. */
+  lowerIsBetter: z.boolean(),
+});
+export const PlayerFit = z.object({
+  /** In VORP units: positive when his strengths land where our roster is weak. Null: unvalued. */
+  fit: z.number().nullable(),
+  /**
+   * adjustedVorp + fit: value steered towards our needs (the draft board's score with need 1).
+   * What "sort by fit" ranks by, so a poor player with a good profile does not top the list.
+   */
+  score: z.number().nullable(),
+  /** The need weights `fit` was computed with (1 is neutral), by category. */
+  weights: z.record(z.string(), z.number()),
+  /** Our target categories (see CategoryStrength.targets). */
+  targets: z.array(z.string()),
+  /** Which of our targets he is clearly good at (z ≥ 0.5). */
+  targetHits: z.array(z.string()),
+});
+export const PlayerCard = z.object({
+  playerKey: z.string(),
+  name: z.string(),
+  nhlTeam: z.string(),
+  positions: z.array(z.string()),
+  /** 'P' skater, 'G' goalie: their categories never diff against each other. */
+  positionType: z.enum(['P', 'G']),
+  owner: PlayerOwner,
+  availability: PlayerAvailability,
+  value: z
+    .object({
+      value: z.number(),
+      vorp: z.number(),
+      /** VORP net of expected time out (the additive discount the agents use). */
+      adjustedVorp: z.number(),
+      perGameValue: z.number(),
+      /** Rest-of-season projected games, net of expected time out. */
+      gp: z.number(),
+    })
+    .nullable(),
+  fit: PlayerFit,
+  market: z.object({ adp: z.number().nullable(), percentOwned: z.number().nullable() }),
+  lowConfidence: z.boolean(),
+  categories: z.array(PlayerCategory),
+  schedule: z.object({ gamesThisWeek: z.number(), gameToday: z.string().nullable() }),
+  news: z.array(z.string()),
+  /** Plain-language reasons generated from the numbers, so they cannot drift from them. */
+  reasons: z.array(z.string()),
+});
+export type PlayerCard = z.infer<typeof PlayerCard>;
+// GET /api/players/:playerKey → PlayerCard, or 404 not_found for a key not in the league
+
+export const CategoryDelta = z.object({
+  cat: z.string(),
+  /** This player's rest-of-season total minus the base player's. Null when either is unknown. */
+  delta: z.number().nullable(),
+  dz: z.number().nullable(),
+  /** True when the difference favours this player (lower-is-better categories inverted). */
+  better: z.boolean(),
+});
+export const CompareDelta = z.object({
+  playerKey: z.string(),
+  /** False for a skater against a goalie: no diff is given, only each player's own numbers. */
+  comparable: z.boolean(),
+  byCat: z.array(CategoryDelta),
+  terms: z
+    .object({
+      vorp: z.number().nullable(),
+      adjustedVorp: z.number().nullable(),
+      fit: z.number().nullable(),
+      score: z.number().nullable(),
+      perGameValue: z.number().nullable(),
+      gp: z.number().nullable(),
+    })
+    .nullable(),
+});
+export const CompareResponse = z.object({
+  players: z.array(PlayerCard),
+  base: z.string(),
+  /** One entry per player other than `base`, in request order. */
+  deltas: z.array(CompareDelta),
+});
+export type CompareResponse = z.infer<typeof CompareResponse>;
+// GET /api/compare?keys=a,b[,c,d][&base=a] → CompareResponse
+//     2–4 distinct keys; unknown keys → 400 invalid_request naming each; base defaults to the first.
+
+export const PlayerListStatus = z.enum(['FA', 'W', 'ours', 'all']);
+export const PlayerListRow = z.object({
+  playerKey: z.string(),
+  name: z.string(),
+  nhlTeam: z.string(),
+  positions: z.array(z.string()),
+  positionType: z.enum(['P', 'G']),
+  owner: PlayerOwner,
+  availability: z.object({ label: z.string(), playProb: z.number() }),
+  vorp: z.number().nullable(),
+  adjustedVorp: z.number().nullable(),
+  fit: z.number().nullable(),
+  /** adjustedVorp + fit (see PlayerFit.score): the `fit` sort's key. */
+  score: z.number().nullable(),
+  gamesThisWeek: z.number(),
+  lowConfidence: z.boolean(),
+  /** His best three categories by z, plus the sort category when sorting by one. */
+  keyCats: z.array(z.object({ cat: z.string(), z: z.number() })),
+});
+export type PlayerListRow = z.infer<typeof PlayerListRow>;
+export const PlayerList = z.object({
+  status: PlayerListStatus,
+  sort: z.string(),
+  total: z.number(),
+  players: z.array(PlayerListRow),
+  notes: z.array(z.string()),
+});
+export type PlayerList = z.infer<typeof PlayerList>;
+// GET /api/players?status=FA|W|ours|all&position=C&sort=fit|value|cat:<CAT>&q=&limit=50 → PlayerList
+//     defaults: status=FA, sort=fit, limit=50 (max 200). `fit` sorts by score (adjustedVorp + fit),
+//     `value` by adjustedVorp, `cat:X` by z in X.
+
+export const CategoryStrengthRow = z.object({
+  cat: z.string(),
+  /** Our roster's summed rest-of-season z, each player's discounted by his availability. */
+  z: z.number(),
+  /** League rank of that total, 1 = best of `of` teams. */
+  rank: z.number(),
+  of: z.number(),
+  label: z.enum(['weak', 'average', 'strong', 'saturated']),
+  /** This week's matchup win probability, when the matchup can be projected. */
+  winProb: z.number().nullable(),
+  /** The need weight `fit` uses for this category (1 neutral). */
+  weight: z.number(),
+  lowerIsBetter: z.boolean(),
+});
+export const CategoryStrength = z.object({
+  asOf: z.string(),
+  week: z.number(),
+  /** Weakest first: worst league rank, then lowest z. */
+  categories: z.array(CategoryStrengthRow),
+  /** The need weights behind every card's `fit`. */
+  weights: z.record(z.string(), z.number()),
+  /** What to target: "targeting: A, PPP". */
+  targets: z.array(z.string()),
+  /** This week's weights: stored by the matchup agent, else the matchup's suggestion. */
+  weekWeights: z.record(z.string(), z.number()).nullable(),
+  weekWeightsSource: z.enum(['stored', 'suggested']).nullable(),
+});
+export type CategoryStrength = z.infer<typeof CategoryStrength>;
+// GET /api/team/categories → CategoryStrength
+
+/** The players a decision names, resolved against the league index, so the card can link them. */
+export const DecisionPlayers = z.object({ players: z.array(PlayerRef) });
+export type DecisionPlayers = z.infer<typeof DecisionPlayers>;
+// GET /api/decisions/:planId/players → DecisionPlayers, or 404 not_found

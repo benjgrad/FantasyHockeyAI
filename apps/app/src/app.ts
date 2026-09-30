@@ -1,9 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { authRoutes } from './authRoutes.js';
+import { completionNotice } from './chatNotice.js';
 import { chatRoutes } from './chatRoutes.js';
+import { ChatTurns } from './chatTurns.js';
 import { HttpError, applySecurityHeaders, sendError } from './http.js';
 import { LeagueService } from './league.js';
 import { OidcService } from './oidcService.js';
+import { playerRoutes } from './playerRoutes.js';
 import { PushService, noticeFromPipeline } from './push.js';
 import { pushRoutes } from './pushRoutes.js';
 import { Router, type Route } from './router.js';
@@ -28,7 +31,14 @@ export interface App {
   services: Services;
 }
 
-export function buildServices(deps: AppDeps): Services {
+/** Test knobs; production uses the defaults. */
+export interface AppOptions {
+  heartbeatMs?: number;
+  /** How long a finished chat turn waits for a watcher before pushing "Reply ready". */
+  chatGraceMs?: number;
+}
+
+export function buildServices(deps: AppDeps, opts: AppOptions = {}): Services {
   const now = deps.now ?? (() => new Date());
   const log = deps.log ?? ((line: string) => console.log(line));
   const { config, store } = deps;
@@ -81,18 +91,34 @@ export function buildServices(deps: AppDeps): Services {
     createMessage: deps.createMessage,
     prompts: deps.prompts,
     usedStates: new Map(),
+    chatTurns: new ChatTurns({
+      store,
+      now,
+      log,
+      ...(opts.chatGraceMs === undefined ? {} : { graceMs: opts.chatGraceMs }),
+      onUnwatched: (turn) => {
+        push.notify(turn.userId, completionNotice(turn)).catch((err: unknown) => {
+          log(
+            `chat push failed for user ${turn.userId} (${err instanceof Error ? err.name : 'error'})`,
+          );
+        });
+      },
+    }),
   };
+  // Turns cut off by the last shutdown are marked failed now, before any client asks (P7).
+  services.chatTurns.recover();
   return services;
 }
 
-export function createApp(deps: AppDeps, opts: { heartbeatMs?: number } = {}): App {
-  const services = buildServices(deps);
+export function createApp(deps: AppDeps, opts: AppOptions = {}): App {
+  const services = buildServices(deps, opts);
   const router = new Router().add(
     ...authRoutes(services),
     ...settingsRoutes(services),
     ...teamRoutes(services),
     ...chatRoutes(services, opts.heartbeatMs),
     ...pushRoutes(services),
+    ...playerRoutes(services),
   );
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     const started = Date.now();

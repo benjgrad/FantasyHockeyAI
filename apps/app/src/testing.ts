@@ -305,7 +305,7 @@ export async function startHarness(
       now: () => clock.now,
       log: (line) => logs.push(line),
     },
-    { heartbeatMs: 20 },
+    { heartbeatMs: 20, chatGraceMs: 30 },
   );
   server.on('request', app.handler);
   return {

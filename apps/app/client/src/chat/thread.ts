@@ -26,10 +26,10 @@ export function assistantTurn(id: string): Turn {
   return { id, role: 'assistant', parts: [], pending: true };
 }
 
-/** Applies one event to the streaming assistant turn. `conversation` is the caller's concern. */
+/** Applies one event to the streaming assistant turn. `turn` is the caller's concern. */
 export function applyEvent(turn: Turn, event: ChatEvent): Turn {
   switch (event.type) {
-    case 'conversation':
+    case 'turn':
       return turn;
     case 'text':
       return { ...turn, parts: appendText(turn.parts, event.delta) };
@@ -91,15 +91,20 @@ function settleTools(parts: Part[]): Part[] {
   );
 }
 
-/** A stored message as a turn (history carries text and decisions, not tool calls). */
+/**
+ * A stored message as a turn (history carries text, decisions and why a turn failed, not tool
+ * calls).
+ */
 export function turnFromMessage(message: {
   id: number;
   role: 'user' | 'assistant';
   text: string;
   decisions: DecisionCard[];
+  error?: { code: string; message: string } | undefined;
 }): Turn {
   const parts: Part[] = [];
   if (message.text) parts.push({ kind: 'text', text: message.text });
   for (const card of message.decisions) parts.push({ kind: 'decision', card });
+  if (message.error) parts.push({ kind: 'error', ...message.error });
   return { id: `m${message.id}`, role: message.role, parts, pending: false };
 }

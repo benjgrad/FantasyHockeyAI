@@ -23,6 +23,7 @@ const KIND_LABEL: Record<Kind, { title: string; body: string }> = {
   failed: { title: 'Failures', body: 'A move or a scheduled job failed.' },
   digest: { title: 'Daily digest', body: 'The morning summary.' },
   league: { title: 'League', body: 'Trades offered to you and league news.' },
+  chat: { title: 'Chat replies', body: 'A reply finished after you left the chat.' },
 };
 
 export function NotificationSettings() {
