@@ -1,3 +1,4 @@
+import { addsUsedThisWeek } from '../adds.js';
 import { z } from 'zod';
 import { weeklyAddCap, type Player } from '@fha/core';
 import { defineTool, fail, ok, type RunContext } from '../context.js';
@@ -16,7 +17,7 @@ export const getLeagueContext = defineTool({
   execute: (_input, ctx) => {
     const { view, settings, permissions: perms } = ctx;
     const week = weekBounds(view.snap.date);
-    const addsUsed = ctx.store.decisions.addsThisWeek(`${week.start}T00:00:00.000Z`);
+    const addsUsed = addsUsedThisWeek(view, ctx.store);
     const maxAdds = weeklyAddCap(perms);
     const data = {
       league: settings.name,

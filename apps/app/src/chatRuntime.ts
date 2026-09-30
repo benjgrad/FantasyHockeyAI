@@ -30,8 +30,14 @@ export function agentDepsFor(
   userId: string,
   league: LeagueState,
   llm: LlmClient,
+  opts: { humanInLoop?: boolean } = {},
 ): AgentDeps {
-  const pipeline = pipelineFor(s.wiring, userId, league);
+  // In chat, Ben is looking at the conversation: an allowed plan becomes a card for his tap
+  // rather than a move (the daemon's scheduled jobs keep following his permissions).
+  const pipeline = {
+    ...pipelineFor(s.wiring, userId, league),
+    requireHumanApproval: opts.humanInLoop === true,
+  };
   return {
     llm,
     prompts: s.prompts,
@@ -51,7 +57,7 @@ export function assistantDeps(
   llm: LlmClient,
 ): AssistantDeps {
   const now = s.now().toISOString();
-  const agentDeps = agentDepsFor(s, userId, league, llm);
+  const agentDeps = agentDepsFor(s, userId, league, llm, { humanInLoop: true });
   return {
     ...agentDeps,
     now,

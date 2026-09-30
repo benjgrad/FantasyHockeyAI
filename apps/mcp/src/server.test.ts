@@ -151,11 +151,12 @@ describe('tools/call', () => {
     expect(r.text).toMatch(/^Invalid arguments for proposeLineup/);
   });
 
-  it('a lineup proposal goes through the real pipeline and ends dry_run', async () => {
+  it('a lineup proposal goes through the real pipeline and waits for approval (a human is in the loop)', async () => {
     const r = await call(await connect(), 'proposeLineup', { date: '2026-10-13', reason: 'test' });
     expect(r.isError).toBeFalsy();
-    expect(r.text).toContain('Accepted in dry-run mode');
-    const [d] = rt.store.decisions.listByStatus('dry_run');
+    // Lineups are `allow`, but a proposal from an MCP client never executes on its own.
+    expect(rt.store.decisions.listByStatus('dry_run')).toHaveLength(0);
+    const [d] = rt.store.decisions.listByStatus('pending');
     expect(d?.plan).toMatchObject({ agent: 'gm', sourceTool: 'proposeLineup', runId: rt.runId });
   });
 

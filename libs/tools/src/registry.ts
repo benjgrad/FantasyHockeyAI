@@ -1,8 +1,9 @@
+import { addsUsedThisWeek } from './adds.js';
 import { isToolEnabled, type AgentName, type Permissions, type Transaction } from '@fha/core';
 import type { GateState, ValidationContext } from '@fha/pipeline';
 import type { Store } from '@fha/store';
 import type { AnyTool } from './context.js';
-import { dayStatus, weekBounds } from './derive.js';
+import { dayStatus } from './derive.js';
 import { abstain, askBen, setCategoryWeights } from './tools/control.js';
 import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './tools/league.js';
 import { getLeagueEvents } from './tools/leagueEvents.js';
@@ -144,6 +145,5 @@ export function gateStateFor(view: LeagueView, store: Store, permissions: Permis
     .entries.map((e) => e.player.playerKey)
     .sort((a, b) => (view.valuation(b)?.vorp ?? -Infinity) - (view.valuation(a)?.vorp ?? -Infinity))
     .slice(0, n);
-  const { start } = weekBounds(view.snap.date);
-  return { protectedKeys, addsThisWeek: store.decisions.addsThisWeek(`${start}T00:00:00.000Z`) };
+  return { protectedKeys, addsThisWeek: addsUsedThisWeek(view, store) };
 }

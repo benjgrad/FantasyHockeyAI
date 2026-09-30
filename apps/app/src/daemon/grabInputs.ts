@@ -7,7 +7,13 @@ import {
   type OpportunityPlayer,
 } from '@fha/model';
 import type { Store } from '@fha/store';
-import { gateStateFor, modelInputs, weekBounds, type LeagueView } from '@fha/tools';
+import {
+  addsUsedThisWeek,
+  gateStateFor,
+  modelInputs,
+  weekBounds,
+  type LeagueView,
+} from '@fha/tools';
 
 /**
  * The league view → the auto-grab opportunity inputs (D-016). One translation for the watcher's
@@ -51,7 +57,7 @@ export function grabBase(view: LeagueView, store: Store, perms: Permissions): Gr
     }
     roster.push({ playerKey: player.playerKey, valuation, slot, status: player.status });
   }
-  const { start, end } = weekBounds(view.snap.date);
+  const { end } = weekBounds(view.snap.date);
   const weights = store.strategy.get(view.snap.week)?.weights;
   return {
     settings: view.settings,
@@ -61,7 +67,7 @@ export function grabBase(view: LeagueView, store: Store, perms: Permissions): Gr
     gamesThisWeek: Object.fromEntries(view.gamesBetween(view.snap.date, end)),
     ...(weights === undefined ? {} : { weights }),
     daysRemaining: Math.min(7, Math.max(1, daysBetween(view.snap.date, end) + 1)),
-    addsUsed: store.decisions.addsThisWeek(`${start}T00:00:00.000Z`),
+    addsUsed: addsUsedThisWeek(view, store),
     addCap: weeklyAddCap(perms),
     minGain: perms.autoGrab.minGain,
     locked: perms.players.locked,

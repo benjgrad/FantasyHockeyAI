@@ -1,5 +1,5 @@
 import { weeklyAddCap, type AgentName, type Permissions } from '@fha/core';
-import { weekBounds } from '@fha/tools';
+import { addsUsedThisWeek } from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { ToolAgent, type ToolAgentConfig } from './toolAgent.js';
 
@@ -14,8 +14,7 @@ import { ToolAgent, type ToolAgentConfig } from './toolAgent.js';
 export function addsRemainingFact(deps: AgentDeps, permissions: Permissions): string[] {
   const cap = weeklyAddCap(permissions);
   if (cap === undefined) return ['Adds remaining this week: no weekly cap is configured.'];
-  const { start } = weekBounds(deps.view.snap.date);
-  const used = deps.store.decisions.addsThisWeek(`${start}T00:00:00.000Z`);
+  const used = addsUsedThisWeek(deps.view, deps.store);
   return [`Adds remaining this week: ${Math.max(0, cap - used)} of ${cap}.`];
 }
 

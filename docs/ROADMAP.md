@@ -181,6 +181,18 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
 
+### D-017 — 2026-09-30 — A proposal made in conversation never executes on its own
+**Incident:** Ben asked the chat assistant to propose a move; with dry run off and add/drops
+at `allow` (a default shipped by D-008, not chosen by Ben), the plan executed in Yahoo
+immediately (add Jet Greaves, drop Thomas Harley). The gate was also working from a wrong add
+count: it counted only our own plans, not Yahoo's log, so it believed 0 of 3 adds were used
+when 2 were.
+**Decision:** plans from chat and MCP go through the pipeline with `requireHumanApproval`: an
+`allow` becomes an `ask` (a card with Do it); a deny still wins. `allow` now applies only to
+the scheduled agents and auto-grab. The weekly add count is Yahoo's transaction log for the
+week plus our plans still waiting to land (`addsUsedThisWeek`), used by the gate, the agents
+and auto-grab. *Amends D-008 and D-015.*
+
 ### D-016 — 2026-09-29 — Auto-grab: act on a substantial upgrade the moment it appears
 Ben: "If a player is no longer out and is a substantial gain, we should grab them immediately.
 Or if another team drops someone healthy that's a substantial gain, the same goes."

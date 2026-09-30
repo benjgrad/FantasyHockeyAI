@@ -314,3 +314,29 @@ describe('executeByHuman (D-015)', () => {
     expect(store.decisions.get(p.planId)?.status).toBe('dry_run');
   });
 });
+
+describe('requireHumanApproval (chat and MCP)', () => {
+  it('an allowed plan waits for a tap instead of executing', async () => {
+    const adapter = new RecordingAdapter();
+    const p = swap();
+    const r = await submitPlan(p, { ...deps(allow, { adapter }), requireHumanApproval: true });
+    expect(r.status).toBe('pending');
+    expect(adapter.calls).toBe(0);
+    expect(store.approvals.pending().map((a) => a.planId)).toEqual([p.planId]);
+  });
+
+  it('a deny still wins', async () => {
+    const adapter = new RecordingAdapter();
+    const r = await submitPlan(swap(), {
+      ...deps({ ...allow, players: { locked: [A] } }, { adapter }),
+      requireHumanApproval: true,
+    });
+    expect(r.status).toBe('denied');
+  });
+
+  it('without the flag, allow still executes (the scheduled agents)', async () => {
+    const adapter = new RecordingAdapter();
+    await submitPlan(swap(), deps(allow, { adapter, verify: () => Promise.resolve(true) }));
+    expect(adapter.calls).toBe(1);
+  });
+});

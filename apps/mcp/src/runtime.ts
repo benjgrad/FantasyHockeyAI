@@ -127,7 +127,8 @@ export function openRuntime(opts: RuntimeOptions = {}): Runtime {
         settings: league.settings,
         permissions: permissions(),
         store,
-        submit: (plan) => submitPlan(plan, deps),
+        // A human is driving the MCP client: an allowed plan waits for approvePlan.
+        submit: (plan) => submitPlan(plan, { ...deps, requireHumanApproval: true }),
         // Per call, not per session: an interactive human is in the loop, so §9.1's "second
         // invalid proposal ends the run" would only lock the session out of a plan kind.
         state: newRunState(),

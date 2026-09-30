@@ -25,6 +25,12 @@ export interface PipelineDeps {
   snapshotRoster: () => unknown;
   notify: (text: string) => void;
   name?: (playerKey: string) => string;
+  /**
+   * A human is in the conversation (chat, MCP), so a plan the gate would `allow` waits for their
+   * tap instead of executing. "Propose" means propose there: permissions set to allow are for the
+   * scheduled agents, not for a request Ben is looking at. A deny still wins.
+   */
+  requireHumanApproval?: boolean;
 }
 
 export type SubmitOutcome =
@@ -42,7 +48,7 @@ export async function submitPlan(plan: Plan, deps: PipelineDeps): Promise<Submit
     return { status: 'invalid', errors: v.errors };
   }
 
-  const g = gate(plan, deps.permissions(), deps.gateState());
+  const g = holdForHuman(gate(plan, deps.permissions(), deps.gateState()), deps);
   if (g.decision === 'deny') {
     store.decisions.insert(plan, { status: 'denied', gate: 'deny', validation: g.reasons });
     deps.notify(`Refused ${describe(plan, deps)}: ${g.reasons.join('; ')}`);
@@ -216,4 +222,14 @@ async function execute(plan: Plan, g: GateResult, deps: PipelineDeps): Promise<S
 
 function describe(plan: Plan, deps: PipelineDeps): string {
   return describePlan(plan, deps.name);
+}
+
+/** Turns an `allow` into an `ask` when a human is in the loop; everything else is unchanged. */
+function holdForHuman(g: GateResult, deps: PipelineDeps): GateResult {
+  if (deps.requireHumanApproval !== true || g.decision !== 'allow') return g;
+  return {
+    ...g,
+    decision: 'ask',
+    reasons: ['proposed in conversation: waits for your tap', ...g.reasons],
+  };
 }

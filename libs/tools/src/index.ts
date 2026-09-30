@@ -16,3 +16,4 @@ export * from './tools/roster.js';
 export * from './tools/schedule.js';
 export * from './tools/trades.js';
 export * from './testing.js';
+export * from './adds.js';
