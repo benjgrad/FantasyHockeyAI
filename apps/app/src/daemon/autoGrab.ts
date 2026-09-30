@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Plan, playersTouched, type PlanPayload } from '@fha/core';
 import { evaluateOpportunity, type Opportunity, type OpportunityCandidate } from '@fha/model';
-import { DryRunAdapter, executeByHuman, submitPlan, type PipelineDeps } from '@fha/pipeline';
+import {
+  DryRunAdapter,
+  clockTime,
+  executeByHuman,
+  submitPlan,
+  type PipelineDeps,
+} from '@fha/pipeline';
 import { EVENT_KINDS, weekBounds, type AutoGrabPayload } from '@fha/tools';
 import { pipelineFor } from '../decisions.js';
 import type { LeagueState } from '../league.js';
@@ -180,7 +186,13 @@ const quiet = (): void => undefined; // Pipeline notices are replaced by auto-gr
 function submitHeld(s: Services, userId: string, league: LeagueState, plan: Plan) {
   const w = s.wiring;
   const base = pipelineFor(
-    { store: w.store, permissionsFile: w.permissionsFile, now: w.now, notify: w.notify },
+    {
+      store: w.store,
+      permissionsFile: w.permissionsFile,
+      now: w.now,
+      notify: w.notify,
+      ...(w.quietUntil === undefined ? {} : { quietUntil: w.quietUntil }),
+    },
     userId,
     league,
   );
@@ -252,7 +264,13 @@ async function act(
       return done('denied', out.reasons.join('; '));
     case 'pending': {
       const why = out.reasons.join('; ');
-      return done('pending', `waiting for approval: ${why}`, say.proposal(`needs your OK: ${why}`));
+      // An ask with timeout (D-018) happens on its own unless Ben rejects it; say when.
+      const at = s.store.approvals.get(plan.planId)?.autoApproveAt;
+      const extra =
+        at === undefined
+          ? `needs your OK: ${why}`
+          : `happens at ${clockTime(at)} unless you reject`;
+      return done('pending', `waiting for approval: ${why}`, say.proposal(extra));
     }
     case 'dry_run':
       break;

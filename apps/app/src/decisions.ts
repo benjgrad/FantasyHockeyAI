@@ -37,6 +37,8 @@ export interface PipelineWiring {
   notify: (userId: string, text: string) => void;
   /** The live write adapter for a user, used only when dry run is off. Absent → Manual. */
   liveAdapter?: LiveAdapterFor;
+  /** When a push at `at` would be held by the user's quiet hours, their end (D-018). */
+  quietUntil?: (userId: string, at: Date) => Date | undefined;
 }
 
 export function pipelineFor(
@@ -70,6 +72,13 @@ export function pipelineFor(
     snapshotRoster: () => view.roster(),
     notify,
     name,
+    userId,
+    // An ask with timeout never runs past the first affected puck drop (D-018).
+    lockTimeOf: (k, date) => {
+      const p = view.player(k);
+      return p === undefined ? undefined : view.gameOn(date, p.nhlTeam)?.startTimeUtc;
+    },
+    ...(w.quietUntil === undefined ? {} : { quietUntil: (at: Date) => w.quietUntil?.(userId, at) }),
   };
 }
 

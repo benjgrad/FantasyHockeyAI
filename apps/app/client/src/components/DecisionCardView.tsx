@@ -5,7 +5,14 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/endpoints';
 import { ErrorNote } from './ErrorNote';
 import { LinkedSummary } from '../players/LinkedSummary';
-import { changesRoster, confirmLines, needsYou, resultView, type Tone } from './decisionActions';
+import {
+  autoApproveLine,
+  changesRoster,
+  confirmLines,
+  needsYou,
+  resultView,
+  type Tone,
+} from './decisionActions';
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'text-warn',
@@ -28,7 +35,8 @@ type Act = 'execute' | 'dismiss' | 'done' | 'approve' | 'reject';
  * (a confirm step, then the move in Yahoo — even with dry run on), **Open in Yahoo**, **I did it**
  * (the server re-reads Yahoo before believing it) and **Dismiss** / **Reject**. The server
  * decides which apply (`card.actions`); results show in place. The same card renders in chat
- * and on the Decisions page.
+ * and on the Decisions page. An ask with timeout (D-018) also shows a live countdown to the
+ * moment it happens on its own, and its "Do it" reads "Do it now".
  */
 export function DecisionCardView({
   card: initial,
@@ -98,6 +106,7 @@ export function DecisionCardView({
           load={open || highlight || compact || why}
         />
       </div>
+      <AutoApproveCountdown card={card} dryRun={me.data?.dryRun ?? false} />
       {card.deadline && open ? (
         <div className="mt-0.5 text-xs text-mut">Decide by {formatWhen(card.deadline)}</div>
       ) : null}
@@ -190,7 +199,7 @@ function ActionButtons({
     <>
       {has('execute') ? (
         <button className="btn btn-primary" disabled={busy} onClick={onConfirm}>
-          Do it
+          {card.autoApproveAt === null ? 'Do it' : 'Do it now'}
         </button>
       ) : null}
       {has('approve') ? (
@@ -214,6 +223,28 @@ function ActionButtons({
         </button>
       ) : null}
     </>
+  );
+}
+
+/** "Happens at 10:45 unless you reject · in 12 min", re-rendered every 15 s (D-018). */
+function AutoApproveCountdown({ card, dryRun }: { card: DecisionCard; dryRun: boolean }) {
+  const [now, setNow] = useState(() => new Date());
+  const timed = card.autoApproveAt !== null && card.status === 'pending';
+  useEffect(() => {
+    if (!timed) return undefined;
+    const t = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(t);
+  }, [timed]);
+  const line = autoApproveLine(card, now, dryRun);
+  if (line === null) return null;
+  return (
+    <div
+      className={`mt-1 text-sm font-medium ${line.due ? 'text-warn' : 'text-acc'}`}
+      role="timer"
+      aria-live="off"
+    >
+      {line.text}
+    </div>
   );
 }
 

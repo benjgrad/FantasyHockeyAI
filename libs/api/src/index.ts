@@ -196,6 +196,11 @@ export const DecisionCard = z.object({
   yahooUrl: z.string().nullable().default(null),
   /** The exact question for the confirm step, e.g. "Add X and drop Y in Yahoo?". */
   confirmText: z.string().nullable().default(null),
+  /**
+   * Ask with timeout (D-018): while the plan is pending, the instant it executes on its own
+   * unless Ben rejects it first (with dry run on it waits instead). Null otherwise.
+   */
+  autoApproveAt: z.string().nullable().default(null),
 });
 export type DecisionCard = z.infer<typeof DecisionCard>;
 export const DecisionList = z.object({ decisions: z.array(DecisionCard) });
@@ -226,6 +231,7 @@ export type DecisionActionResult = z.infer<typeof DecisionActionResult>;
 // GET  /api/decisions/:planId → DecisionCard, or 404 not_found (what a push deep-links to)
 // POST /api/decisions/:planId/approve → DecisionCard
 // POST /api/decisions/:planId/reject  { reason? } → DecisionCard
+//      Rejecting an ask with timeout before its `autoApproveAt` cancels it; it never executes.
 // POST /api/decisions/:planId/execute ExecuteDecisionRequest → DecisionActionResult
 //      Makes the move in Yahoo now, even with dry run on (D-015); the gate's deny still wins
 //      (outcome `denied`). 409 not_actionable when the card does not offer `execute`.

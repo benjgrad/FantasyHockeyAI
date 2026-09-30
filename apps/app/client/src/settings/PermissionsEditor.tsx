@@ -98,7 +98,9 @@ function Editor({ view, saved }: { view: PermissionsViewT; saved: Permissions })
       <div className="card">
         <div className="tag">Per plan kind</div>
         <p className="text-xs text-mut">
-          Allow = execute · Ask = wait for your approval · Deny = never.
+          Allow = execute · Ask = wait for your approval · Ask, then do = wait for your approval,
+          and do it after the minutes you set unless you reject it (never while dry run is on) ·
+          Deny = never.
         </p>
         {PLAN_KINDS.map((kind) => (
           <PlanRow key={kind} kind={kind} draft={draft} edit={edit} />

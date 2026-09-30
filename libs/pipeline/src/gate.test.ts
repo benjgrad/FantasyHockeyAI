@@ -250,3 +250,47 @@ describe('gate', () => {
     expect(() => Permissions.parse({ players: { lock: [A] } })).toThrow();
   });
 });
+
+describe('gate: askTimeout (D-018)', () => {
+  const timed = (over: Record<string, unknown> = {}) =>
+    perms({
+      plans: {
+        ...BASE.plans,
+        lineup: { mode: 'askTimeout', timeoutMinutes: 45 },
+        addDrop: { mode: 'askTimeout', limits: { maxPerWeek: 3 } },
+      },
+      ...over,
+    });
+
+  it('is an ask carrying the kind’s timer; the default is 30 minutes', () => {
+    const r = gate(plan(lineup), timed(), state);
+    expect(r).toMatchObject({ decision: 'ask', autoApproveAfterMinutes: 45 });
+    expect(r.reasons[0]).toMatch(/after 45 min/);
+    expect(gate(plan(addDrop(B, C)), timed(), state).autoApproveAfterMinutes).toBe(30);
+  });
+
+  it('an ask-listed player makes it a plain ask: no timer', () => {
+    const r = gate(plan(lineup), timed({ players: { ask: [A] } }), state);
+    expect(r.decision).toBe('ask');
+    expect(r.autoApproveAfterMinutes).toBeUndefined();
+  });
+
+  it('a protected player leaving makes it a plain ask: no timer', () => {
+    const r = gate(plan(addDrop(B, A)), timed(), { ...state, protectedKeys: [A] });
+    expect(r.decision).toBe('ask');
+    expect(r.autoApproveAfterMinutes).toBeUndefined();
+  });
+
+  it('a deny still wins: paused, a locked player, a limit', () => {
+    expect(gate(plan(lineup), timed({ paused: true }), state).decision).toBe('deny');
+    const locked = timed({ players: { locked: [A] } });
+    expect(gate(plan(addDrop(B, A)), locked, state).decision).toBe('deny');
+    expect(gate(plan(addDrop(B)), timed(), { ...state, addsThisWeek: 3 }).decision).toBe('deny');
+  });
+
+  it('plain ask and allow carry no timer', () => {
+    expect(gate(plan(lineup), perms(), state).autoApproveAfterMinutes).toBeUndefined();
+    const ask = perms({ plans: { ...BASE.plans, lineup: { mode: 'ask' } } });
+    expect(gate(plan(lineup), ask, state).autoApproveAfterMinutes).toBeUndefined();
+  });
+});

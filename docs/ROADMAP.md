@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-09-29**
+Last updated: **2026-09-30**
 
 ---
 
@@ -83,12 +83,12 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | ID | Milestone | Status | Acceptance | Spec |
 |---|---|---|---|---|
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
-| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
+| **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns, 004 auto_approve); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
 | **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013); waits on a live LLM run and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
 | **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; built, not yet deployed): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push; **auto-grab** (D-016; built, not yet deployed): a free agent back from out or a healthy player another team dropped who clears `autoGrab.minGain` is proposed at once (urgent push) or, with `ignoreDryRun`/dry run off, added through the same gate | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
-| **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; not deployed | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
+| **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; **ask with timeout** (D-018; built, not yet deployed — needs an app restart for migration 004): a plan kind can be queued for Ben *and* done on its own unless he rejects it in time, with a per-minute sweeper, countdown cards and reminder pushes; not deployed | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
 | **M-A** | Availability as a first-class input (`availability()`, `rosterHealth()`), draft-scoring fixes | `done` 2026-09-29 — every draft-night flaw has a failing-first scenario | Scenarios pass; live roster health matches Ben's diagnosis | §12 |
 | **M-MCP** | stdio MCP server over the agent tools (`apps/mcp`) | `done` 2026-09-29 | Tools listed from the registry; proposals gated; approval needs a human confirmation | §8, §9 |
@@ -180,6 +180,46 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-018 — 2026-09-30 — Ask with timeout: queued for Ben, done unless he rejects in time
+Ben: "There should also be an ask with timeout option." A plan kind can now be
+`allow | ask | askTimeout | deny`; the editor calls it **"Ask, then do it after [N] min"**.
+- **Schema**: `plans.<kind>.timeoutMinutes` (whole minutes, 5–1440, default 30), stored only when
+  set, so documents from before D-018 parse unchanged. `config/permissions.yaml`'s shipped modes
+  are unchanged; its comments document the mode.
+- **Gate**: an `askTimeout` kind returns `ask` with `autoApproveAfterMinutes`, so every ask path
+  (queue, card, approve, reject) applies. An ask for any other reason — an ask-listed player, a
+  protected top-N player leaving, or `requireHumanApproval` (chat/MCP, D-017, which now turns
+  `allow` **and** `askTimeout` into a plain `ask`) — has **no timer**. A deny still wins.
+- **Auto-approve time** (`autoApproveAt`, libs/pipeline, pure): the earliest of now + timeout and
+  the plan's own moment minus 5 min (lineups: the earliest affected player's puck drop; any plan:
+  its `deadline`); never before now. **Quiet hours**: if the approval push would be held by quiet
+  hours, the timer starts when they end (auto-approve = quiet end + timeout), and both the card
+  ("Why it needs you") and the push say so — never silently. A lock or deadline still caps it; if
+  that makes it fall inside quiet hours, the push says Ben may not see it before it happens (the
+  lineup lock matters more than the sleep). Clock-change nights can be an hour off (wall-clock
+  minutes).
+- **Store**: migration 004 adds `approvals.auto_approve_at` and `approvals.user_id` (nullable;
+  old rows are plain asks); `approvals.request(planId, deadline, autoApproveAt?, userId?)`,
+  `dueAutoApprovals(now)`, `clearAutoApprove(planId)`; the decision is recorded `via: 'timeout'`.
+- **At the time** (`executeOnTimeout`): only a still-pending approval runs. **Dry run wins**: with
+  `dryRun` on nothing is approved; the plan stays pending (expiring at its deadline like any
+  ask), with one "Waiting for you" push, and Ben can still tap Do it. Otherwise the stored plan is
+  re-gated against fresh state: if it now needs Ben for another reason the timer is removed ("Now
+  needs you"); else it is approved compare-and-set via `timeout`, then `executeApproved`
+  (re-validated, re-gated — a deny such as paused, a lock added, tool off, cap reached or kind now
+  deny wins and is recorded on the plan — adapter, verify). Reject, Do it now and the timer race
+  safely: one compare-and-set wins and the `planId:0` execution key means one write (P7).
+- **Daemon**: a sweeper every minute, outside the job queue like the watchers, one plan at a time,
+  runs due plans for connected users with that user's live wiring and a league re-read from Yahoo
+  (unreadable → retry next minute, P9). A row with no user (the CLI) is never auto-run. Pushes:
+  approval "Will <move> at 10:45 AM unless you reject — tap to review"; one reminder ~10 min
+  before when the timer is ≥ 30 min; afterwards "Done: <move> (no reply by 10:45 AM)" or the
+  failure/refusal.
+- **Contract/UI**: `DecisionCard.autoApproveAt` (while pending); the card shows a live
+  "Happens at 10:45 unless you reject · in 12 min" with **Do it now** / **Reject**. The widening
+  diff ranks deny < ask < askTimeout < allow and counts a lower timeout as widening.
+- *Amends D-008 (modes) and D-017 (`requireHumanApproval` also removes the timer).*
 
 ### D-017 — 2026-09-30 — A proposal made in conversation never executes on its own
 **Incident:** Ben asked the chat assistant to propose a move; with dry run off and add/drops

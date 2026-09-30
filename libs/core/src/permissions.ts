@@ -6,7 +6,9 @@ import { PlayerKey } from './types.js';
  * `config/permissions.yaml` (§18.3, extended 2026-09-24 at Ben's request): what the agents may
  * do without asking. Three independent controls, all enforced in code (P2):
  *
- * - **plans**: per plan kind, `allow` (execute), `ask` (queue for Ben's approval) or `deny`.
+ * - **plans**: per plan kind, `allow` (execute), `ask` (queue for Ben's approval), `askTimeout`
+ *   (queue for Ben's approval, and execute on its own if he has not rejected it by an
+ *   auto-approve time, D-018) or `deny`.
  * - **players**: `locked` players are never dropped or traded away; `ask` players make any plan
  *   that touches them need approval, even when the kind is `allow`.
  * - **tools**: a propose tool switched off is removed from every agent's tool list *and* its
@@ -14,8 +16,17 @@ import { PlayerKey } from './types.js';
  *
  * The gate fails closed: a plan kind missing from `plans` is `deny`.
  */
-export const GateMode = z.enum(['allow', 'ask', 'deny']);
+export const GateMode = z.enum(['allow', 'ask', 'askTimeout', 'deny']);
 export type GateMode = z.infer<typeof GateMode>;
+
+/**
+ * `askTimeout` (D-018): minutes Ben has to reject before the plan executes on its own. Stored
+ * only when set, so documents written before D-018 parse unchanged; read it through
+ * {@link askTimeoutMinutes}, which applies the default.
+ */
+export const ASK_TIMEOUT_DEFAULT_MINUTES = 30;
+export const ASK_TIMEOUT_MIN_MINUTES = 5;
+export const ASK_TIMEOUT_MAX_MINUTES = 1440;
 
 export const PlanLimits = z
   .object({
@@ -26,8 +37,25 @@ export const PlanLimits = z
   .strict();
 export type PlanLimits = z.infer<typeof PlanLimits>;
 
-export const PlanPermission = z.object({ mode: GateMode, limits: PlanLimits.default({}) }).strict();
+export const PlanPermission = z
+  .object({
+    mode: GateMode,
+    limits: PlanLimits.default({}),
+    /** Only meaningful for `askTimeout`; absent means {@link ASK_TIMEOUT_DEFAULT_MINUTES}. */
+    timeoutMinutes: z
+      .number()
+      .int()
+      .min(ASK_TIMEOUT_MIN_MINUTES)
+      .max(ASK_TIMEOUT_MAX_MINUTES)
+      .optional(),
+  })
+  .strict();
 export type PlanPermission = z.infer<typeof PlanPermission>;
+
+/** The minutes an `askTimeout` plan of this kind waits for Ben, with the default applied. */
+export function askTimeoutMinutes(rule: PlanPermission | undefined): number {
+  return rule?.timeoutMinutes ?? ASK_TIMEOUT_DEFAULT_MINUTES;
+}
 
 const planKeys = z.enum(PLAN_KINDS);
 

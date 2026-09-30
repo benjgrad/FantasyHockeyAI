@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { NotificationList, VapidKey } from '@fha/api';
 import { ConfigError, loadConfig } from './config.js';
-import { inQuietHours, noticeFromPipeline } from './push.js';
+import { inQuietHours, noticeFromPipeline, quietHoursEnd } from './push.js';
 import { call, signIn, startHarness, type Harness } from './testing.js';
 
 let h: Harness | undefined;
@@ -164,5 +164,42 @@ describe('config', () => {
     expect(() => loadConfig({ ...env, FHA_SECRET_KEY: 'short' })).toThrow(ConfigError);
     expect(() => loadConfig({ ...env, FHA_ALLOWED_SUBS: ' , ' })).toThrow(/FHA_ALLOWED_SUBS/);
     expect(() => loadConfig({ ...env, FHA_VAPID_PUBLIC_KEY: 'x' })).toThrow(/VAPID/);
+  });
+});
+
+describe('ask with timeout notices (D-018)', () => {
+  it('the approval push says what will happen and when, unless Ben rejects', () => {
+    const text =
+      'Auto-approve (p-9) at 2026-10-13T14:45:00.000Z: add Vincent Trocheck, drop Brad Marchand\n' +
+      'Why: x\nGate: y';
+    expect(noticeFromPipeline(text)).toEqual({
+      kind: 'approval',
+      title: 'Happens unless you reject',
+      body: 'Will add Vincent Trocheck, drop Brad Marchand at 10:45 AM unless you reject — tap to review',
+      url: '/decisions/p-9',
+      planId: 'p-9',
+    });
+  });
+
+  it('a quiet-hours note is carried into the push body', () => {
+    const text =
+      'Auto-approve (p-9) at 2026-10-13T14:45:00.000Z: add X\n' +
+      'Note: during your quiet hours; you may not see this before it happens.\nWhy: x';
+    expect(noticeFromPipeline(text)?.body).toBe(
+      'Will add X at 10:45 AM unless you reject — tap to review (during your quiet hours; you may not see this before it happens)',
+    );
+  });
+
+  it('quietHoursEnd: the end of the window containing the instant, across midnight', () => {
+    const prefs = {
+      kinds: {},
+      quietHours: { start: '22:00', end: '07:00', tz: 'America/New_York' },
+    };
+    // 23:30 ET (EDT, UTC-4) → 07:00 ET next day.
+    expect(quietHoursEnd(prefs, new Date('2026-10-14T03:30:20Z'))?.toISOString()).toBe(
+      '2026-10-14T11:00:00.000Z',
+    );
+    expect(quietHoursEnd(prefs, new Date('2026-10-14T16:00:00Z'))).toBeUndefined();
+    expect(quietHoursEnd({ kinds: {} }, new Date('2026-10-14T03:30:00Z'))).toBeUndefined();
   });
 });

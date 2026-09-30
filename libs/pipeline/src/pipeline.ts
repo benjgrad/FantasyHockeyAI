@@ -1,6 +1,12 @@
 import type { ExecutionAdapter, Permissions, Plan } from '@fha/core';
 import type { DecisionStatus, Store } from '@fha/store';
 import { describePlan } from './adapters.js';
+import {
+  autoApproveAt,
+  autoApproveNotes,
+  type AutoApproveTime,
+  type LockTimeOf,
+} from './autoApprove.js';
 import { gate, type GateResult, type GateState } from './gate.js';
 import { validatePlan, type ValidationContext } from './validate.js';
 
@@ -31,6 +37,15 @@ export interface PipelineDeps {
    * scheduled agents, not for a request Ben is looking at. A deny still wins.
    */
   requireHumanApproval?: boolean;
+  /** Game start per player and date, so a timed ask never runs past a lineup lock (D-018). */
+  lockTimeOf?: LockTimeOf;
+  /**
+   * The end of Ben's quiet hours when an approval push at `at` would be suppressed by them;
+   * undefined otherwise. A timed ask's timer then starts at that end (D-018).
+   */
+  quietUntil?: (at: Date) => Date | undefined;
+  /** Whose pipeline this is, stored on a timed ask so the daemon runs it with their wiring. */
+  userId?: string;
 }
 
 export type SubmitOutcome =
@@ -54,18 +69,7 @@ export async function submitPlan(plan: Plan, deps: PipelineDeps): Promise<Submit
     deps.notify(`Refused ${describe(plan, deps)}: ${g.reasons.join('; ')}`);
     return { status: 'denied', reasons: g.reasons };
   }
-  if (g.decision === 'ask') {
-    store.transaction(() => {
-      store.decisions.insert(plan, { status: 'proposed', gate: 'ask', validation: g.reasons });
-      store.approvals.request(plan.planId, plan.deadline);
-    });
-    deps.notify(
-      `Approval needed (${plan.planId}): ${describe(plan, deps)}\n` +
-        `Why: ${plan.rationale}\nGate: ${g.reasons.join('; ')}\n` +
-        `fha approve ${plan.planId}  |  fha reject ${plan.planId}`,
-    );
-    return { status: 'pending', reasons: g.reasons };
-  }
+  if (g.decision === 'ask') return queueForBen(plan, g, deps);
 
   store.decisions.insert(plan, { status: 'proposed', gate: 'allow' });
   const out = await execute(plan, g, deps);
@@ -73,6 +77,50 @@ export async function submitPlan(plan: Plan, deps: PipelineDeps): Promise<Submit
   // can open the card and do it, or dismiss it.
   if (out.status === 'dry_run') deps.notify(`Proposed (${plan.planId}): ${describe(plan, deps)}`);
   return out;
+}
+
+/**
+ * An `ask`: queue the plan for Ben. From an `askTimeout` kind (D-018) it also gets the instant it
+ * executes on its own unless he rejects it, stored with the approval and said in the notice.
+ */
+function queueForBen(plan: Plan, g: GateResult, deps: PipelineDeps): SubmitOutcome {
+  const { store } = deps;
+  const now = new Date(deps.validation.now);
+  const timer: AutoApproveTime | undefined =
+    g.autoApproveAfterMinutes === undefined
+      ? undefined
+      : autoApproveAt(
+          plan,
+          g.autoApproveAfterMinutes,
+          now,
+          deps.lockTimeOf,
+          deps.quietUntil?.(now),
+        );
+  const reasons = timer === undefined ? g.reasons : [...g.reasons, ...autoApproveNotes(timer)];
+  store.transaction(() => {
+    store.decisions.insert(plan, { status: 'proposed', gate: 'ask', validation: reasons });
+    store.approvals.request(plan.planId, plan.deadline, timer?.at, deps.userId);
+  });
+  const head =
+    timer === undefined
+      ? `Approval needed (${plan.planId}): ${describe(plan, deps)}`
+      : `Auto-approve (${plan.planId}) at ${timer.at}: ${describe(plan, deps)}`;
+  const quiet =
+    timer?.duringQuietHours === true
+      ? ['Note: during your quiet hours; you may not see this before it happens.']
+      : timer?.quietUntil !== undefined
+        ? ['Note: moved past your quiet hours.']
+        : [];
+  deps.notify(
+    [
+      head,
+      ...quiet,
+      `Why: ${plan.rationale}`,
+      `Gate: ${reasons.join('; ')}`,
+      `fha approve ${plan.planId}  |  fha reject ${plan.planId}`,
+    ].join('\n'),
+  );
+  return { status: 'pending', reasons };
 }
 
 /**
@@ -224,12 +272,16 @@ function describe(plan: Plan, deps: PipelineDeps): string {
   return describePlan(plan, deps.name);
 }
 
-/** Turns an `allow` into an `ask` when a human is in the loop; everything else is unchanged. */
+/**
+ * When a human is in the loop, an `allow` and an `ask` with timeout both become a plain `ask`:
+ * the plan waits for his tap, with no timer (D-017, D-018). Everything else is unchanged.
+ */
 function holdForHuman(g: GateResult, deps: PipelineDeps): GateResult {
-  if (deps.requireHumanApproval !== true || g.decision !== 'allow') return g;
+  if (deps.requireHumanApproval !== true) return g;
+  if (g.decision !== 'allow' && g.autoApproveAfterMinutes === undefined) return g;
   return {
-    ...g,
     decision: 'ask',
     reasons: ['proposed in conversation: waits for your tap', ...g.reasons],
+    dryRun: g.dryRun,
   };
 }

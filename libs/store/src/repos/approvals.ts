@@ -16,6 +16,10 @@ export interface ApprovalRecord {
   via?: string;
   reason?: string;
   deadline?: string;
+  /** Ask with timeout (D-018): executes on its own at this instant unless Ben rejects first. */
+  autoApproveAt?: string;
+  /** The user whose pipeline queued it; absent on rows from before D-018 or from the CLI. */
+  userId?: string;
 }
 
 /**
@@ -32,15 +36,21 @@ interface ApprovalRow {
   via: string | null;
   reason: string | null;
   deadline: string | null;
+  auto_approve_at: string | null;
+  user_id: string | null;
 }
 
 export interface ApprovalsRepo {
   /**
    * Queues an `ask` plan and marks its decision `pending`. `deadline` absent means it never
-   * expires on its own. Throws when the plan has no decision row (foreign key).
+   * expires on its own. `autoApproveAt` makes it an ask with timeout (D-018); `userId` is whose
+   * pipeline queued it. Throws when the plan has no decision row (foreign key).
    */
-  request(planId: string, deadline?: string): void;
-  /** Records Ben's answer; `via` is 'cli' | 'discord' | …. Past the deadline, the plan expires. */
+  request(planId: string, deadline?: string, autoApproveAt?: string, userId?: string): void;
+  /**
+   * Records Ben's answer; `via` is 'cli' | 'web' | 'autoGrab' | …, or 'timeout' when an ask with
+   * timeout ran out with no reply (D-018). Past the deadline, the plan expires.
+   */
   decide(
     planId: string,
     verdict: 'approved' | 'rejected',
@@ -63,6 +73,13 @@ export interface ApprovalsRepo {
   get(planId: string): ApprovalRecord | undefined;
   /** Pending approvals, oldest first. */
   pending(): ApprovalRecord[];
+  /**
+   * Turns a pending ask with timeout into a plain ask (D-018): the rules changed since it was
+   * queued so that it now needs Ben. False when it was not pending.
+   */
+  clearAutoApprove(planId: string): boolean;
+  /** Pending approvals whose auto-approve time is at or before `nowIso`, soonest first (D-018). */
+  dueAutoApprovals(nowIso: string): ApprovalRecord[];
   /** Expires every pending approval whose deadline is at or before `now`; returns their plan ids. */
   expire(now: string): string[];
 }
@@ -76,12 +93,15 @@ function toRecord(r: ApprovalRow): ApprovalRecord {
     ...(r.via === null ? {} : { via: r.via }),
     ...(r.reason === null ? {} : { reason: r.reason }),
     ...(r.deadline === null ? {} : { deadline: r.deadline }),
+    ...(r.auto_approve_at === null ? {} : { autoApproveAt: r.auto_approve_at }),
+    ...(r.user_id === null ? {} : { userId: r.user_id }),
   };
 }
 
 export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
   const insert = db.prepare(
-    `INSERT INTO approvals (plan_id, status, requested_at, deadline) VALUES (?, 'pending', ?, ?)`,
+    `INSERT INTO approvals (plan_id, status, requested_at, deadline, auto_approve_at, user_id)
+     VALUES (?, 'pending', ?, ?, ?, ?)`,
   );
   const select = db.prepare('SELECT * FROM approvals WHERE plan_id = ?');
   const selectPending = db.prepare(
@@ -104,6 +124,14 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
      ON CONFLICT (plan_id) DO UPDATE SET status = @status, decided_at = @at, via = @via,
        reason = @reason`,
   );
+  const clearAuto = db.prepare(
+    `UPDATE approvals SET auto_approve_at = NULL WHERE plan_id = ? AND status = 'pending'`,
+  );
+  const dueAuto = db.prepare(
+    `SELECT * FROM approvals
+     WHERE status = 'pending' AND auto_approve_at IS NOT NULL AND auto_approve_at <= ?
+     ORDER BY auto_approve_at, plan_id`,
+  );
   const due = db.prepare(
     `SELECT plan_id FROM approvals
      WHERE status = 'pending' AND deadline IS NOT NULL AND deadline <= ?`,
@@ -115,11 +143,14 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
     settleDecision.run(status, at, planId);
   };
 
-  const request = db.transaction((planId: string, deadline?: string) => {
-    const at = now().toISOString();
-    insert.run(planId, at, deadline === undefined ? null : toIso(deadline));
-    markPending.run(at, planId);
-  });
+  const iso = (v: string | undefined) => (v === undefined ? null : toIso(v));
+  const request = db.transaction(
+    (planId: string, deadline?: string, autoApproveAt?: string, userId?: string) => {
+      const at = now().toISOString();
+      insert.run(planId, at, iso(deadline), iso(autoApproveAt), userId ?? null);
+      markPending.run(at, planId);
+    },
+  );
 
   const decide = db.transaction(
     (planId: string, verdict: 'approved' | 'rejected', via: string, reason?: string) => {
@@ -164,7 +195,8 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
   });
 
   return {
-    request: (planId, deadline) => request(planId, deadline),
+    request: (planId, deadline, autoApproveAt, userId) =>
+      request(planId, deadline, autoApproveAt, userId),
     decide: (planId, verdict, via, reason) => decide(planId, verdict, via, reason) as DecideOutcome,
     settle: (planId, verdict, via, from, reason) =>
       settleDirect(planId, verdict, via, from, reason),
@@ -173,6 +205,8 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
       return row === undefined ? undefined : toRecord(row);
     },
     pending: () => (selectPending.all() as ApprovalRow[]).map(toRecord),
+    clearAutoApprove: (planId) => clearAuto.run(planId).changes === 1,
+    dueAutoApprovals: (nowIso) => (dueAuto.all(toIso(nowIso)) as ApprovalRow[]).map(toRecord),
     expire: (nowIso) => expire(nowIso),
   };
 }

@@ -16,6 +16,7 @@ const card: DecisionCard = {
   actions: [],
   yahooUrl: null,
   confirmText: null,
+  autoApproveAt: null,
 };
 
 const run = (events: ChatEvent[]): Turn => events.reduce(applyEvent, assistantTurn('a'));

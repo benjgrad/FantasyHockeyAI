@@ -5,6 +5,7 @@ import { HttpError } from '../http.js';
 import type { Services } from '../services.js';
 import { userPermissions } from '../permissions.js';
 import { yahooFailure } from '../yahoo.js';
+import { sweepAutoApprovals, type SweepResult } from './autoApprove.js';
 import { runAutoGrab } from './autoGrab.js';
 import { worthGrabbing } from './grabInputs.js';
 import { errText, executeJob, type JobOutcome } from './jobs.js';
@@ -35,6 +36,8 @@ import { WATCHERS, poll, type WatchEnv, type WatcherName, type WatcherSpec } fro
  * - A Yahoo auth failure marks the connection expired, sends one reconnect push, and pauses
  *   that user (jobs and watchers skip an expired connection) until Ben reconnects.
  * - A Yahoo outage warns and backs off (P9).
+ * - Every minute, a sweeper runs the asks with timeout that came due (D-018), outside the job
+ *   queue like the watchers, one plan at a time and never the same plan twice at once.
  */
 export interface DaemonOptions {
   now?: () => Date;
@@ -43,6 +46,8 @@ export interface DaemonOptions {
   random?: () => number;
   /** The scheduler never sleeps longer than this, so a new first-game time is picked up. */
   maxTickMs?: number;
+  /** How often the ask-with-timeout sweeper looks for due plans (D-018). Default one minute. */
+  sweepMs?: number;
 }
 
 const RULE_KINDS = [
@@ -79,6 +84,9 @@ export class Daemon {
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
   private readonly random: () => number;
   private readonly maxTickMs: number;
+  private readonly sweepMs: number;
+  /** Plans the sweeper is running now (D-018). */
+  private readonly sweeping = new Set<string>();
   private readonly stopping = new AbortController();
   private lastTick: Date;
   private lastActed: ReadonlyMap<string, number> = new Map();
@@ -95,6 +103,7 @@ export class Daemon {
     this.sleep = o.sleep ?? defaultSleep;
     this.random = o.random ?? Math.random;
     this.maxTickMs = o.maxTickMs ?? 5 * 60_000;
+    this.sweepMs = o.sweepMs ?? 60_000;
     this.lastTick = this.now();
     this.queue = new SerialQueue((key, err) =>
       this.s.log(`daemon: job ${key} threw (${errText(err)})`),
@@ -105,7 +114,11 @@ export class Daemon {
   start(lockPath: string = this.s.config.lockPath): void {
     this.lock = acquireLock(lockPath);
     this.lastTick = this.now();
-    this.loops = [this.schedulerLoop(), ...WATCHERS.map((w) => this.watcherLoop(w))];
+    this.loops = [
+      this.schedulerLoop(),
+      this.sweepLoop(),
+      ...WATCHERS.map((w) => this.watcherLoop(w)),
+    ];
     this.s.log(`daemon: started (pid ${process.pid}, ${this.users().length} connected user(s))`);
   }
 
@@ -312,6 +325,31 @@ export class Daemon {
       this.s.store.events.markHandled(d.event.id);
     }
     return decisions;
+  }
+
+  /** One sweep: run every ask with timeout that came due, for connected users (D-018). */
+  async sweepOnce(): Promise<SweepResult[]> {
+    try {
+      return await sweepAutoApprovals(this.s, {
+        userIds: this.users(),
+        now: this.now(),
+        running: this.sweeping,
+        onError: async (userId, err) => {
+          if (isAuthFailure(err)) await this.onAuthFailure(userId, err);
+        },
+      });
+    } catch (err) {
+      this.s.log(`daemon: auto-approve sweep failed (${errText(err)})`);
+      return [];
+    }
+  }
+
+  private async sweepLoop(): Promise<void> {
+    const signal = this.stopping.signal;
+    while (!signal.aborted) {
+      await this.sweepOnce();
+      await this.sleep(this.sweepMs, signal);
+    }
   }
 
   private async schedulerLoop(): Promise<void> {

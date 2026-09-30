@@ -86,6 +86,7 @@ export function buildServices(deps: AppDeps, opts: AppOptions = {}): Services {
         });
       },
       liveAdapter: liveAdapterFor({ store, secretKey: config.secretKey, yahoo: deps.yahoo, log }),
+      quietUntil: (userId, at) => push.quietUntil(userId, at),
     },
     yahoo: deps.yahoo,
     createMessage: deps.createMessage,

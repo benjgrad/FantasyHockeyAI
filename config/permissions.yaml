@@ -11,7 +11,19 @@ dryRun: true
 # Kill switch. `fha stop` sets it, `fha resume` clears it.
 paused: false
 
-# Per plan kind: allow (execute), ask (queue for Ben's approval), deny. A missing kind is deny.
+# Per plan kind: allow (execute), ask (queue for Ben's approval), askTimeout, deny. A missing
+# kind is deny.
+#
+# askTimeout (D-018) = "ask, then do it after N min": the plan is queued for Ben's approval AND
+# executes on its own if he has not rejected it by then. Set the minutes with timeoutMinutes
+# (whole minutes, 5–1440, default 30), e.g.  lineup: { mode: askTimeout, timeoutMinutes: 45 }
+#   - The time is capped 5 min before the first affected puck drop (lineups) or the plan's
+#     deadline. If quiet hours would hold the approval push, the timer starts when they end.
+#   - At that time the plan is re-validated and re-gated against the league as it is then; a
+#     deny (paused, a lock, the tool off, a cap reached, the kind now deny) wins.
+#   - Dry run wins: while dryRun is true a timed ask never executes on its own; it waits for you.
+#   - An ask for another reason (an ask-listed or protected player, or a plan proposed in chat
+#     or MCP) is a plain ask with no timer.
 plans:
   lineup: { mode: allow }
   addDrop: { mode: allow, limits: { maxPerWeek: 3 } }

@@ -5,6 +5,7 @@ import {
   modeOf,
   parseLimit,
   parseMinGain,
+  parseTimeout,
   widensAutonomy,
 } from './permissionsDiff';
 
@@ -178,5 +179,46 @@ describe('auto-grab settings', () => {
     expect(parseMinGain('abc', 1.5)).toBe(1.5);
     expect(parseMinGain('2.25', 1.5)).toBe(2.25);
     expect(parseMinGain('-1', 1.5)).toBe(0);
+  });
+});
+
+describe('ask with timeout (D-018)', () => {
+  const kind = (d: Draft) => d.plans.addDrop;
+  const set = (mode: 'ask' | 'askTimeout' | 'allow', timeoutMinutes?: number) =>
+    edit((d) => {
+      d.plans.addDrop = {
+        mode,
+        limits: kind(d)?.limits ?? {},
+        ...(timeoutMinutes === undefined ? {} : { timeoutMinutes }),
+      };
+    });
+  const modeChange = (before: Draft, after: Draft) =>
+    diffPermissions(before, after).find((c) => c.path.startsWith('plans.addDrop.'));
+
+  it('ask → ask-then-do and ask-then-do → allow widen; back to ask narrows', () => {
+    const timed = set('askTimeout');
+    expect(modeChange(base, timed)).toMatchObject({
+      label: 'Add / drop: ask → ask, then do after 30 min',
+      widens: true,
+    });
+    expect(modeChange(timed, set('allow'))?.widens).toBe(true);
+    expect(modeChange(timed, base)?.widens).toBe(false);
+  });
+
+  it('lowering the minutes widens; raising them narrows', () => {
+    const lower = modeChange(set('askTimeout', 30), set('askTimeout', 10));
+    expect(lower).toMatchObject({ path: 'plans.addDrop.timeoutMinutes', widens: true });
+    expect(lower?.label).toBe('Add / drop: do it after 30 → 10 min unless you reject');
+    expect(modeChange(set('askTimeout'), set('askTimeout', 60))?.widens).toBe(false);
+    // The default is 30: setting 30 explicitly is no change.
+    expect(modeChange(set('askTimeout'), set('askTimeout', 30))).toBeUndefined();
+  });
+
+  it('parseTimeout clamps to 5–1440 whole minutes; blank keeps the current value', () => {
+    expect(parseTimeout('2', 30)).toBe(5);
+    expect(parseTimeout('9999', 30)).toBe(1440);
+    expect(parseTimeout('12.6', 30)).toBe(13);
+    expect(parseTimeout('', 45)).toBe(45);
+    expect(parseTimeout('abc', 45)).toBe(45);
   });
 });

@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { PlayerKey, TOOL_FOR_KIND } from '@fha/core';
+import { PlayerKey, TOOL_FOR_KIND, askTimeoutMinutes } from '@fha/core';
 import { matchPlayer, type Candidate } from '@fha/model';
 import { DEFAULT_PERMISSIONS_PATH, editPermissions, loadPermissions } from '@fha/pipeline';
 import { readPool } from './yahooFiles.js';
@@ -54,7 +54,9 @@ function printPermissions(path: string): void {
     const limits = Object.entries(rule.limits)
       .map(([k, v]) => `${k}=${String(v)}`)
       .join(' ');
-    console.log(`  ${kind.padEnd(13)} ${rule.mode.padEnd(5)} ${limits}`);
+    const mode =
+      rule.mode === 'askTimeout' ? `askTimeout ${askTimeoutMinutes(rule)}min` : rule.mode;
+    console.log(`  ${kind.padEnd(13)} ${mode.padEnd(5)} ${limits}`);
   }
   console.log('  (any kind not listed is denied)');
   console.log('\ntools:');

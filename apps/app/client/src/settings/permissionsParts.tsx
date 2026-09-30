@@ -5,20 +5,24 @@ import { api, type PlayerRefT } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
 import { Toggle } from '../components/Toggle';
 import {
+  MODE_LABELS,
   PLAN_LABELS,
   limitsOf,
   modeOf,
   parseLimit,
   parseMinGain,
+  parseTimeout,
+  timeoutOf,
   toolEnabled,
 } from './permissionsDiff';
 
 type Edit = (fn: (draft: Permissions) => void) => void;
 
-const MODES: GateMode[] = ['deny', 'ask', 'allow'];
+const MODES: GateMode[] = ['deny', 'ask', 'askTimeout', 'allow'];
 const MODE_TONE: Record<GateMode, string> = {
   deny: 'bg-bad/20 text-bad border-bad/60',
   ask: 'bg-warn/20 text-warn border-warn/60',
+  askTimeout: 'bg-acc/20 text-acc border-acc/60',
   allow: 'bg-good/20 text-good border-good/60',
 };
 
@@ -43,7 +47,17 @@ export function PlanRow({ kind, draft, edit }: { kind: PlanKind; draft: Permissi
   const limits = limitsOf(draft, kind);
   const setMode = (m: GateMode) =>
     edit((d) => {
-      d.plans[kind] = { mode: m, limits: d.plans[kind]?.limits ?? {} };
+      const minutes = d.plans[kind]?.timeoutMinutes;
+      d.plans[kind] = {
+        mode: m,
+        limits: d.plans[kind]?.limits ?? {},
+        ...(minutes === undefined ? {} : { timeoutMinutes: minutes }),
+      };
+    });
+  const setMinutes = (raw: string) =>
+    edit((d) => {
+      const plan = (d.plans[kind] ??= { mode: 'askTimeout', limits: {} });
+      plan.timeoutMinutes = parseTimeout(raw, timeoutOf(d, kind));
     });
   const setLimit = (key: keyof PlanLimits, raw: string) =>
     edit((d) => {
@@ -70,13 +84,25 @@ export function PlanRow({ kind, draft, edit }: { kind: PlanKind; draft: Permissi
               role="radio"
               aria-checked={mode === m}
               onClick={() => setMode(m)}
-              className={`border-l border-line px-3 py-1 text-xs capitalize first:border-l-0 ${mode === m ? MODE_TONE[m] : 'text-mut'}`}
+              className={`border-l border-line px-3 py-1 text-xs first:border-l-0 ${mode === m ? MODE_TONE[m] : 'text-mut'}`}
             >
-              {m}
+              {MODE_LABELS[m]}
             </button>
           ))}
         </div>
       </div>
+      {mode === 'askTimeout' ? (
+        <label className="mt-2 flex flex-wrap items-center gap-2 text-xs text-mut">
+          Ask, then do it after
+          <LimitInput
+            value={timeoutOf(draft, kind)}
+            scale={1}
+            placeholder="30"
+            onCommit={setMinutes}
+          />
+          min unless I reject (5–1440; sooner before a lineup lock or deadline; never in dry run)
+        </label>
+      ) : null}
       {LIMITS_FOR[kind].length > 0 ? (
         <div className="mt-2 flex flex-wrap gap-3">
           {LIMITS_FOR[kind].map((key) => (

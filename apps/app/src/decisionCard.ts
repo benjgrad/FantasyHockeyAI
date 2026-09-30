@@ -167,6 +167,11 @@ export function toCard(store: Store, d: DecisionRecord, ctx: CardContext): Decis
     actions,
     yahooUrl: actions.includes('openInYahoo') ? yahooUrlFor(d.plan, ctx) : null,
     confirmText: actions.length === 0 ? null : confirmTextFor(d.plan, ctx.name, ctx.teamName),
+    // Only while it is still waiting: once decided, the timer is history (D-018).
+    autoApproveAt:
+      d.status === 'pending' && approval?.status === 'pending'
+        ? (approval.autoApproveAt ?? null)
+        : null,
   };
 }
 

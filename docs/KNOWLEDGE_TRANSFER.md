@@ -464,7 +464,7 @@ Checks by plan kind:
 - **A second failure** rejects the plan with status `invalid`. It is logged and Ben is notified if the job was important. Nothing is forced through.
 
 ### 9.2 Gate
-- The gate reads `config/permissions.yaml` (§18.3) and returns `allow | ask | deny` for the plan kind, plus the limits.
+- The gate reads `config/permissions.yaml` (§18.3) and returns `allow | ask | deny` for the plan kind, plus the limits. A kind set to `askTimeout` comes out as `ask` with a timer (`autoApproveAfterMinutes`): the plan is queued and executes on its own at its auto-approve time unless Ben rejects it first (ROADMAP D-018).
 - **`dryRun: true` overrides everything:** it logs "would execute" and executes nothing.
 - **An `ask` plan** is stored in `approvals` with the **exact validated plan JSON**, and a notification goes out.
   - On approval, the **stored plan is re-validated**, because the state may have changed, and then executed as-is. The LLM isn't asked again.

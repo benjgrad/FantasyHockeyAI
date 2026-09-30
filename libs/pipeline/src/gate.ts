@@ -1,5 +1,6 @@
 import {
   TOOL_FOR_KIND,
+  askTimeoutMinutes,
   isToolEnabled,
   playersTouched,
   type GateMode,
@@ -23,6 +24,11 @@ import {
  *   6. an ask-listed player is touched           → ask
  *      a protected (top-N) player would leave    → ask
  *   7. otherwise                                 → the plan kind's mode
+ *
+ * An `askTimeout` kind (D-018) comes out as `ask` with `autoApproveAfterMinutes` set, so every
+ * existing ask path (queue, card, approve, reject) applies unchanged; the timer is extra. An ask
+ * for any other reason (step 6) never carries a timer: that ask is about the player, and only
+ * Ben answers it.
  */
 export interface GateState {
   /** Our top-N players by VORP (N from `protected.topNByVorp`), computed by the caller. */
@@ -31,8 +37,16 @@ export interface GateState {
   addsThisWeek: number;
 }
 
+/** What the gate decides. `askTimeout` is not a decision: it is `ask` plus a timer. */
+export type GateDecision = Exclude<GateMode, 'askTimeout'>;
+
 export interface GateResult {
-  decision: GateMode;
+  decision: GateDecision;
+  /**
+   * Only on an `ask` from an `askTimeout` kind: the plan executes on its own this many minutes
+   * after it is queued unless Ben rejects it (capped by the plan's own deadline, D-018).
+   */
+  autoApproveAfterMinutes?: number;
   reasons: string[];
   /** When true the pipeline logs "would execute" and executes nothing, whatever `decision` is. */
   dryRun: boolean;
@@ -74,6 +88,15 @@ export function gate(plan: Plan, perms: Permissions, state: GateState): GateResu
   if (prot.length > 0) reasons.push(`protected top-N player(s) would leave: ${prot.join(', ')}`);
 
   if (reasons.length > 0) return { decision: 'ask', reasons, dryRun: perms.dryRun };
+  if (rule.mode === 'askTimeout') {
+    const minutes = askTimeoutMinutes(rule);
+    return {
+      decision: 'ask',
+      autoApproveAfterMinutes: minutes,
+      reasons: [`plan kind ${kind} is ask, then do it after ${minutes} min`],
+      dryRun: perms.dryRun,
+    };
+  }
   return {
     decision: rule.mode,
     reasons: [`plan kind ${kind} is ${rule.mode}`],

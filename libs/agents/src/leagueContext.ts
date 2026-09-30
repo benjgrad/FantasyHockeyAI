@@ -1,4 +1,4 @@
-import { TOOL_FOR_KIND, type LeagueSettings, type Permissions } from '@fha/core';
+import { TOOL_FOR_KIND, askTimeoutMinutes, type LeagueSettings, type Permissions } from '@fha/core';
 import type { LeagueView } from '@fha/tools';
 
 /**
@@ -39,7 +39,12 @@ function limitsLine(p: Permissions): string {
     const limits = Object.entries(rule.limits)
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k} ${String(v)}`);
-    return `${kind} ${rule.mode}${limits.length > 0 ? ` (${limits.join(', ')})` : ''}`;
+    // Ask with timeout (D-018): queued for Ben, done on its own if he does not reject in time.
+    const mode =
+      rule.mode === 'askTimeout'
+        ? `ask (done after ${askTimeoutMinutes(rule)} min unless Ben rejects)`
+        : rule.mode;
+    return `${kind} ${mode}${limits.length > 0 ? ` (${limits.join(', ')})` : ''}`;
   });
   return `Plan kinds (any not listed is refused): ${parts.join('; ') || 'none'}.`;
 }

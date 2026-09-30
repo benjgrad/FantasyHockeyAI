@@ -1,5 +1,8 @@
 import {
+  ASK_TIMEOUT_MAX_MINUTES,
+  ASK_TIMEOUT_MIN_MINUTES,
   PLAN_KINDS,
+  askTimeoutMinutes,
   type GateMode,
   type Permissions,
   type PlanKind,
@@ -21,7 +24,16 @@ export interface Change {
   widens: boolean;
 }
 
-const MODE_RANK: Record<GateMode, number> = { deny: 0, ask: 1, allow: 2 };
+/** Ask with timeout (D-018) sits between ask and allow: it acts unless Ben says no in time. */
+const MODE_RANK: Record<GateMode, number> = { deny: 0, ask: 1, askTimeout: 2, allow: 3 };
+
+/** How a mode reads in the editor and the review list. */
+export const MODE_LABELS: Record<GateMode, string> = {
+  deny: 'deny',
+  ask: 'ask',
+  askTimeout: 'ask, then do',
+  allow: 'allow',
+};
 
 export const PLAN_LABELS: Record<PlanKind, string> = {
   lineup: 'Lineup changes',
@@ -35,6 +47,18 @@ export const PLAN_LABELS: Record<PlanKind, string> = {
 /** The gate fails closed: a kind missing from `plans` is `deny`. */
 export function modeOf(perms: Permissions, kind: PlanKind): GateMode {
   return perms.plans[kind]?.mode ?? 'deny';
+}
+
+/** Minutes an ask with timeout waits for a reject, with the default applied. */
+export function timeoutOf(perms: Permissions, kind: PlanKind): number {
+  return askTimeoutMinutes(perms.plans[kind]);
+}
+
+/** The minutes field as typed: blank or junk keeps `current`; clamped to 5–1440 whole minutes. */
+export function parseTimeout(raw: string, current: number): number {
+  const n = Number(raw);
+  if (raw.trim() === '' || !Number.isFinite(n)) return current;
+  return Math.min(ASK_TIMEOUT_MAX_MINUTES, Math.max(ASK_TIMEOUT_MIN_MINUTES, Math.round(n)));
 }
 
 export function limitsOf(perms: Permissions, kind: PlanKind): PlanLimits {
@@ -99,11 +123,20 @@ function diffPlans(before: Permissions, after: Permissions): Change[] {
   for (const kind of PLAN_KINDS) {
     const from = modeOf(before, kind);
     const to = modeOf(after, kind);
+    const minutes = (p: Permissions, m: GateMode) =>
+      m === 'askTimeout' ? ` after ${timeoutOf(p, kind)} min` : '';
     if (from !== to) {
       out.push({
         path: `plans.${kind}.mode`,
-        label: `${PLAN_LABELS[kind]}: ${from} → ${to}`,
+        label: `${PLAN_LABELS[kind]}: ${MODE_LABELS[from]}${minutes(before, from)} → ${MODE_LABELS[to]}${minutes(after, to)}`,
         widens: MODE_RANK[to] > MODE_RANK[from],
+      });
+    } else if (to === 'askTimeout' && timeoutOf(before, kind) !== timeoutOf(after, kind)) {
+      // Less time to say no is more autonomy.
+      out.push({
+        path: `plans.${kind}.timeoutMinutes`,
+        label: `${PLAN_LABELS[kind]}: do it after ${timeoutOf(before, kind)} → ${timeoutOf(after, kind)} min unless you reject`,
+        widens: timeoutOf(after, kind) < timeoutOf(before, kind),
       });
     }
     out.push(...diffLimits(kind, limitsOf(before, kind), limitsOf(after, kind)));

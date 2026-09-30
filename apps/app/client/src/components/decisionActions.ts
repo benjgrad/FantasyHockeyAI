@@ -54,3 +54,40 @@ export function resultView(r: Pick<DecisionActionResult, 'outcome' | 'message'>)
 export function changesRoster(r: Pick<DecisionActionResult, 'outcome'>): boolean {
   return r.outcome === 'executed' || r.outcome === 'unverified' || r.outcome === 'confirmed';
 }
+
+const CLOCK: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+
+/** How long until `ms` from now, in words: "in 12 min", "in 1 h 5 min", "in under a minute". */
+export function timeLeft(ms: number): string {
+  if (ms < 60_000) return 'in under a minute';
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 60) return `in ${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `in ${h} h` : `in ${h} h ${m} min`;
+}
+
+/**
+ * The live countdown on an ask-with-timeout card (D-018): "Happens at 10:45 AM unless you reject
+ * · in 12 min". Past its time it is running (or, with dry run on, waiting for Ben: dry run wins).
+ * Null when the card has no timer.
+ */
+export function autoApproveLine(
+  card: Pick<DecisionCard, 'autoApproveAt' | 'status'>,
+  now: Date,
+  dryRun: boolean,
+  clock: (d: Date) => string = (d) => d.toLocaleTimeString([], CLOCK),
+): { text: string; due: boolean } | null {
+  if (card.autoApproveAt === null || card.status !== 'pending') return null;
+  const at = new Date(card.autoApproveAt);
+  if (Number.isNaN(at.getTime())) return null;
+  const left = at.getTime() - now.getTime();
+  const when = clock(at);
+  if (left <= 0) {
+    return dryRun
+      ? { text: `Was due at ${when}; dry run is on, so it waits for you`, due: true }
+      : { text: `Due at ${when}: happening now unless you reject`, due: true };
+  }
+  const note = dryRun ? ' (dry run is on: it will wait for you instead)' : '';
+  return { text: `Happens at ${when} unless you reject · ${timeLeft(left)}${note}`, due: false };
+}

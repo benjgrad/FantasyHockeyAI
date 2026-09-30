@@ -1,3 +1,4 @@
+import { clockTime } from '@fha/pipeline';
 import type { NotificationPrefs, Store } from '@fha/store';
 import type { VapidKeys } from './config.js';
 
@@ -58,6 +59,33 @@ export function inQuietHours(prefs: NotificationPrefs, at: Date): boolean {
   return q.start < q.end ? hhmm >= q.start && hhmm < q.end : hhmm >= q.start || hhmm < q.end;
 }
 
+/** Local "HH:MM" of `at` in `tz`, as minutes since midnight. */
+function minutesIn(tz: string, at: Date): number {
+  const hhmm = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(at);
+  const [h, m] = hhmm.split(':').map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+/**
+ * When the quiet window containing `at` ends, or undefined when `at` is not in quiet hours. By
+ * wall-clock minutes, so on a night the clocks change it can be an hour off; that only moves an
+ * ask-with-timeout's timer (D-018), which is capped by the plan's own deadline anyway.
+ */
+export function quietHoursEnd(prefs: NotificationPrefs, at: Date): Date | undefined {
+  const q = prefs.quietHours;
+  if (q === undefined || !inQuietHours(prefs, at)) return undefined;
+  const [h, m] = q.end.split(':').map(Number);
+  const end = (h ?? 0) * 60 + (m ?? 0);
+  const wait = (end - minutesIn(q.tz, at) + 1440) % 1440;
+  const minute = Math.floor(at.getTime() / 60_000) * 60_000;
+  return new Date(minute + wait * 60_000);
+}
+
 export class PushService {
   constructor(
     private readonly d: {
@@ -75,6 +103,17 @@ export class PushService {
 
   prefs(userId: string): NotificationPrefs {
     return this.d.store.notificationPrefs.get(userId) ?? DEFAULT_PREFS;
+  }
+
+  /**
+   * The end of quiet hours when a push of `kind` at `at` would be suppressed by them (and only by
+   * them: with push off or the kind switched off, Ben chose not to be pushed, so nothing waits).
+   */
+  quietUntil(userId: string, at: Date, kind: NotificationKind = 'approval'): Date | undefined {
+    if (this.d.vapid === undefined) return undefined;
+    const prefs = this.prefs(userId);
+    if (prefs.kinds[kind] === false) return undefined;
+    return quietHoursEnd(prefs, at);
   }
 
   /** Record, then push unless prefs say not to. Never throws: a push is best effort (P9). */
@@ -142,6 +181,21 @@ export function noticeFromPipeline(text: string): Notice | undefined {
       kind: 'approval',
       title: 'Approval needed',
       body: approval[2] ?? '',
+      url: `/decisions/${planId}`,
+      planId,
+    };
+  }
+  // An ask with timeout (D-018): it happens on its own unless Ben rejects it.
+  const timed = /^Auto-approve \(([^)]+)\) at (\S+): (.*)$/.exec(firstLine);
+  if (timed?.[1] !== undefined && timed[2] !== undefined) {
+    const planId = timed[1];
+    const note = text.split('\n').find((l) => l.startsWith('Note: '));
+    return {
+      kind: 'approval',
+      title: 'Happens unless you reject',
+      body:
+        `Will ${timed[3] ?? ''} at ${clockTime(timed[2])} unless you reject — tap to review` +
+        (note === undefined ? '' : ` (${note.slice('Note: '.length).replace(/\.$/, '')})`),
       url: `/decisions/${planId}`,
       planId,
     };

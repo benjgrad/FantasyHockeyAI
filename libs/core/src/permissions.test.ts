@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Permissions } from './permissions.js';
+import { Permissions, askTimeoutMinutes } from './permissions.js';
 
 describe('Permissions.autoGrab (D-016)', () => {
   it('a stored document from before auto-grab parses, with the defaults', () => {
@@ -20,5 +20,26 @@ describe('Permissions.autoGrab (D-016)', () => {
     expect(Permissions.safeParse({ autoGrab: { typo: true } }).success).toBe(false);
     expect(Permissions.safeParse({ autoGrab: { minGain: -1 } }).success).toBe(false);
     expect(Permissions.safeParse({ autoGrab: { maxPerWeek: 1.5 } }).success).toBe(false);
+  });
+});
+
+describe('Permissions.plans askTimeout (D-018)', () => {
+  it('a stored plan entry from before D-018 parses unchanged (no timeoutMinutes added)', () => {
+    const p = Permissions.parse({ plans: { addDrop: { mode: 'allow', limits: {} } } });
+    expect(p.plans.addDrop).toEqual({ mode: 'allow', limits: {} });
+    expect(askTimeoutMinutes(p.plans.addDrop)).toBe(30);
+  });
+
+  it('accepts askTimeout with minutes in 5–1440, and refuses anything else', () => {
+    const p = Permissions.parse({ plans: { lineup: { mode: 'askTimeout', timeoutMinutes: 45 } } });
+    expect(p.plans.lineup).toEqual({ mode: 'askTimeout', limits: {}, timeoutMinutes: 45 });
+    expect(askTimeoutMinutes(p.plans.lineup)).toBe(45);
+    for (const bad of [4, 1441, 10.5, -1]) {
+      const r = Permissions.safeParse({
+        plans: { lineup: { mode: 'askTimeout', timeoutMinutes: bad } },
+      });
+      expect(r.success).toBe(false);
+    }
+    expect(Permissions.safeParse({ plans: { lineup: { mode: 'later' } } }).success).toBe(false);
   });
 });

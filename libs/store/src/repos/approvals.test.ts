@@ -127,3 +127,51 @@ describe('approvals.expire', () => {
     expect(store.approvals.expire('2026-10-06T14:00:00Z')).toEqual([]);
   });
 });
+
+describe('approvals: ask with timeout (D-018)', () => {
+  function timed(autoApproveAt: string, deadline?: string) {
+    const ctx = memStore();
+    const p = plan({ kind: 'addDrop', add: P(1) });
+    ctx.store.decisions.insert(p, { status: 'proposed', gate: 'ask' });
+    ctx.store.approvals.request(p.planId, deadline, autoApproveAt, 'user-1');
+    return { ...ctx, planId: p.planId };
+  }
+
+  it('stores the auto-approve time and the user, normalised to UTC', () => {
+    const { store, planId } = timed('2026-10-06T08:30:00-04:00');
+    expect(store.approvals.get(planId)).toMatchObject({
+      status: 'pending',
+      autoApproveAt: '2026-10-06T12:30:00.000Z',
+      userId: 'user-1',
+    });
+  });
+
+  it('dueAutoApprovals lists pending rows at or past their time, soonest first', () => {
+    const { store, planId } = timed('2026-10-06T12:30:00Z');
+    const other = plan({ kind: 'addDrop', add: P(2) });
+    store.decisions.insert(other, { status: 'proposed', gate: 'ask' });
+    store.approvals.request(other.planId, undefined, '2026-10-06T12:20:00Z', 'user-1');
+    const plain = plan({ kind: 'addDrop', add: P(3) });
+    store.decisions.insert(plain, { status: 'proposed', gate: 'ask' });
+    store.approvals.request(plain.planId);
+
+    expect(store.approvals.dueAutoApprovals('2026-10-06T12:19:59Z')).toEqual([]);
+    expect(store.approvals.dueAutoApprovals('2026-10-06T12:20:00Z').map((a) => a.planId)).toEqual([
+      other.planId,
+    ]);
+    expect(store.approvals.dueAutoApprovals('2026-10-07T00:00:00Z').map((a) => a.planId)).toEqual([
+      other.planId,
+      planId,
+    ]);
+  });
+
+  it('a decided row is no longer due; a timeout decision is recorded via "timeout"', () => {
+    const { store, planId } = timed('2026-10-06T12:30:00Z');
+    expect(store.approvals.decide(planId, 'approved', 'timeout')).toBe('ok');
+    expect(store.approvals.get(planId)?.via).toBe('timeout');
+    expect(store.approvals.dueAutoApprovals('2026-10-07T00:00:00Z')).toEqual([]);
+    // Compare-and-set: Ben's late reject cannot undo it, and a second timeout cannot repeat it.
+    expect(store.approvals.decide(planId, 'rejected', 'web')).toBe('not_pending');
+    expect(store.approvals.decide(planId, 'approved', 'timeout')).toBe('not_pending');
+  });
+});
