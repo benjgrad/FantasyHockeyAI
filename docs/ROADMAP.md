@@ -93,6 +93,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-A** | Availability as a first-class input (`availability()`, `rosterHealth()`), draft-scoring fixes | `done` 2026-09-29 — every draft-night flaw has a failing-first scenario | Scenarios pass; live roster health matches Ben's diagnosis | §12 |
 | **M-MCP** | stdio MCP server over the agent tools (`apps/mcp`) | `done` 2026-09-29 | Tools listed from the registry; proposals gated; approval needs a human confirmation | §8, §9 |
 | **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` 2026-09-29 — **live at https://hockey.gradyserver.com** (nginx + Let's Encrypt, `fha-app` user service with the daemon). Registered itself with personal-os via DCR on first login. Chat turns made durable (D-014; built, **not yet deployed** — needs an app restart, which applies migration 003). Next: Ben's first sign-in and Connect Yahoo | Sign-in round trip; approve from a decision card; push on the phone | §15 |
+| **M-PWA** | Installable PWA (offline shell + cached reads, update flow), durable chat turns, player cards / compare / free-agent browser / category strength | `done` 2026-09-30, deployed | Works offline with last data; a chat reply survives a disconnect; draft-board-style cards and comparisons in the app | §15 |
 | **M9** | Season strategy, weekly retro, evals in CI | `todo` | `eval:smoke` runs on every PR | §12.6, §19.3, §20 |
 
 ### Deferred from tonight
