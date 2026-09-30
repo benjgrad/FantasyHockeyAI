@@ -6,6 +6,7 @@ import { ConversationList } from '../chat/ConversationList';
 import { turnFromMessage, type Turn } from '../chat/thread';
 import { TurnView } from '../chat/TurnView';
 import { useChatTurns } from '../chat/useChatTurns';
+import { rememberConversation } from '../chat/lastConversation';
 import { ErrorNote } from '../components/ErrorNote';
 import { chatPrefillFrom } from '../players/sheet';
 
@@ -34,6 +35,10 @@ export function Chat() {
     send: sendTurn,
     stop,
   } = useChatTurns(conversationId);
+  // A new chat (`/`) doesn't overwrite it: "+ New chat" and then away should still return here.
+  useEffect(() => {
+    if (conversationId !== null) rememberConversation(conversationId);
+  }, [conversationId]);
   const bottom = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -41,7 +46,10 @@ export function Chat() {
     queryKey: ['conversation', conversationId],
     queryFn: () => api.conversation(conversationId ?? ''),
     enabled: conversationId !== null && conversationId !== createdHere,
-    staleTime: Infinity,
+    // Refetched whenever the chat is reopened: turns sent while it was open live only in the
+    // component's state, and the server is the record. Not on window focus, which would
+    // duplicate a turn still shown live.
+    refetchOnMount: 'always',
     refetchOnWindowFocus: false,
   });
 

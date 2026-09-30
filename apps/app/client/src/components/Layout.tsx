@@ -1,7 +1,8 @@
 import type { Me } from '@fha/api';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
+import { chatHref, isChatPath, lastConversation } from '../chat/lastConversation';
 import { api } from '../api/endpoints';
 import { clearApiCache } from '../pwa/cache';
 import { OnlineBadge } from '../pwa/OfflineStatus';
@@ -22,6 +23,13 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
     refetchInterval: 60_000,
   });
   const pendingCount = pending.data?.decisions.length ?? 0;
+  const { pathname } = useLocation();
+  // The Chat tab goes back to the conversation Ben was in, not a blank new chat.
+  const tabs = TABS.map((t) =>
+    t.to === '/' ? { ...t, href: chatHref(lastConversation()) } : { ...t, href: t.to },
+  );
+  const active = (t: (typeof tabs)[number], isActive: boolean) =>
+    t.to === '/' ? isChatPath(pathname) : isActive;
 
   return (
     <div className="flex h-full flex-col">
@@ -35,13 +43,13 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
             <ModeBadges me={me} />
           </div>
           <nav className="hidden gap-1 sm:flex">
-            {TABS.map((t) => (
+            {tabs.map((t) => (
               <NavLink
                 key={t.to}
-                to={t.to}
+                to={t.href}
                 end={t.end}
                 className={({ isActive }) =>
-                  `relative rounded-lg px-3 py-1.5 text-sm ${isActive ? 'bg-raised text-ink' : 'text-mut hover:text-ink'}`
+                  `relative rounded-lg px-3 py-1.5 text-sm ${active(t, isActive) ? 'bg-raised text-ink' : 'text-mut hover:text-ink'}`
                 }
               >
                 {t.label}
@@ -55,13 +63,13 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
       </header>
       <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">{children}</main>
       <nav className="sticky bottom-0 z-20 grid grid-cols-5 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <NavLink
             key={t.to}
-            to={t.to}
+            to={t.href}
             end={t.end}
             className={({ isActive }) =>
-              `relative flex flex-col items-center py-2 text-[11px] ${isActive ? 'text-acc' : 'text-mut'}`
+              `relative flex flex-col items-center py-2 text-[11px] ${active(t, isActive) ? 'text-acc' : 'text-mut'}`
             }
           >
             <span aria-hidden className="text-lg leading-none">
