@@ -4,6 +4,7 @@ import {
   ChatTurnList,
   ConversationDetail,
   ConversationList,
+  DecisionActionResult,
   DecisionCard,
   DecisionList,
   Me,
@@ -80,6 +81,24 @@ export const api = {
     requestJson(f, `/api/decisions/${encodeURIComponent(planId)}/reject`, DecisionCard, {
       method: 'POST',
       body: reason ? { reason } : {},
+    }),
+
+  /** "Do it" (D-015): makes the move in Yahoo now, even with dry run on. */
+  execute: (planId: string) =>
+    requestJson(f, `/api/decisions/${encodeURIComponent(planId)}/execute`, DecisionActionResult, {
+      method: 'POST',
+      body: { confirm: true },
+    }),
+  dismiss: (planId: string, reason?: string) =>
+    requestJson(f, `/api/decisions/${encodeURIComponent(planId)}/dismiss`, DecisionActionResult, {
+      method: 'POST',
+      body: reason ? { reason } : {},
+    }),
+  /** "I did it": the server re-reads Yahoo before marking anything executed. */
+  done: (planId: string) =>
+    requestJson(f, `/api/decisions/${encodeURIComponent(planId)}/done`, DecisionActionResult, {
+      method: 'POST',
+      body: {},
     }),
 
   conversations: () => requestJson(f, '/api/conversations', ConversationList),

@@ -1,19 +1,17 @@
+import type { DecisionActionResult, DecisionCard } from '@fha/api';
 import type { ExecutionAdapter, Plan } from '@fha/core';
 import {
   DryRunAdapter,
   ManualAdapter,
   describePlan,
   executeApproved,
+  executeByHuman,
+  type HumanOutcome,
   type PipelineDeps,
 } from '@fha/pipeline';
-import {
-  DECISION_STATUSES,
-  type ApprovalRecord,
-  type DecisionRecord,
-  type DecisionStatus,
-  type Store,
-} from '@fha/store';
+import type { Store } from '@fha/store';
 import { gateStateFor, validationContextFor } from '@fha/tools';
+import { cardFor, type CardContext } from './decisionCard.js';
 import { HttpError } from './http.js';
 import type { LeagueState } from './league.js';
 import { userPermissions } from './permissions.js';
@@ -27,20 +25,10 @@ import type { LiveAdapterFor } from './writeAdapter.js';
  * is DryRun while permissions say dry run. Otherwise it is the Yahoo website adapter for a user
  * with a usable Yahoo connection — which executes add/drop (the one write observed, U-12) and
  * turns every other kind into a push telling Ben what to do in Yahoo — and Manual without one.
+ *
+ * D-015: when Ben himself taps "Do it" on a card, that one plan gets the live adapter even with
+ * dry run on (`{ human: true }`): dry run means "don't act without me", not "you can't act".
  */
-export interface DecisionCard {
-  planId: string;
-  kind: string;
-  status: DecisionStatus;
-  summary: string;
-  rationale: string;
-  gateReasons: string[];
-  agent: string;
-  createdAt: string;
-  deadline: string | null;
-  result: string | null;
-}
-
 export interface PipelineWiring {
   store: Store;
   permissionsFile: string;
@@ -51,14 +39,20 @@ export interface PipelineWiring {
   liveAdapter?: LiveAdapterFor;
 }
 
-export function pipelineFor(w: PipelineWiring, userId: string, league: LeagueState): PipelineDeps {
+export function pipelineFor(
+  w: PipelineWiring,
+  userId: string,
+  league: LeagueState,
+  opts: { human?: boolean } = {},
+): PipelineDeps {
   const { view } = league;
   const now = w.now().toISOString();
   const permissions = () => userPermissions(w.store, w.permissionsFile, userId);
   const notify = (text: string) => w.notify(userId, text);
   const name = (k: string) => view.player(k)?.name ?? k;
-  const dryRun = permissions().dryRun;
-  // Only built when dry run is off, so a dry-run user's pipeline holds no Yahoo writer at all.
+  const dryRun = opts.human !== true && permissions().dryRun;
+  // Only built when dry run is off (or Ben is acting), so an agent's dry-run pipeline holds no
+  // Yahoo writer at all.
   const live = dryRun
     ? undefined
     : w.liveAdapter?.(userId, league, { describe: (p) => describePlan(p, name), notify });
@@ -79,62 +73,6 @@ export function pipelineFor(w: PipelineWiring, userId: string, league: LeagueSta
   };
 }
 
-function text(v: unknown): string | null {
-  if (v === undefined || v === null) return null;
-  return typeof v === 'string' ? v : JSON.stringify(v);
-}
-
-export function toCard(
-  d: DecisionRecord,
-  approval: ApprovalRecord | undefined,
-  name: (k: string) => string,
-): DecisionCard {
-  // For a gated plan the store keeps the gate's reasons in `validation`.
-  const reasons =
-    d.gate !== undefined && Array.isArray(d.validation) ? d.validation.map(String) : [];
-  return {
-    planId: d.plan.planId,
-    kind: d.kind,
-    status: d.status,
-    summary: describePlan(d.plan, name),
-    rationale: d.rationale,
-    gateReasons: reasons,
-    agent: d.plan.agent,
-    createdAt: d.createdAt,
-    deadline: approval?.deadline ?? d.plan.deadline ?? null,
-    result: text(d.result ?? approval?.reason),
-  };
-}
-
-export function cardFor(
-  store: Store,
-  planId: string,
-  name: (k: string) => string,
-): DecisionCard | undefined {
-  const d = store.decisions.get(planId);
-  return d === undefined ? undefined : toCard(d, store.approvals.get(planId), name);
-}
-
-const LIST_LIMIT = 100;
-
-export function listCards(
-  store: Store,
-  which: 'pending' | 'all',
-  name: (k: string) => string,
-): DecisionCard[] {
-  if (which === 'pending') {
-    return store.approvals.pending().flatMap((a) => {
-      const d = store.decisions.get(a.planId);
-      return d === undefined ? [] : [toCard(d, a, name)];
-    });
-  }
-  return store.decisions
-    .listByStatus(...DECISION_STATUSES)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, LIST_LIMIT)
-    .map((d) => toCard(d, store.approvals.get(d.plan.planId), name));
-}
-
 const DECIDE_ERRORS = {
   not_found: new HttpError(404, 'not_found', 'No such plan is waiting for approval.'),
   not_pending: new HttpError(409, 'not_pending', 'That plan was already decided.'),
@@ -150,27 +88,117 @@ export async function approvePlan(
   userId: string,
   league: LeagueState,
   planId: string,
+  ctx: CardContext,
 ): Promise<DecisionCard> {
   const pipeline = pipelineFor(w, userId, league);
   const outcome = w.store.approvals.decide(planId, 'approved', 'web');
   if (outcome !== 'ok') throw DECIDE_ERRORS[outcome];
   await executeApproved(planId, pipeline);
-  return mustCard(w.store, planId, pipeline.name ?? ((k) => k));
+  return mustCard(w.store, planId, ctx);
 }
 
 export function rejectPlan(
   store: Store,
   planId: string,
   reason: string | undefined,
-  name: (k: string) => string,
+  ctx: CardContext,
 ): DecisionCard {
   const outcome = store.approvals.decide(planId, 'rejected', 'web', reason);
   if (outcome !== 'ok') throw DECIDE_ERRORS[outcome];
-  return mustCard(store, planId, name);
+  return mustCard(store, planId, ctx);
 }
 
-function mustCard(store: Store, planId: string, name: (k: string) => string): DecisionCard {
-  const card = cardFor(store, planId, name);
+export function mustCard(store: Store, planId: string, ctx: CardContext): DecisionCard {
+  const card = cardFor(store, planId, ctx);
   if (card === undefined) throw new HttpError(404, 'not_found', 'No such plan.');
   return card;
+}
+
+const notActionable = (message: string) => new HttpError(409, 'not_actionable', message);
+
+/** The card, when it offers `action`; otherwise 404 or 409 `not_actionable`. */
+export function offering(
+  store: Store,
+  planId: string,
+  action: DecisionCard['actions'][number],
+  ctx: CardContext,
+): DecisionCard {
+  const card = mustCard(store, planId, ctx);
+  if (!card.actions.includes(action)) {
+    throw notActionable(`That decision is ${card.status}; it no longer offers that.`);
+  }
+  return card;
+}
+
+/**
+ * "Do it" (D-015): Ben chose to execute this plan, so it runs with the live adapter even in dry
+ * run. `executeByHuman` re-validates and re-gates it; a deny still wins.
+ */
+export async function executePlan(
+  w: PipelineWiring,
+  userId: string,
+  league: LeagueState,
+  planId: string,
+  ctx: CardContext,
+): Promise<DecisionActionResult> {
+  offering(w.store, planId, 'execute', ctx);
+  const pipeline = pipelineFor(w, userId, league, { human: true });
+  const out = await executeByHuman(planId, pipeline, 'web');
+  if (out.status === 'not_actionable') throw notActionable(out.detail);
+  return { card: mustCard(w.store, planId, ctx), ...describeOutcome(out) };
+}
+
+export function describeOutcome(
+  out: Exclude<HumanOutcome, { status: 'not_actionable' }>,
+): Pick<DecisionActionResult, 'outcome' | 'message'> {
+  switch (out.status) {
+    case 'executed':
+      return {
+        outcome: 'executed',
+        message: `Done in Yahoo, and your roster shows it. ${out.detail}`,
+      };
+    case 'unverified':
+      return {
+        outcome: 'unverified',
+        message: `Sent to Yahoo, but your roster does not show it yet (${out.detail}). Check Yahoo before trying again; it will not be sent twice.`,
+      };
+    case 'failed':
+      return { outcome: 'failed', message: `Yahoo did not make the move: ${out.detail}` };
+    case 'needsHuman':
+      return {
+        outcome: 'needsHuman',
+        message: 'This one has to be done by hand: open it in Yahoo, then tap "I did it".',
+      };
+    case 'denied':
+      return { outcome: 'denied', message: `Not allowed: ${out.reasons.join('; ')}` };
+    case 'invalid':
+      return { outcome: 'invalid', message: `No longer valid: ${out.errors.join(' ')}` };
+    case 'pending':
+    case 'dry_run':
+      // Unreachable for a human action (the ask is satisfied, dry run ignored); said plainly.
+      return { outcome: 'unverified', message: `Nothing was sent (${out.status}).` };
+  }
+}
+
+/** Drop a proposal without doing it: dry run, pending, or handed to Ben → rejected. */
+export function dismissPlan(
+  store: Store,
+  planId: string,
+  reason: string | undefined,
+  ctx: CardContext,
+): DecisionActionResult {
+  const card = mustCard(store, planId, ctx);
+  if (!card.actions.includes('dismiss') && !card.actions.includes('reject')) {
+    throw notActionable(`That decision is ${card.status}; there is nothing to dismiss.`);
+  }
+  const ok =
+    card.status === 'pending'
+      ? store.approvals.decide(planId, 'rejected', 'web', reason) === 'ok'
+      : store.approvals.settle(planId, 'rejected', 'web', [card.status], reason);
+  if (!ok) throw notActionable('That decision was already settled.');
+  return {
+    card: mustCard(store, planId, ctx),
+    outcome: 'dismissed',
+    message: 'Dismissed. Nothing was done in Yahoo.',
+  };
 }

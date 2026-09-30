@@ -9,7 +9,9 @@ import type { PipelineWiring } from './decisions.js';
 import type { LeagueService } from './league.js';
 import type { OidcService } from './oidcService.js';
 import type { PushSend, PushService } from './push.js';
+import type { CardContext } from './decisionCard.js';
 import { userPermissions } from './permissions.js';
+import { canWriteLive } from './writeAdapter.js';
 import type { SessionDeps } from './session.js';
 import type { Valuate } from './valuations.js';
 import type { YahooAccess } from './yahoo.js';
@@ -93,8 +95,16 @@ export function meView(s: Services, user: User): MeView {
   };
 }
 
-/** Player names from the cached league (display only), keys when there is none. */
-export function namesFor(s: Services, userId: string): (k: string) => string {
-  const view = s.league.peek(userId)?.view;
-  return (k) => view?.player(k)?.name ?? k;
+/** What a decision card needs to name players, link to Yahoo and offer its actions (D-015). */
+export function cardContext(s: Services, userId: string): CardContext {
+  const state = s.league.peek(userId);
+  const conn = s.store.yahooConnections.get(userId);
+  return {
+    name: (k) => state?.view.player(k)?.name ?? k,
+    teamName: (k) => state?.view.snap.teams.find((t) => t.teamKey === k)?.name ?? k,
+    leagueKey: conn?.leagueKey ?? null,
+    teamKey: conn?.teamKey ?? null,
+    live: canWriteLive({ store: s.store, secretKey: s.config.secretKey, yahoo: s.yahoo }, userId),
+    now: s.now(),
+  };
 }

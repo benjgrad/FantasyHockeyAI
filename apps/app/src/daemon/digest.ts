@@ -1,7 +1,8 @@
 import { EVENT_KINDS, MatchupUpdatePayload } from '@fha/tools';
-import { listCards, type DecisionCard } from '../decisions.js';
+import type { DecisionCard } from '@fha/api';
+import { listCards } from '../decisionCard.js';
 import type { Services } from '../services.js';
-import { namesFor } from '../services.js';
+import { cardContext } from '../services.js';
 import { teamView } from '../team.js';
 import { addDays, nyAt, nyDate } from './schedule.js';
 
@@ -82,11 +83,11 @@ export function gatherDigest(s: Services, userId: string, now: Date): DigestInpu
   const today = nyDate(now);
   const from = nyAt(addDays(today, -1), '00:00').toISOString();
   const to = nyAt(today, '00:00').toISOString();
-  const names = namesFor(s, userId);
-  const yesterday = listCards(s.store, 'all', names).filter(
+  const cards = { ...cardContext(s, userId), now };
+  const yesterday = listCards(s.store, 'all', cards).filter(
     (c) => c.createdAt >= from && c.createdAt < to && c.status !== 'proposed',
   );
-  const pending = listCards(s.store, 'pending', names);
+  const pending = listCards(s.store, 'pending', cards);
   const since = new Date(now.getTime() - 36 * 3_600_000).toISOString();
   const reading = s.store.events.recent(userId, since, [EVENT_KINDS.matchupUpdate]).at(-1);
   const parsed = MatchupUpdatePayload.safeParse(reading?.payload);

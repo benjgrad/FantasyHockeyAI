@@ -13,6 +13,9 @@ const card: DecisionCard = {
   createdAt: '2026-09-29T00:00:00Z',
   deadline: null,
   result: null,
+  actions: [],
+  yahooUrl: null,
+  confirmText: null,
 };
 
 const run = (events: ChatEvent[]): Turn => events.reduce(applyEvent, assistantTurn('a'));

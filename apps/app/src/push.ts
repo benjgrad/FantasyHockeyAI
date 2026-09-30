@@ -129,7 +129,7 @@ export class PushService {
 
 /**
  * The pipeline's notices (plain text, from `libs/pipeline`) → push notifications. Approval
- * requests deep-link to their decision card. The pipeline's wording is matched on its fixed
+ * requests and dry-run proposals deep-link to their decision card. The pipeline's wording is matched on its fixed
  * prefixes; anything unrecognised is still delivered, as a `failed`-kind notice, rather than
  * dropped (P5: when unsure, tell Ben).
  */
@@ -142,6 +142,18 @@ export function noticeFromPipeline(text: string): Notice | undefined {
       kind: 'approval',
       title: 'Approval needed',
       body: approval[2] ?? '',
+      url: `/decisions/${planId}`,
+      planId,
+    };
+  }
+  // A dry-run proposal (D-015): Ben can do it from the card, so it deep-links there too.
+  const proposed = /^Proposed \(([^)]+)\): (.*)$/.exec(firstLine);
+  if (proposed?.[1] !== undefined) {
+    const planId = proposed[1];
+    return {
+      kind: 'approval',
+      title: 'New proposal',
+      body: `Proposed: ${proposed[2] ?? ''} — tap to review`,
       url: `/decisions/${planId}`,
       planId,
     };

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Permissions, type ExecutionAdapter, type Plan, type PlanPayload } from '@fha/core';
 import { openStore, type Store } from '@fha/store';
-import { DryRunAdapter } from './adapters.js';
-import { executeApproved, submitPlan, type PipelineDeps } from './pipeline.js';
+import { DryRunAdapter, ManualAdapter } from './adapters.js';
+import { executeApproved, executeByHuman, submitPlan, type PipelineDeps } from './pipeline.js';
 import type { ValidationContext } from './validate.js';
 
 const US = '477.l.1.t.6';
@@ -100,6 +100,12 @@ describe('submitPlan', () => {
     const r = await submitPlan(swap(), deps({ ...allow, dryRun: true }, { adapter }));
     expect(r.status).toBe('dry_run');
     expect(adapter.calls).toBe(0);
+  });
+
+  it('a dry-run plan is announced as a proposal Ben can act on (D-015)', async () => {
+    const p = swap();
+    await submitPlan(p, deps({ ...allow, dryRun: true }));
+    expect(notes).toEqual([`Proposed (${p.planId}): add ${B}, drop ${A}`]);
   });
 
   it('executes and verifies an allowed plan, with a snapshot first', async () => {
@@ -200,5 +206,111 @@ describe('executeApproved', () => {
     // ...while a second plan over the same players is still refused as a duplicate.
     const dup = await submitPlan(swap(), d);
     expect(dup.status).toBe('invalid');
+  });
+});
+
+describe('executeByHuman (D-015)', () => {
+  const dry = { ...allow, dryRun: true };
+  /** A plan the pipeline finalized as dry_run, as production does with dry run on. */
+  async function proposed(perms: unknown = dry): Promise<Plan> {
+    const p = swap();
+    await submitPlan(p, deps(perms));
+    return p;
+  }
+
+  it('executes a dry_run plan when Ben acts on it, dry run notwithstanding', async () => {
+    const p = await proposed();
+    expect(store.decisions.get(p.planId)?.status).toBe('dry_run');
+    const adapter = new RecordingAdapter();
+    const r = await executeByHuman(
+      p.planId,
+      deps(dry, { adapter, verify: () => Promise.resolve(true) }),
+    );
+    expect(r.status).toBe('executed');
+    expect(adapter.calls).toBe(1);
+    expect(store.decisions.get(p.planId)?.status).toBe('executed');
+    expect(store.approvals.get(p.planId)).toMatchObject({ status: 'approved', via: 'web' });
+    expect(store.snapshots.latest(p.planId)).toBeDefined();
+  });
+
+  it('satisfies an ask: a pending plan executes and its approval is recorded', async () => {
+    const p = await proposed({ ...ask, dryRun: true });
+    expect(store.decisions.get(p.planId)?.status).toBe('pending');
+    const adapter = new RecordingAdapter();
+    const r = await executeByHuman(p.planId, deps(ask, { adapter }));
+    expect(r.status).toBe('unverified');
+    expect(adapter.calls).toBe(1);
+    expect(store.approvals.get(p.planId)?.status).toBe('approved');
+  });
+
+  it('a lock added since the proposal is still denied, and the plan stays actionable', async () => {
+    const p = await proposed();
+    const adapter = new RecordingAdapter();
+    const r = await executeByHuman(
+      p.planId,
+      deps({ ...dry, players: { locked: [A] } }, { adapter }),
+    );
+    expect(r.status).toBe('denied');
+    expect(adapter.calls).toBe(0);
+    expect(store.decisions.get(p.planId)?.status).toBe('dry_run');
+  });
+
+  it('paused writes are denied', async () => {
+    const p = await proposed();
+    const adapter = new RecordingAdapter();
+    const r = await executeByHuman(p.planId, deps({ ...dry, paused: true }, { adapter }));
+    expect(r).toMatchObject({ status: 'denied', reasons: [expect.stringMatching(/paused/)] });
+    expect(adapter.calls).toBe(0);
+  });
+
+  it('a plan no longer valid is marked invalid and not sent', async () => {
+    const p = await proposed();
+    const adapter = new RecordingAdapter();
+    const r = await executeByHuman(
+      p.planId,
+      deps(dry, { adapter, validation: { ...validation, isFreeAgent: () => false } }),
+    );
+    expect(r.status).toBe('invalid');
+    expect(adapter.calls).toBe(0);
+    expect(store.decisions.get(p.planId)?.status).toBe('invalid');
+  });
+
+  it('a double tap sends once', async () => {
+    const p = await proposed();
+    const adapter = new RecordingAdapter();
+    const d = deps(dry, { adapter, verify: () => Promise.resolve(true) });
+    const [a, b] = await Promise.all([executeByHuman(p.planId, d), executeByHuman(p.planId, d)]);
+    expect(adapter.calls).toBe(1);
+    expect([a.status, b.status].sort()).toEqual(['executed', 'not_actionable']);
+  });
+
+  it('refuses a plan already executed, rejected or unknown', async () => {
+    const p = await proposed();
+    const adapter = new RecordingAdapter();
+    const d = deps(dry, { adapter, verify: () => Promise.resolve(true) });
+    await executeByHuman(p.planId, d);
+    expect((await executeByHuman(p.planId, d)).status).toBe('not_actionable');
+    expect((await executeByHuman('ghost', d)).status).toBe('not_actionable');
+    const q = await proposed();
+    store.approvals.settle(q.planId, 'rejected', 'web', ['dry_run']);
+    expect((await executeByHuman(q.planId, d)).status).toBe('not_actionable');
+    expect(adapter.calls).toBe(1);
+  });
+
+  it('an approved plan already handed to Ben is not re-sent', async () => {
+    const p = swap();
+    await submitPlan(p, deps(allow, { adapter: new ManualAdapter(() => undefined) }));
+    expect(store.decisions.get(p.planId)?.status).toBe('approved');
+    const adapter = new RecordingAdapter();
+    expect((await executeByHuman(p.planId, deps(allow, { adapter }))).status).toBe(
+      'not_actionable',
+    );
+    expect(adapter.calls).toBe(0);
+  });
+
+  it('never runs through the DryRun adapter', async () => {
+    const p = await proposed();
+    expect((await executeByHuman(p.planId, deps(dry))).status).toBe('not_actionable');
+    expect(store.decisions.get(p.planId)?.status).toBe('dry_run');
   });
 });

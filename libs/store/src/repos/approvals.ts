@@ -1,5 +1,6 @@
 import type { Clock, Db } from '../db.js';
 import { toIso } from '../db.js';
+import type { DecisionStatus } from './decisions.js';
 
 /**
  * Ben's approval queue (§9.2, §15). The approval row and its decision move together, in one
@@ -46,6 +47,19 @@ export interface ApprovalsRepo {
     via: string,
     reason?: string,
   ): DecideOutcome;
+  /**
+   * Records a human's answer to a plan that is not queued for approval — a dry-run proposal, or
+   * one already handed to Ben — (D-015). Compare-and-set: the decision moves to `verdict` only
+   * from one of `from`, and the approval row is written (or overwritten) in the same
+   * transaction. False when the decision was not in `from`: a double tap, or already settled.
+   */
+  settle(
+    planId: string,
+    verdict: 'approved' | 'rejected',
+    via: string,
+    from: readonly DecisionStatus[],
+    reason?: string,
+  ): boolean;
   get(planId: string): ApprovalRecord | undefined;
   /** Pending approvals, oldest first. */
   pending(): ApprovalRecord[];
@@ -84,6 +98,12 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
   const markPending = db.prepare(
     `UPDATE decisions SET status = 'pending', updated_at = ? WHERE plan_id = ?`,
   );
+  const upsert = db.prepare(
+    `INSERT INTO approvals (plan_id, status, requested_at, decided_at, via, reason)
+     VALUES (@planId, @status, @at, @at, @via, @reason)
+     ON CONFLICT (plan_id) DO UPDATE SET status = @status, decided_at = @at, via = @via,
+       reason = @reason`,
+  );
   const due = db.prepare(
     `SELECT plan_id FROM approvals
      WHERE status = 'pending' AND deadline IS NOT NULL AND deadline <= ?`,
@@ -115,6 +135,28 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
     },
   );
 
+  const settleDirect = db.transaction(
+    (
+      planId: string,
+      verdict: 'approved' | 'rejected',
+      via: string,
+      from: readonly DecisionStatus[],
+      reason?: string,
+    ): boolean => {
+      if (from.length === 0) return false;
+      const at = now().toISOString();
+      const moved = db
+        .prepare(
+          `UPDATE decisions SET status = ?, updated_at = ?
+           WHERE plan_id = ? AND status IN (${from.map(() => '?').join(', ')})`,
+        )
+        .run(verdict, at, planId, ...from).changes;
+      if (moved !== 1) return false;
+      upsert.run({ planId, status: verdict, at, via, reason: reason ?? null });
+      return true;
+    },
+  );
+
   const expire = db.transaction((nowIso: string): string[] => {
     const ids = (due.all(toIso(nowIso)) as { plan_id: string }[]).map((r) => r.plan_id);
     for (const id of ids) close(id, 'expired', null, 'deadline passed');
@@ -124,6 +166,8 @@ export function approvalsRepo(db: Db, now: Clock): ApprovalsRepo {
   return {
     request: (planId, deadline) => request(planId, deadline),
     decide: (planId, verdict, via, reason) => decide(planId, verdict, via, reason) as DecideOutcome,
+    settle: (planId, verdict, via, from, reason) =>
+      settleDirect(planId, verdict, via, from, reason),
     get(planId) {
       const row = select.get(planId) as ApprovalRow | undefined;
       return row === undefined ? undefined : toRecord(row);

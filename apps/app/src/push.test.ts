@@ -128,6 +128,13 @@ describe('quiet hours and pipeline notices', () => {
     expect(
       noticeFromPipeline('ACTION NEEDED (p-2): add X. Then run: fha confirm p-2'),
     ).toMatchObject({ kind: 'executed', planId: 'p-2' });
+    expect(noticeFromPipeline('Proposed (p-3): add Vincent Trocheck, drop Brad Marchand')).toEqual({
+      kind: 'approval',
+      title: 'New proposal',
+      body: 'Proposed: add Vincent Trocheck, drop Brad Marchand — tap to review',
+      url: '/decisions/p-3',
+      planId: 'p-3',
+    });
     expect(noticeFromPipeline('Refused add X: locked')).toBeUndefined();
     expect(noticeFromPipeline('UNVERIFIED: add X — timeout')).toMatchObject({ kind: 'failed' });
   });

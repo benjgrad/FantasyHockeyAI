@@ -23,6 +23,8 @@ export type ApiError = z.infer<typeof ApiError>;
  * - `llm_not_configured` (503): the server has no ANTHROPIC_API_KEY, so chat is off; the rest of
  *   the app works. Not retryable until the server is reconfigured.
  * - `not_pending` / `expired` (409): the decision was already settled; refresh the card.
+ * - `not_actionable` (409): the card no longer offers that action (already executed, dismissed,
+ *   sent, or its moment passed); refresh the card.
  * - `turn_in_progress` (409): this conversation already has a running chat turn; the error
  *   object also carries its `turnId`, so the client reattaches instead of sending again.
  * - `turn_gone` (410): the turn finished long enough ago that its events were dropped; reload
@@ -35,6 +37,7 @@ export const ERROR_CODES = [
   'llm_not_configured',
   'not_pending',
   'expired',
+  'not_actionable',
   'turn_in_progress',
   'turn_gone',
 ] as const;
@@ -157,6 +160,25 @@ export const DecisionStatus = z.enum([
   'dry_run',
 ]);
 export type DecisionStatus = z.infer<typeof DecisionStatus>;
+/**
+ * What Ben can do with a card, computed server-side from its status, its kind and whether the
+ * app can make that move in Yahoo itself (D-015: a human action executes even in dry run):
+ * - `execute`: "Do it" — the app makes the move in Yahoo now (POST …/execute).
+ * - `openInYahoo`: a link to the right Yahoo page (`yahooUrl`), to do or check it by hand.
+ * - `done`: "I did it" — Ben made the move himself; the server confirms it with a fresh read.
+ * - `dismiss`: drop a proposal (dry run, or one handed to Ben) without doing it.
+ * - `reject`: turn down a plan in the approval queue.
+ * - `approve`: reserved for older clients; this server offers `execute` instead.
+ */
+export const DecisionAction = z.enum([
+  'approve',
+  'reject',
+  'execute',
+  'dismiss',
+  'openInYahoo',
+  'done',
+]);
+export type DecisionAction = z.infer<typeof DecisionAction>;
 export const DecisionCard = z.object({
   planId: z.string(),
   kind: z.string(),
@@ -168,13 +190,48 @@ export const DecisionCard = z.object({
   createdAt: z.string(),
   deadline: z.string().nullable(),
   result: z.string().nullable(),
+  /** Empty when there is nothing left to do. Defaults keep older stored chat events parsing. */
+  actions: z.array(DecisionAction).default([]),
+  /** The Yahoo page for this move (add-player page, or the team page), when known. */
+  yahooUrl: z.string().nullable().default(null),
+  /** The exact question for the confirm step, e.g. "Add X and drop Y in Yahoo?". */
+  confirmText: z.string().nullable().default(null),
 });
 export type DecisionCard = z.infer<typeof DecisionCard>;
 export const DecisionList = z.object({ decisions: z.array(DecisionCard) });
-// GET  /api/decisions?status=pending|all → DecisionList (all: the newest 100)
+/** "Do it": `confirm` must be the literal `true`, so a stray POST executes nothing. */
+export const ExecuteDecisionRequest = z.object({ confirm: z.literal(true) });
+export const DismissDecisionRequest = z.object({ reason: z.string().max(500).optional() });
+/** What an action did, in words for the card, plus the card as it now stands. */
+export const DecisionActionOutcome = z.enum([
+  'executed',
+  'unverified',
+  'failed',
+  'needsHuman',
+  'denied',
+  'invalid',
+  'dismissed',
+  'confirmed',
+  'notConfirmed',
+]);
+export const DecisionActionResult = z.object({
+  card: DecisionCard,
+  outcome: DecisionActionOutcome,
+  message: z.string(),
+});
+export type DecisionActionResult = z.infer<typeof DecisionActionResult>;
+// GET  /api/decisions?status=pending|all → DecisionList
+//      pending: every card that needs Ben (can be done, confirmed or answered), oldest first;
+//      all: the newest 100.
 // GET  /api/decisions/:planId → DecisionCard, or 404 not_found (what a push deep-links to)
 // POST /api/decisions/:planId/approve → DecisionCard
 // POST /api/decisions/:planId/reject  { reason? } → DecisionCard
+// POST /api/decisions/:planId/execute ExecuteDecisionRequest → DecisionActionResult
+//      Makes the move in Yahoo now, even with dry run on (D-015); the gate's deny still wins
+//      (outcome `denied`). 409 not_actionable when the card does not offer `execute`.
+// POST /api/decisions/:planId/dismiss DismissDecisionRequest → DecisionActionResult (`dismissed`)
+// POST /api/decisions/:planId/done → DecisionActionResult: re-reads Yahoo; `confirmed` marks the
+//      plan executed, `notConfirmed` leaves it as it was ("Yahoo doesn't show it yet").
 
 // ── chat ─────────────────────────────────────────────────────────────────────────────────────
 export const ChatRequest = z.object({

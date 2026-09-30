@@ -66,6 +66,40 @@ describe('approvals', () => {
   });
 });
 
+describe('approvals.settle (a human acting on an unqueued plan, D-015)', () => {
+  function dryRun() {
+    const ctx = memStore();
+    const p = plan({ kind: 'addDrop', add: P(1) });
+    ctx.store.decisions.insert(p, { status: 'dry_run', gate: 'allow' });
+    return { ...ctx, planId: p.planId };
+  }
+
+  it('moves the decision and records the approval row in one step', () => {
+    const { store, planId } = dryRun();
+    expect(store.approvals.settle(planId, 'approved', 'web', ['dry_run'])).toBe(true);
+    expect(store.decisions.get(planId)?.status).toBe('approved');
+    expect(store.approvals.get(planId)).toMatchObject({ status: 'approved', via: 'web' });
+    expect(store.approvals.pending()).toEqual([]);
+  });
+
+  it('is compare-and-set: a second tap finds the plan already moved', () => {
+    const { store, planId } = dryRun();
+    expect(store.approvals.settle(planId, 'approved', 'web', ['dry_run'])).toBe(true);
+    expect(store.approvals.settle(planId, 'approved', 'web', ['dry_run'])).toBe(false);
+    expect(store.approvals.settle(planId, 'rejected', 'web', ['dry_run'], 'no')).toBe(false);
+    expect(store.decisions.get(planId)?.status).toBe('approved');
+  });
+
+  it('overwrites an earlier approval row and keeps the reason', () => {
+    const { store, planId } = queued();
+    store.approvals.decide(planId, 'approved', 'cli');
+    store.decisions.updateStatus(planId, 'dry_run');
+    expect(store.approvals.settle(planId, 'rejected', 'web', ['dry_run'], 'nah')).toBe(true);
+    expect(store.approvals.get(planId)).toMatchObject({ status: 'rejected', reason: 'nah' });
+    expect(store.approvals.settle('ghost', 'approved', 'web', ['dry_run'])).toBe(false);
+  });
+});
+
 describe('approvals.expire', () => {
   it('expires only pending approvals whose deadline has passed', () => {
     const { store } = memStore();

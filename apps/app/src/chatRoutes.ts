@@ -1,9 +1,9 @@
 import { ChatRequest, type ChatEvent } from '@fha/api';
 import { runAssistantTurn, storedError, storedText, type AssistantDeps } from '@fha/agents';
-import { cardFor } from './decisions.js';
+import { cardFor, type CardContext } from './decisionCard.js';
 import { HttpError, readJson, sendJson } from './http.js';
 import type { Route } from './router.js';
-import { namesFor, type Services } from './services.js';
+import { cardContext, type Services } from './services.js';
 import { assistantDeps, llmFor } from './chatRuntime.js';
 import { lastSeenSeq, streamTurn } from './chatStream.js';
 import { recordSummary, turnSummary, type TurnRun } from './chatTurns.js';
@@ -25,7 +25,7 @@ const TITLE_CHARS = 60;
 function assistantRun(
   s: Services,
   deps: AssistantDeps,
-  names: (k: string) => string,
+  cards: CardContext,
   turn: { conversationId: string; text: string },
 ): TurnRun {
   return async (emit: (e: ChatEvent) => void, signal) => {
@@ -34,7 +34,7 @@ function assistantRun(
       signal,
       emit: (e) => {
         if (e.type === 'plan') {
-          const card = cardFor(s.store, e.planId, names);
+          const card = cardFor(s.store, e.planId, cards);
           if (card !== undefined) emit({ type: 'decision', card });
         } else if (e.type === 'done') {
           emit({ type: 'done', usage: { costUsd: e.costUsd } });
@@ -86,11 +86,14 @@ function turnRoutes(s: Services, heartbeatMs: number): Route[] {
         const conversation =
           existing ?? s.store.conversations.create(user.id, body.text.slice(0, TITLE_CHARS));
         const deps = assistantDeps(s, user.id, league, llmFor(s.store, s.createMessage));
-        const names = (k: string) => league.view.player(k)?.name ?? k;
+        const cards = {
+          ...cardContext(s, user.id),
+          name: (k: string) => league.view.player(k)?.name ?? k,
+        };
         const turn = s.chatTurns.start({
           userId: user.id,
           conversationId: conversation.id,
-          run: assistantRun(s, deps, names, { conversationId: conversation.id, text: body.text }),
+          run: assistantRun(s, deps, cards, { conversationId: conversation.id, text: body.text }),
         });
         streamTurn(s.chatTurns, turn, 0, res, heartbeatMs);
       },
@@ -172,7 +175,7 @@ function conversationRoutes(s: Services): Route[] {
       handle: ({ res, params, user }) => {
         const c = s.store.conversations.get(params['id'] ?? '', user.id);
         if (c === undefined) throw new HttpError(404, 'not_found', 'No such conversation.');
-        const names = namesFor(s, user.id);
+        const cards = cardContext(s, user.id);
         const messages = s.store.conversations.messages(c.id).flatMap((m) => {
           if (m.role !== 'user' && m.role !== 'assistant') return [];
           const error = storedError(m);
@@ -181,7 +184,7 @@ function conversationRoutes(s: Services): Route[] {
               id: m.id,
               role: m.role,
               text: storedText(m),
-              decisions: m.planIds.flatMap((id) => cardFor(s.store, id, names) ?? []),
+              decisions: m.planIds.flatMap((id) => cardFor(s.store, id, cards) ?? []),
               ...(error === undefined ? {} : { error }),
               createdAt: m.createdAt,
             },

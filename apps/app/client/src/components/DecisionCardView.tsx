@@ -1,10 +1,11 @@
-import type { DecisionCard } from '@fha/api';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { DecisionActionResult, DecisionCard } from '@fha/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/endpoints';
 import { ErrorNote } from './ErrorNote';
 import { LinkedSummary } from '../players/LinkedSummary';
+import { changesRoster, confirmLines, needsYou, resultView, type Tone } from './decisionActions';
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'text-warn',
@@ -17,15 +18,17 @@ const STATUS_STYLE: Record<string, string> = {
   invalid: 'text-bad',
   proposed: 'text-acc',
   unverified: 'text-warn',
+  dry_run: 'text-acc',
 };
 
-export function isPending(card: DecisionCard): boolean {
-  return card.status === 'pending';
-}
+type Act = 'execute' | 'dismiss' | 'done' | 'approve' | 'reject';
 
 /**
- * One plan waiting for (or past) Ben's decision. Approve / Reject call the decisions API and
- * update the card in place; "Why?" shows the agent's rationale and the gate's reasons.
+ * One plan waiting for (or past) Ben's decision, with what he can do about it (D-015): **Do it**
+ * (a confirm step, then the move in Yahoo — even with dry run on), **Open in Yahoo**, **I did it**
+ * (the server re-reads Yahoo before believing it) and **Dismiss** / **Reject**. The server
+ * decides which apply (`card.actions`); results show in place. The same card renders in chat
+ * and on the Decisions page.
  */
 export function DecisionCardView({
   card: initial,
@@ -37,29 +40,46 @@ export function DecisionCardView({
   compact?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const me = useQuery({ queryKey: ['me'], queryFn: api.me, staleTime: 60_000 });
   const [card, setCard] = useState(initial);
   const [why, setWhy] = useState(highlight);
-  const [rejecting, setRejecting] = useState(false);
+  const [mode, setMode] = useState<'idle' | 'confirming' | 'rejecting'>('idle');
   const [reason, setReason] = useState('');
+  const [result, setResult] = useState<DecisionActionResult | null>(null);
   useEffect(() => setCard(initial), [initial]);
 
-  const decide = useMutation({
-    mutationFn: (action: 'approve' | 'reject') =>
-      action === 'approve'
-        ? api.approve(card.planId)
-        : api.reject(card.planId, reason.trim() || undefined),
+  const act = useMutation({
+    mutationFn: async (a: Act): Promise<DecisionActionResult | DecisionCard> => {
+      const note = reason.trim() || undefined;
+      switch (a) {
+        case 'execute':
+          return api.execute(card.planId);
+        case 'dismiss':
+          return api.dismiss(card.planId, note);
+        case 'done':
+          return api.done(card.planId);
+        case 'approve':
+          return api.approve(card.planId);
+        case 'reject':
+          return api.reject(card.planId, note);
+      }
+    },
     onSuccess: (next) => {
-      setCard(next);
-      setRejecting(false);
+      const r = 'outcome' in next ? next : null;
+      setCard(r?.card ?? (next as DecisionCard));
+      setResult(r);
+      setMode('idle');
       void queryClient.invalidateQueries({ queryKey: ['decisions'] });
+      if (r !== null && changesRoster(r))
+        void queryClient.invalidateQueries({ queryKey: ['team'] });
     },
   });
 
-  const pending = isPending(card);
+  const open = needsYou(card);
   return (
     <div
       id={`plan-${card.planId}`}
-      className={`card ${pending ? 'border-warn/60' : ''} ${highlight ? 'ring-2 ring-acc' : ''}`}
+      className={`card ${open ? 'border-warn/60' : ''} ${highlight ? 'ring-2 ring-acc' : ''}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <span className="tag">
@@ -68,38 +88,34 @@ export function DecisionCardView({
         <span
           className={`text-xs font-semibold uppercase ${STATUS_STYLE[card.status] ?? 'text-mut'}`}
         >
-          {card.status}
+          {card.status === 'dry_run' ? 'proposed' : card.status}
         </span>
       </div>
       <div className="mt-1 font-medium">
         <LinkedSummary
           planId={card.planId}
           text={card.summary}
-          load={pending || highlight || compact || why}
+          load={open || highlight || compact || why}
         />
       </div>
-      {card.deadline && pending ? (
+      {card.deadline && open ? (
         <div className="mt-0.5 text-xs text-mut">Decide by {formatWhen(card.deadline)}</div>
       ) : null}
-      {card.result ? <div className="mt-1 text-sm text-soft">{card.result}</div> : null}
-
-      {why ? (
-        <div className="mt-2 rounded-lg bg-well p-2 text-sm">
-          <div className="text-soft whitespace-pre-wrap">{card.rationale}</div>
-          {card.gateReasons.length > 0 ? (
-            <>
-              <div className="tag mt-2">Why it needs you</div>
-              <ul className="mt-1 list-disc pl-5 text-soft">
-                {card.gateReasons.map((r) => (
-                  <li key={r}>{r}</li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </div>
+      {card.result && result === null ? (
+        <div className="mt-1 text-sm text-soft">{card.result}</div>
       ) : null}
+      {result ? <ResultNote result={result} /> : null}
+      {why ? <WhyPanel card={card} /> : null}
 
-      {rejecting ? (
+      {mode === 'confirming' ? (
+        <ConfirmStep
+          lines={confirmLines(card, me.data?.dryRun ?? false)}
+          busy={act.isPending}
+          onConfirm={() => act.mutate('execute')}
+          onCancel={() => setMode('idle')}
+        />
+      ) : null}
+      {mode === 'rejecting' ? (
         <input
           className="input mt-2"
           placeholder="Reason (optional)"
@@ -107,37 +123,32 @@ export function DecisionCardView({
           onChange={(e) => setReason(e.target.value)}
         />
       ) : null}
-      {decide.error ? (
+      {act.error ? (
         <div className="mt-2">
-          <ErrorNote error={decide.error} />
+          <ErrorNote error={act.error} />
         </div>
       ) : null}
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {pending && !rejecting ? (
-          <>
-            <button
-              className="btn btn-primary"
-              disabled={decide.isPending}
-              onClick={() => decide.mutate('approve')}
-            >
-              {decide.isPending ? 'Working…' : 'Approve'}
-            </button>
-            <button className="btn" disabled={decide.isPending} onClick={() => setRejecting(true)}>
-              Reject
-            </button>
-          </>
+        {mode === 'idle' ? (
+          <ActionButtons
+            card={card}
+            busy={act.isPending}
+            onAct={(a) => act.mutate(a)}
+            onConfirm={() => setMode('confirming')}
+            onReject={() => setMode('rejecting')}
+          />
         ) : null}
-        {pending && rejecting ? (
+        {mode === 'rejecting' ? (
           <>
             <button
               className="btn btn-danger"
-              disabled={decide.isPending}
-              onClick={() => decide.mutate('reject')}
+              disabled={act.isPending}
+              onClick={() => act.mutate(card.actions.includes('reject') ? 'reject' : 'dismiss')}
             >
-              Confirm reject
+              {card.actions.includes('reject') ? 'Confirm reject' : 'Confirm dismiss'}
             </button>
-            <button className="btn" onClick={() => setRejecting(false)}>
+            <button className="btn" onClick={() => setMode('idle')}>
               Cancel
             </button>
           </>
@@ -156,6 +167,119 @@ export function DecisionCardView({
           <span className="ml-auto text-xs text-mut">{formatWhen(card.createdAt)}</span>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The buttons the server said this card offers, primary first. */
+function ActionButtons({
+  card,
+  busy,
+  onAct,
+  onConfirm,
+  onReject,
+}: {
+  card: DecisionCard;
+  busy: boolean;
+  onAct: (a: Act) => void;
+  onConfirm: () => void;
+  onReject: () => void;
+}) {
+  const has = (a: DecisionCard['actions'][number]) => card.actions.includes(a);
+  return (
+    <>
+      {has('execute') ? (
+        <button className="btn btn-primary" disabled={busy} onClick={onConfirm}>
+          Do it
+        </button>
+      ) : null}
+      {has('approve') ? (
+        <button className="btn btn-primary" disabled={busy} onClick={() => onAct('approve')}>
+          {busy ? 'Working…' : 'Approve'}
+        </button>
+      ) : null}
+      {has('openInYahoo') && card.yahooUrl ? (
+        <a className="btn" href={card.yahooUrl} target="_blank" rel="noopener noreferrer">
+          Open in Yahoo ↗
+        </a>
+      ) : null}
+      {has('done') ? (
+        <button className="btn" disabled={busy} onClick={() => onAct('done')}>
+          {busy ? 'Checking Yahoo…' : 'I did it'}
+        </button>
+      ) : null}
+      {has('reject') || has('dismiss') ? (
+        <button className="btn" disabled={busy} onClick={onReject}>
+          {has('reject') ? 'Reject' : 'Dismiss'}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function ConfirmStep({
+  lines,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  lines: string[];
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [question, ...notes] = lines;
+  return (
+    <div className="mt-2 rounded-lg border border-acc/50 bg-well p-2 text-sm" role="alertdialog">
+      <div className="font-medium">{question}</div>
+      {notes.map((n) => (
+        <div key={n} className="mt-0.5 text-soft">
+          {n}
+        </div>
+      ))}
+      <div className="mt-2 flex gap-2">
+        <button className="btn btn-primary" disabled={busy} onClick={onConfirm}>
+          {busy ? 'Working in Yahoo…' : 'Yes, do it'}
+        </button>
+        <button className="btn" disabled={busy} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const TONE: Record<Tone, string> = {
+  good: 'border-good/60 text-good',
+  warn: 'border-warn/60 text-warn',
+  bad: 'border-bad/60 text-bad',
+  mut: 'border-line text-mut',
+};
+
+function ResultNote({ result }: { result: DecisionActionResult }) {
+  const v = resultView(result);
+  return (
+    <div className={`mt-2 rounded-lg border p-2 text-sm ${TONE[v.tone]}`} role="status">
+      <div className="font-semibold">{v.title}</div>
+      <div className="mt-0.5 text-soft">{v.message}</div>
+    </div>
+  );
+}
+
+function WhyPanel({ card }: { card: DecisionCard }) {
+  return (
+    <div className="mt-2 rounded-lg bg-well p-2 text-sm">
+      <div className="text-soft whitespace-pre-wrap">{card.rationale}</div>
+      {card.gateReasons.length > 0 ? (
+        <>
+          <div className="tag mt-2">Why it needs you</div>
+          <ul className="mt-1 list-disc pl-5 text-soft">
+            {card.gateReasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }

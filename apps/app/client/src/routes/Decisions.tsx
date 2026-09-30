@@ -2,19 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../api/endpoints';
-import { DecisionCardView, isPending } from '../components/DecisionCardView';
+import { DecisionCardView } from '../components/DecisionCardView';
+import { needsYou } from '../components/decisionActions';
 import { ErrorNote } from '../components/ErrorNote';
 
 /**
- * Pending first, then history. `/decisions/:planId` (what a push opens) highlights one; a
+ * What needs Ben first (proposals to do or dismiss, approvals, moves to confirm), then history. `/decisions/:planId` (what a push opens) highlights one; a
  * decision too old for the capped list is fetched by id and shown on top.
  */
 export function Decisions() {
   const { planId } = useParams();
   const all = useQuery({ queryKey: ['decisions', 'all'], queryFn: () => api.decisions('all') });
   const decisions = all.data?.decisions ?? [];
-  const pending = decisions.filter(isPending);
-  const history = decisions.filter((d) => !isPending(d));
+  const pending = decisions.filter(needsYou);
+  const history = decisions.filter((d) => !needsYou(d));
   const inList = planId ? decisions.some((d) => d.planId === planId) : true;
   const one = useQuery({
     queryKey: ['decision', planId],
@@ -46,7 +47,7 @@ export function Decisions() {
         <>
           <div className="tag">Waiting for you · {pending.length}</div>
           {pending.length === 0 ? (
-            <p className="text-sm text-mut">Nothing needs your approval.</p>
+            <p className="text-sm text-mut">Nothing needs you right now.</p>
           ) : null}
           {pending.map((d) => (
             <DecisionCardView key={d.planId} card={d} highlight={d.planId === planId} />

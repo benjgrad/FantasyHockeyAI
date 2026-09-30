@@ -62,7 +62,11 @@ export async function submitPlan(plan: Plan, deps: PipelineDeps): Promise<Submit
   }
 
   store.decisions.insert(plan, { status: 'proposed', gate: 'allow' });
-  return execute(plan, g, deps);
+  const out = await execute(plan, g, deps);
+  // A dry-run plan is a proposal waiting on Ben, not a silent log line (D-015): tell him, so he
+  // can open the card and do it, or dismiss it.
+  if (out.status === 'dry_run') deps.notify(`Proposed (${plan.planId}): ${describe(plan, deps)}`);
+  return out;
 }
 
 /**
@@ -90,6 +94,62 @@ export async function executeApproved(planId: string, deps: PipelineDeps): Promi
     return { status: 'denied', reasons: g.reasons };
   }
   return execute(plan, { ...g, decision: 'allow' }, deps);
+}
+
+/** Why a human's action on a plan was refused before anything ran (an HTTP 409). */
+export type HumanOutcome = SubmitOutcome | { status: 'not_actionable'; detail: string };
+
+/** The statuses from which Ben can have a stored plan executed (D-015). */
+export const HUMAN_EXECUTABLE: readonly DecisionStatus[] = ['dry_run', 'pending', 'approved'];
+
+/**
+ * Execute a stored plan because Ben, looking at its card, chose to (D-015): "dry run" means
+ * "don't act without me", not "you can't act". The plan is re-validated and re-gated against
+ * fresh state like {@link executeApproved}. A `deny` still wins (paused, tool off, a locked
+ * player, a limit, a kind set to deny) and leaves the plan as it was, so Ben can act once the
+ * cause is gone; an `ask` is satisfied by this very action; and `dryRun` is ignored *for this
+ * one plan only*. Ben's decision is recorded compare-and-set before the write, and the
+ * execution's idempotency key still applies, so a double tap cannot send twice (P7).
+ *
+ * `deps.adapter` must be the live adapter (Yahoo website or Manual), never DryRun.
+ */
+export async function executeByHuman(
+  planId: string,
+  deps: PipelineDeps,
+  via = 'web',
+): Promise<HumanOutcome> {
+  const { store } = deps;
+  const rec = store.decisions.get(planId);
+  const refuse = (detail: string): HumanOutcome => ({ status: 'not_actionable', detail });
+  if (rec === undefined) return refuse(`No plan ${planId}.`);
+  if (!HUMAN_EXECUTABLE.includes(rec.status)) {
+    return refuse(`That plan is ${rec.status}; there is nothing left to execute.`);
+  }
+  if (store.executions.forPlan(planId).length > 0) {
+    return refuse(
+      'That plan was already sent, or handed to you to do in Yahoo. It is never sent twice.',
+    );
+  }
+  if (deps.adapter.name === 'dryRun') return refuse('No live adapter: nothing can be executed.');
+
+  const plan = rec.plan;
+  const v = validatePlan(plan, deps.validation);
+  if (!v.ok) {
+    store.decisions.updateStatus(planId, 'invalid', { result: v.errors, from: [rec.status] });
+    return { status: 'invalid', errors: v.errors };
+  }
+  const g = gate(plan, deps.permissions(), deps.gateState());
+  if (g.decision === 'deny') return { status: 'denied', reasons: g.reasons };
+
+  // Compare-and-set: of two taps, only one moves the plan to approved.
+  const recorded =
+    rec.status === 'pending'
+      ? store.approvals.decide(planId, 'approved', via) === 'ok'
+      : rec.status === 'dry_run'
+        ? store.approvals.settle(planId, 'approved', via, ['dry_run'])
+        : true;
+  if (!recorded) return refuse('That plan was already decided.');
+  return execute(plan, { ...g, decision: 'allow', dryRun: false }, deps);
 }
 
 async function execute(plan: Plan, g: GateResult, deps: PipelineDeps): Promise<SubmitOutcome> {

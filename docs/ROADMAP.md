@@ -86,7 +86,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
 | **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013); waits on a live LLM run and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
-| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified), off while `dryRun: true` | Proposals carry evidence; nothing writes without approval | §12.8 |
+| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; built, not yet deployed): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
 | **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; not deployed | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
@@ -178,6 +178,29 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-015 — 2026-09-29 — A human action on a proposal executes it even in dry run
+- **Dry run means "don't act without me", not "you can't act".** With `dryRun: true` the agents'
+  plans still end `dry_run` and nothing is written on their own. But when Ben taps **Do it** on a
+  card (`POST /api/decisions/:id/execute`, body `{confirm: true}` after a confirm step showing the
+  exact move), that one plan runs with the live adapter (Yahoo website for add/drop, Manual
+  otherwise) — dry run is ignored for it only; everything else stays dry.
+- `executeByHuman` (libs/pipeline) takes a `dry_run`, `pending` or `approved` plan: re-validates
+  and re-gates it against fresh state; **a `deny` still wins** (paused, tool off, locked player,
+  limits, kind deny) and leaves the plan as it was; an `ask` is satisfied by the tap. Ben's
+  answer is recorded compare-and-set (`approvals.decide`, or the new `approvals.settle` for a
+  plan never queued, `via: 'web'`) before the write, and the `planId:0` execution key still
+  applies, so a double tap sends once (P7). A plan already sent or handed to Ben is never re-sent.
+- Every card carries server-computed `actions` (`execute`, `openInYahoo`, `done`, `dismiss`,
+  `reject`), a `yahooUrl` (add → `/hockey/{league}/addplayer?apid=…`; everything else the team
+  page — Yahoo's trade page URL is unobserved [U]) and a `confirmText` built from resolved names.
+- **I did it** (`POST …/done`) never marks a plan executed on Ben's word: it refreshes the
+  snapshot and re-reads Yahoo (the adapter's `verify` for add/drop; a roster read for the plan's
+  date for lineups; pending trades for trade offers). Unconfirmed → the plan stays as it was,
+  "Yahoo doesn't show it yet" (P10). **Dismiss** (`POST …/dismiss`) → `rejected`.
+- A dry-run proposal now sends a push (kind `approval`, "Proposed: … — tap to review",
+  deep-linking the card, subject to prefs). "Waiting for you" (`?status=pending`) is every card
+  that can be done, confirmed or answered, not only the approval queue.
 
 ### D-014 — 2026-09-29 — Chat turns are durable; the HTTP stream only watches
 - A chat turn runs to completion on the server whatever the browser does. `POST /api/chat`
