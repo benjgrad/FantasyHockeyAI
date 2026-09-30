@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Publish the draft board at https://draft.gradyserver.com
+# Publish a site from deploy/<host>.conf: the app at hockey.gradyserver.com, or the draft board.
 #
 # Run with sudo. It installs the site config, obtains a certificate, and reloads nginx.
 # Everything is idempotent: re-running it is safe.
 #
-#   sudo ./deploy/setup-nginx.sh
+#   sudo ./deploy/setup-nginx.sh hockey.gradyserver.com    # the app (fha-app.service)
+#   sudo ./deploy/setup-nginx.sh draft.gradyserver.com     # the draft board (fha-web.service)
 set -euo pipefail
 
-HOSTNAME_FQDN="draft.gradyserver.com"
+HOSTNAME_FQDN="${1:-hockey.gradyserver.com}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SITE_SRC="$REPO/deploy/draft.gradyserver.com.conf"
+SITE_SRC="$REPO/deploy/$HOSTNAME_FQDN.conf"
+[ -f "$SITE_SRC" ] || { echo "no site config at $SITE_SRC" >&2; exit 1; }
 SITE_DST="/etc/nginx/sites-available/$HOSTNAME_FQDN.conf"
 
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
@@ -48,5 +50,4 @@ echo "4/4  reloading nginx"
 systemctl reload nginx
 echo
 echo "Done. https://$HOSTNAME_FQDN"
-echo "Start the app (as your user, not root):"
-echo "  systemctl --user enable --now fha-web.service"
+echo "The app runs as your user, not root: systemctl --user status fha-app (or fha-web for the draft board)"
