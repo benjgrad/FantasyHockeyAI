@@ -334,6 +334,14 @@ export interface TradeSearchInput extends Omit<
   partners: Readonly<Record<string, readonly number[]>>;
   minTradeGain?: number;
   top?: number;
+  /**
+   * Search only these partners; every team in `partners` stays in the field. A two-team field
+   * is zero-sum (one side's win is the other's loss), so restricting the search must not
+   * shrink the field or no trade can ever help both sides.
+   */
+  only?: readonly string[];
+  /** Most players on either side of a swap (default 2: 1-for-1, 2-for-1, 1-for-2). */
+  maxPerSide?: number;
 }
 
 export interface TradeCandidate {
@@ -343,8 +351,9 @@ export interface TradeCandidate {
   evaluation: TradeEvaluation;
 }
 
-function combos(ids: readonly number[]): number[][] {
+function combos(ids: readonly number[], maxPerSide = 2): number[][] {
   const out: number[][] = ids.map((id) => [id]);
+  if (maxPerSide < 2) return out;
   for (let i = 0; i < ids.length; i++) {
     for (let j = i + 1; j < ids.length; j++) out.push([ids[i] ?? 0, ids[j] ?? 0]);
   }
@@ -361,14 +370,16 @@ export function findTradeTargets(input: TradeSearchInput): TradeCandidate[] {
   const found: TradeCandidate[] = [];
   const keys = Object.keys(input.partners).sort();
   const memo = new Map<string, CategoryLine>();
+  const only = input.only === undefined ? undefined : new Set(input.only);
   for (const partner of keys) {
+    if (only !== undefined && !only.has(partner)) continue;
     const theirRoster = input.partners[partner] ?? [];
     const otherRosters = keys.filter((k) => k !== partner).map((k) => input.partners[k] ?? []);
     validateRosters(input, [theirRoster, ...otherRosters], index);
     const others = otherRosters.map((r) => weeklyLine(r, index, input));
     const base = { ...input, theirRoster, otherRosters };
-    for (const give of combos(input.ourRoster)) {
-      for (const get of combos(theirRoster)) {
+    for (const give of combos(input.ourRoster, input.maxPerSide)) {
+      for (const get of combos(theirRoster, input.maxPerSide)) {
         if (give.length + get.length > 3) continue;
         const evaluation = evaluateIndexed({ ...base, give, get }, index, others, memo);
         if (evaluation.deltaUs > minGain && evaluation.partnerGains) {

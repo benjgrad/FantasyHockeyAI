@@ -7,6 +7,7 @@ import { dayStatus } from './derive.js';
 import { abstain, askBen, setCategoryWeights } from './tools/control.js';
 import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './tools/league.js';
 import { getLeagueEvents } from './tools/leagueEvents.js';
+import { getLeagueComparison } from './tools/leagueCompare.js';
 import { getMatchup } from './tools/matchup.js';
 import { proposeAddDrop, proposeLineup, proposeWaiverClaim } from './tools/proposeRoster.js';
 import { proposeTrade, proposeTradeResponse } from './tools/proposeTrade.js';
@@ -29,6 +30,7 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     getGoalieStarts,
     getNews,
     getMatchup,
+    getLeagueComparison,
     getLeagueEvents,
     getPendingTrades,
     evaluateTrade,
@@ -84,6 +86,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'getTeamRoster',
     'getPlayers',
     'getPendingTrades',
+    'getLeagueComparison',
     'evaluateTrade',
     'proposeTrade',
     'proposeTradeResponse',

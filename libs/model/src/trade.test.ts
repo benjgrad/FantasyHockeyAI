@@ -276,6 +276,32 @@ describe('findTradeTargets', () => {
     const scores = found.map((f) => f.evaluation.score);
     expect(scores).toEqual([...scores].sort((x, y) => y - x));
   });
+
+  it('should search only the named partners while the rest stay in the field', () => {
+    const ourC = player('C', { G: 6, HIT: 60 }, 2);
+    const ourD = player('D', { G: 3, HIT: 60 }, 1.5);
+    const p1C = player('C', { G: 24, HIT: 2 }, 2.4);
+    const p1D = player('D', { G: 21, HIT: 3 }, 2.1);
+    const p2C = player('C', { G: 15, HIT: 20 }, 1.7);
+    const p2D = player('D', { G: 12, HIT: 20 }, 1.4);
+    const input = {
+      settings: settings(['G', 'HIT']),
+      categories: ['G', 'HIT'],
+      ourRoster: ids(ourC, ourD),
+      partners: { p1: ids(p1C, p1D), p2: ids(p2C, p2D) },
+      weeksRemaining: 1,
+      minTradeGain: 0.1,
+      top: 100,
+      ...data([ourC, ourD, p1C, p1D, p2C, p2D]),
+    };
+    const all = findTradeTargets(input);
+    const scoped = findTradeTargets({ ...input, only: ['p1'] });
+    // Same trades with p1 and the same evaluations: p2 is still in the field.
+    expect(scoped).toEqual(all.filter((f) => f.partner === 'p1'));
+    const single = findTradeTargets({ ...input, maxPerSide: 1 });
+    expect(single.every((f) => f.give.length === 1 && f.get.length === 1)).toBe(true);
+    expect(single.length).toBeGreaterThan(0);
+  });
 });
 
 describe('evaluateTrade — availability', () => {

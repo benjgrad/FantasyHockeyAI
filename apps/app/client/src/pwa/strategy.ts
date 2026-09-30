@@ -33,6 +33,7 @@ const CACHED_API: readonly string[] = [
   '/api/conversations',
   '/api/players',
   '/api/compare',
+  '/api/league/compare',
 ];
 
 /** Never cached, even if a prefix above ever grew to cover them. Checked first. */

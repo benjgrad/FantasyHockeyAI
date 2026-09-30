@@ -23,6 +23,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getTeamRoster',
     'evaluateTrade',
     'getPendingTrades',
+    'getLeagueComparison',
     'getPlayers',
     'proposeTrade',
     'proposeTradeResponse',

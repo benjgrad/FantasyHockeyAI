@@ -539,3 +539,145 @@ export type CategoryStrength = z.infer<typeof CategoryStrength>;
 export const DecisionPlayers = z.object({ players: z.array(PlayerRef) });
 export type DecisionPlayers = z.infer<typeof DecisionPlayers>;
 // GET /api/decisions/:planId/players → DecisionPlayers, or 404 not_found
+
+// ── League comparison ────────────────────────────────────────────────────────────────────────
+//
+// How every team stacks up per category, and each one head to head against us. All numbers are
+// computed on the server from the snapshot (P1); see `libs/tools/src/leagueCompare.ts` for the
+// definitions: strength = summed availability-discounted z (higher is better in every category,
+// GAA included, so rank 1 is always the strongest); weekly = a typical 3.5-team-game week.
+
+export const LeagueCategoryMeta = z.object({
+  cat: z.string(),
+  group: z.enum(['skater', 'goalie']),
+  lowerIsBetter: z.boolean(),
+});
+export const TeamCategoryCell = z.object({
+  cat: z.string(),
+  /** Summed rest-of-season z, each player's scaled by his expected availability. */
+  z: z.number(),
+  /** 1 = strongest of `of` teams; ties share the better rank. GAA is already inverted. */
+  rank: z.number(),
+  /** Typical-week projected total (a rate for SV% and GAA). */
+  weekly: z.number(),
+});
+export const TeamStrengthRow = z.object({
+  teamKey: z.string(),
+  name: z.string(),
+  isUs: z.boolean(),
+  categories: z.array(TeamCategoryCell),
+  /** Σ availability-adjusted VORP of the typical-week starters. */
+  starterVorp: z.number(),
+  /** Season starters (health-blind) who are not healthy. */
+  injuredStarters: z.number(),
+  /** Scheduled games of the starters, snapshot date to the end of this week. */
+  gamesThisWeek: z.number(),
+  /** Against us; null on our own row. */
+  vsUs: z
+    .object({
+      /** Categories *they* expect to win against us in a typical week: Σ (1 − our win prob). */
+      theirExpectedWon: z.number(),
+      /** Categories *we* expect to win against them in a typical week: Σ our win probs. */
+      ourExpectedWon: z.number(),
+      /** Ours over the rest of this week's real schedule; null when unprojectable. */
+      thisWeekOurExpectedWon: z.number().nullable(),
+      complementarity: z.number(),
+    })
+    .nullable(),
+});
+export type TeamStrengthRow = z.infer<typeof TeamStrengthRow>;
+
+export const PlayerMini = z.object({ playerKey: z.string(), name: z.string() });
+export const TradeIdea = z.object({
+  partnerTeamKey: z.string(),
+  partnerName: z.string(),
+  give: z.array(PlayerMini),
+  get: z.array(PlayerMini),
+  /** Δ expected categories won per week against the whole league (§12.7), us and them. */
+  ourGain: z.number(),
+  theirGain: z.number(),
+  reasons: z.array(z.string()),
+});
+export type TradeIdea = z.infer<typeof TradeIdea>;
+
+export const ProfileFix = z.object({
+  route: z.enum(['FA', 'trade', 'none']),
+  /** Best free agent's discounted z in the category, less the player he would replace. */
+  faGain: z.number().nullable(),
+  /** Best 1-for-1 trade idea's net discounted z in the category. */
+  tradeGain: z.number().nullable(),
+  how: z.string(),
+  players: z.array(PlayerMini),
+});
+export const ProfileCategory = z.object({
+  cat: z.string(),
+  rank: z.number(),
+  weekly: z.number(),
+  fix: ProfileFix.nullable(),
+});
+export const LeagueProfile = z.object({
+  /** Rank ≤ 2. */
+  strengths: z.array(ProfileCategory),
+  /** Rank ≥ of − 1 (7th or 8th of 8), the biggest available fix first. */
+  weaknesses: z.array(ProfileCategory),
+  /** True when no category ranks that low and `weaknesses` are our two worst-ranked instead. */
+  weaknessesRelative: z.boolean(),
+});
+export const TradePartner = z.object({
+  teamKey: z.string(),
+  name: z.string(),
+  complementarity: z.number(),
+  reason: z.string(),
+});
+export const LeagueCompare = z.object({
+  asOf: z.string(),
+  week: z.number(),
+  of: z.number(),
+  typicalWeekGames: z.number(),
+  categories: z.array(LeagueCategoryMeta),
+  /** Ours first. */
+  teams: z.array(TeamStrengthRow),
+  profile: LeagueProfile,
+  /** Most complementary first. */
+  partners: z.array(TradePartner),
+  notes: z.array(z.string()),
+});
+export type LeagueCompare = z.infer<typeof LeagueCompare>;
+// GET /api/league/compare → LeagueCompare
+
+export const HeadToHeadCategory = z.object({
+  cat: z.string(),
+  group: z.enum(['skater', 'goalie']),
+  lowerIsBetter: z.boolean(),
+  ours: z.number(),
+  theirs: z.number(),
+  /** ours − theirs, raw (negative GAA delta is good for us). */
+  delta: z.number(),
+  /** P(we win the category) in a typical week. */
+  winProb: z.number(),
+  thisWeekWinProb: z.number().nullable(),
+  /** 35% ≤ winProb ≤ 65%. */
+  swing: z.boolean(),
+  /** Oriented gap in standard deviations of the weekly difference (negative: we trail). */
+  gapSd: z.number(),
+  ourRank: z.number(),
+  theirRank: z.number(),
+  ourTop: z.array(PlayerMini.extend({ z: z.number() })),
+  theirTop: z.array(PlayerMini.extend({ z: z.number() })),
+});
+export const HeadToHead = z.object({
+  asOf: z.string(),
+  us: z.object({ teamKey: z.string(), name: z.string() }),
+  them: z.object({ teamKey: z.string(), name: z.string() }),
+  typicalWeekGames: z.number(),
+  /** Categories we expect to win (Σ win probs), typical week and rest of this week. */
+  expectedWon: z.object({ typical: z.number(), thisWeek: z.number().nullable() }),
+  categories: z.array(HeadToHeadCategory),
+  /** Categories we trail in, the smallest gap relative to its spread first. */
+  flipOrder: z.array(z.string()),
+  complementarity: z.number(),
+  tradeIdeas: z.array(TradeIdea),
+  notes: z.array(z.string()),
+});
+export type HeadToHead = z.infer<typeof HeadToHead>;
+// GET /api/league/compare/:teamKey → HeadToHead, or 404 not_found (unknown team or our own)

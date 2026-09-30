@@ -28,8 +28,13 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
   const tabs = TABS.map((t) =>
     t.to === '/' ? { ...t, href: chatHref(lastConversation()) } : { ...t, href: t.to },
   );
+  // Chat covers new and saved conversations; Team covers its League view too.
   const active = (t: (typeof tabs)[number], isActive: boolean) =>
-    t.to === '/' ? isChatPath(pathname) : isActive;
+    t.to === '/'
+      ? isChatPath(pathname)
+      : t.to === '/team'
+        ? isActive || pathname.startsWith('/league')
+        : isActive;
 
   return (
     <div className="flex h-full flex-col">

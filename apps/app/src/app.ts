@@ -5,6 +5,7 @@ import { chatRoutes } from './chatRoutes.js';
 import { ChatTurns } from './chatTurns.js';
 import { HttpError, applySecurityHeaders, sendError } from './http.js';
 import { LeagueService } from './league.js';
+import { leagueCompareRoutes } from './leagueCompareRoutes.js';
 import { OidcService } from './oidcService.js';
 import { playerRoutes } from './playerRoutes.js';
 import { PushService, noticeFromPipeline } from './push.js';
@@ -120,6 +121,7 @@ export function createApp(deps: AppDeps, opts: AppOptions = {}): App {
     ...chatRoutes(services, opts.heartbeatMs),
     ...pushRoutes(services),
     ...playerRoutes(services),
+    ...leagueCompareRoutes(services),
   );
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     const started = Date.now();

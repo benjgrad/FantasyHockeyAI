@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
 import { formatWhen } from '../components/DecisionCardView';
+import { TeamSwitch } from '../league/TeamSwitch';
 import { PlayerLink } from '../players/PlayerLink';
 import { StrengthCard } from '../players/StrengthCard';
 import { availabilityTone, groupRoster, type Group, type RosterRowT } from '../team/roster';
@@ -29,6 +30,7 @@ export function Team() {
   const view = team.data;
   return (
     <div className="flex flex-col gap-3 overflow-y-auto p-3">
+      <TeamSwitch />
       <div className="flex items-center justify-between gap-2">
         <div>
           <h1 className="text-lg font-semibold">{view?.teamName ?? 'Team'}</h1>
