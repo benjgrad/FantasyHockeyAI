@@ -62,3 +62,45 @@ body {
     @apply inline-flex items-center gap-1 rounded-md border border-line bg-well px-1.5 py-0.5 text-xs tabular-nums;
   }
 }
+
+/* Assistant Markdown (src/markdown/Markdown.tsx): chat-scale prose on the dark palette. */
+@layer components {
+  .md {
+    @apply min-w-0 leading-relaxed break-words;
+  }
+  .md > * + *,
+  .md li > * + * {
+    @apply mt-2;
+  }
+  .md li + li {
+    @apply mt-0.5;
+  }
+  .md :is(h3, h4, h5, h6) + * {
+    @apply mt-1;
+  }
+  .md > :is(h3, h4, h5, h6):not(:first-child) {
+    @apply mt-3;
+  }
+  .md :not(pre) > .md-code {
+    @apply rounded bg-well px-1 py-px text-[0.9em] text-soft;
+  }
+  .md pre code {
+    @apply text-soft;
+  }
+  .md-table th,
+  .md-table td {
+    @apply px-2 py-1 text-left align-top;
+  }
+  .md-table th {
+    @apply border-b border-line bg-raised font-semibold whitespace-nowrap text-soft;
+  }
+  .md-table td[data-num] {
+    @apply whitespace-nowrap;
+  }
+  .md-table tbody tr:nth-child(even) {
+    @apply bg-white/[0.03];
+  }
+  .md-table :is(th, td)[data-num] {
+    @apply text-right;
+  }
+}

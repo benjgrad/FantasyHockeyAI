@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { isMissingKeyCode, isYahooCode, missingKeyMessage } from '../api/client';
 import { DecisionCardView } from '../components/DecisionCardView';
 import { YahooNeeded } from '../components/ErrorNote';
+import { Markdown } from '../markdown/Markdown';
 import type { Part, Turn } from './thread';
 
 export function TurnView({ turn }: { turn: Turn }) {
@@ -18,17 +19,18 @@ export function TurnView({ turn }: { turn: Turn }) {
   return (
     <div className="flex max-w-full flex-col gap-2">
       {turn.parts.map((part, i) => (
-        <PartView key={i} part={part} />
+        <PartView key={i} part={part} streaming={turn.pending && i === turn.parts.length - 1} />
       ))}
       {turn.pending ? <Typing /> : null}
     </div>
   );
 }
 
-function PartView({ part }: { part: Part }) {
+/** `streaming`: the text part still receiving deltas (the last part of a pending turn). */
+function PartView({ part, streaming }: { part: Part; streaming: boolean }) {
   switch (part.kind) {
     case 'text':
-      return <div className="leading-relaxed whitespace-pre-wrap">{part.text}</div>;
+      return <Markdown text={part.text} streaming={streaming} />;
     case 'tool':
       return <ToolChip part={part} />;
     case 'decision':
