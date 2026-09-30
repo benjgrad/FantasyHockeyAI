@@ -56,7 +56,7 @@ export interface ExecResult {
   raw?: unknown;
 }
 
-/** §10.6. Implementations: DryRun, Manual now; YahooWeb once Q-007's endpoints are observed. */
+/** §10.6. Implementations: DryRun, Manual; YahooWeb (libs/yahoo) for add/drop only (U-12). */
 export interface ExecutionAdapter {
   readonly name: 'yahooApi' | 'yahooWeb' | 'browser' | 'manual' | 'dryRun';
   execute(plan: Plan): Promise<ExecResult>;

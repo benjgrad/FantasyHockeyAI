@@ -7,3 +7,7 @@ export * from './roster.js';
 export * from './scoreboard.js';
 export * from './reader.js';
 export * from './redact.js';
+export * from './web/addDrop.js';
+export * from './web/writer.js';
+export * from './web/adapter.js';
+export * from './web/create.js';

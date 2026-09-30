@@ -3,6 +3,7 @@ import { decrypt, encrypt } from '@fha/auth';
 import {
   YahooAuthError,
   createWebSessionReader,
+  createYahooWebAdapter,
   type LeagueMeta,
   type Matchup,
   type MyTeam,
@@ -11,7 +12,14 @@ import {
   type YahooPlayer,
   type YahooPlayerQuery,
 } from '@fha/yahoo';
-import type { LeagueSettings, LeagueTeam, TeamKey, Transaction } from '@fha/core';
+import type {
+  ExecutionAdapter,
+  LeagueSettings,
+  LeagueTeam,
+  Plan,
+  TeamKey,
+  Transaction,
+} from '@fha/core';
 import type { Store } from '@fha/store';
 import { HttpError } from './http.js';
 
@@ -39,7 +47,28 @@ export interface YahooAccess {
   myTeams(credentials: YahooCredentials): Promise<MyTeam[]>;
   /** A read-only reader for one league and team (P8: both come from the stored connection). */
   reader(credentials: YahooCredentials, leagueKey: string, teamKey: TeamKey): LiveLeagueSource;
+  /**
+   * The website write adapter (add/drop only; U-12 partly verified) with its roster verifier.
+   * Absent: a live plan goes to the Manual adapter instead.
+   */
+  writeAdapter?(
+    credentials: YahooCredentials,
+    leagueKey: string,
+    teamKey: TeamKey,
+    hooks: WriteHooks,
+  ): LiveWriteAdapter;
 }
+
+export interface WriteHooks {
+  describe: (plan: Plan) => string;
+  notify: (text: string) => void;
+  onAuthExpired: () => void;
+  /** Secret-free lines only. */
+  log: (line: string) => void;
+}
+
+/** An adapter that can also confirm, by re-reading Yahoo, that its write landed (§9.3). */
+export type LiveWriteAdapter = ExecutionAdapter & { verify(plan: Plan): Promise<boolean> };
 
 /**
  * `myTeams` needs no league, but the reader's constructor insists on one; these placeholders
@@ -51,6 +80,8 @@ export const liveYahooAccess: YahooAccess = {
   myTeams: (credentials) => createWebSessionReader({ credentials, ...NO_LEAGUE }).myTeams(),
   reader: (credentials, leagueKey, teamKey) =>
     createWebSessionReader({ credentials, leagueKey, teamKey }),
+  writeAdapter: (credentials, leagueKey, teamKey, hooks) =>
+    createYahooWebAdapter({ credentials, leagueKey, teamKey, ...hooks }),
 };
 
 const StoredCredentials = z.object({ T: z.string().min(1), Y: z.string().min(1) });

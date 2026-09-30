@@ -4,10 +4,9 @@ import type { ExecResult, ExecutionAdapter, Plan } from '@fha/core';
  * Execution adapters (§10.6). Only these touch the outside world, and only the pipeline calls
  * them, after validation and the gate.
  *
- * There is deliberately no Yahoo adapter yet. Q-007 found the "start active players" endpoint
- * in Yahoo's site JS but never exercised it, and has not observed the custom-lineup, add/drop
- * or trade endpoints at all. An adapter written against an unobserved endpoint would be a stub
- * that looks implemented (§24.11). It arrives when a real roster lets us capture the calls.
+ * The Yahoo adapter (`YahooWebAdapter`) lives in libs/yahoo so this library stays free of
+ * Yahoo. It executes only the one write observed so far, add/drop (U-12); every unobserved
+ * kind it hands to Ben, as Manual does, rather than guessing an endpoint (§24.11).
  */
 export class DryRunAdapter implements ExecutionAdapter {
   readonly name = 'dryRun' as const;

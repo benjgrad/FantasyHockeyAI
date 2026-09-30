@@ -13,6 +13,7 @@ import { settingsRoutes } from './settingsRoutes.js';
 import { serveStatic } from './static.js';
 import { teamRoutes } from './teamRoutes.js';
 import { valuateFor } from './valuations.js';
+import { liveAdapterFor } from './writeAdapter.js';
 
 /**
  * The app server: one `node:http` handler over a small router. `/api/*` and `/auth/*` are
@@ -74,6 +75,7 @@ export function buildServices(deps: AppDeps): Services {
           log(`notify failed for user ${userId} (${err instanceof Error ? err.name : 'error'})`);
         });
       },
+      liveAdapter: liveAdapterFor({ store, secretKey: config.secretKey, yahoo: deps.yahoo, log }),
     },
     yahoo: deps.yahoo,
     createMessage: deps.createMessage,

@@ -7,3 +7,6 @@ docs/
 prototypes/
 tools/
 fixtures/**/*.json
+# Recorded Yahoo pages, kept byte-for-byte as served.
+**/fixtures/**/*.html
+libs/yahoo/fixtures/web/*.json

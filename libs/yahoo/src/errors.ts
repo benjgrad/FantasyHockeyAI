@@ -29,3 +29,24 @@ export class YahooHttpError extends Error {
 export class YahooShapeError extends Error {
   override readonly name = 'YahooShapeError';
 }
+
+/**
+ * A write whose endpoint has never been observed (U-12). Thrown instead of guessing a URL or a
+ * form field: an adapter built on a guess would look implemented and fail silently (§24.11).
+ */
+export class NotObservedError extends Error {
+  override readonly name = 'NotObservedError';
+}
+
+/** Yahoo's add/drop page did not have the form we observed, or it named the wrong team (P8). */
+export class YahooFormError extends Error {
+  override readonly name = 'YahooFormError';
+}
+
+/**
+ * The POST was (or may have been) sent, then something failed. Whether Yahoo applied it is
+ * unknown, so this is never retried (P7): the caller verifies by re-reading the roster.
+ */
+export class WriteOutcomeUnknownError extends Error {
+  override readonly name = 'WriteOutcomeUnknownError';
+}

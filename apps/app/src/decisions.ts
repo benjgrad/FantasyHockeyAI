@@ -1,4 +1,4 @@
-import type { ExecutionAdapter } from '@fha/core';
+import type { ExecutionAdapter, Plan } from '@fha/core';
 import {
   DryRunAdapter,
   ManualAdapter,
@@ -17,14 +17,16 @@ import { gateStateFor, validationContextFor } from '@fha/tools';
 import { HttpError } from './http.js';
 import type { LeagueState } from './league.js';
 import { userPermissions } from './permissions.js';
+import type { LiveAdapterFor } from './writeAdapter.js';
 
 /**
  * The approval queue over HTTP (§15), and the pipeline wiring every web-initiated plan uses.
  *
  * Approving re-validates and re-gates the *stored* plan against a fresh league view and the
  * user's current permissions (`executeApproved`); the model is never asked again. The adapter
- * is DryRun while permissions say dry run, otherwise Manual: there is no verified Yahoo write
- * adapter yet (U-12), so a live plan becomes a push telling Ben what to do in Yahoo.
+ * is DryRun while permissions say dry run. Otherwise it is the Yahoo website adapter for a user
+ * with a usable Yahoo connection — which executes add/drop (the one write observed, U-12) and
+ * turns every other kind into a push telling Ben what to do in Yahoo — and Manual without one.
  */
 export interface DecisionCard {
   planId: string;
@@ -45,6 +47,8 @@ export interface PipelineWiring {
   now: () => Date;
   /** Where pipeline notices go (a push, a log line). Must not throw. */
   notify: (userId: string, text: string) => void;
+  /** The live write adapter for a user, used only when dry run is off. Absent → Manual. */
+  liveAdapter?: LiveAdapterFor;
 }
 
 export function pipelineFor(w: PipelineWiring, userId: string, league: LeagueState): PipelineDeps {
@@ -52,9 +56,15 @@ export function pipelineFor(w: PipelineWiring, userId: string, league: LeagueSta
   const now = w.now().toISOString();
   const permissions = () => userPermissions(w.store, w.permissionsFile, userId);
   const notify = (text: string) => w.notify(userId, text);
-  const adapter: ExecutionAdapter = permissions().dryRun
+  const name = (k: string) => view.player(k)?.name ?? k;
+  const dryRun = permissions().dryRun;
+  // Only built when dry run is off, so a dry-run user's pipeline holds no Yahoo writer at all.
+  const live = dryRun
+    ? undefined
+    : w.liveAdapter?.(userId, league, { describe: (p) => describePlan(p, name), notify });
+  const adapter: ExecutionAdapter = dryRun
     ? new DryRunAdapter()
-    : new ManualAdapter(notify);
+    : (live ?? new ManualAdapter(notify));
   return {
     store: w.store,
     // Fresh per plan, so a pause or a lock set in Settings bites mid-run (§18.3).
@@ -62,9 +72,10 @@ export function pipelineFor(w: PipelineWiring, userId: string, league: LeagueSta
     validation: validationContextFor(view, w.store, now),
     gateState: () => gateStateFor(view, w.store, permissions()),
     adapter,
+    ...(live === undefined ? {} : { verify: (plan: Plan) => live.verify(plan) }),
     snapshotRoster: () => view.roster(),
     notify,
-    name: (k) => view.player(k)?.name ?? k,
+    name,
   };
 }
 
