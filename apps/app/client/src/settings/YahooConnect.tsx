@@ -1,14 +1,16 @@
 import type { Me } from '@fha/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, type FormEvent } from 'react';
+import { useState, type CSSProperties, type FormEvent } from 'react';
 import { api, type YahooTeamChoiceT } from '../api/endpoints';
 import { formatWhen } from '../components/DecisionCardView';
 import { ErrorNote } from '../components/ErrorNote';
+import { extractYahooCookies } from './yahooPaste';
 
 /**
- * Connecting Yahoo by pasting the `T` and `Y` session cookies from a signed-in desktop browser
- * (the same pasted-session pattern as personal-os's Slack connection). The server validates
- * them live before storing anything, encrypted; this form clears them as soon as they're sent.
+ * Connecting Yahoo from a signed-in desktop browser's session (the same pasted-session pattern
+ * as personal-os's Slack connection). One paste of DevTools' "Copy as cURL" is enough: the `T`
+ * and `Y` cookies are extracted here, in the browser, and only those two are sent. The server
+ * validates them live before storing anything, encrypted; the form clears as soon as they're sent.
  */
 export function YahooConnect({ me }: { me: Me }) {
   const queryClient = useQueryClient();
@@ -92,18 +94,24 @@ function CookieForm({
   reconnect: boolean;
   onTeams: (t: YahooTeamChoiceT[]) => void;
 }) {
-  const [T, setT] = useState('');
-  const [Y, setY] = useState('');
+  const [pasted, setPasted] = useState('');
+  const [manualT, setManualT] = useState('');
+  const [manualY, setManualY] = useState('');
+  // Extracted in the browser: only T and Y ever leave this page, never the rest of the paste.
+  const found = extractYahooCookies(pasted);
+  const T = found.T ?? manualT.trim();
+  const Y = found.Y ?? manualY.trim();
   const connect = useMutation({
-    mutationFn: () => api.connectYahoo(T.trim(), Y.trim()),
+    mutationFn: () => api.connectYahoo(T, Y),
     onSuccess: (res) => {
-      // Cleared on success: a credential left in a controlled input survives a screenshot.
-      setT('');
-      setY('');
+      // Cleared on success: a credential left in an input survives a screenshot.
+      setPasted('');
+      setManualT('');
+      setManualY('');
       onTeams(res.teams);
     },
   });
-  const ready = T.trim().length >= 10 && Y.trim().length >= 10;
+  const ready = T.length >= 10 && Y.length >= 10;
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (ready) connect.mutate();
@@ -115,28 +123,37 @@ function CookieForm({
         {reconnect ? 'Reconnect Yahoo Fantasy' : 'Connect Yahoo Fantasy'}
       </div>
       <Instructions />
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">T cookie</span>
-        <input
-          className="input font-mono"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          value={T}
-          onChange={(e) => setT(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className="text-sm font-medium">Y cookie</span>
-        <input
-          className="input font-mono"
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          value={Y}
-          onChange={(e) => setY(e.target.value)}
-        />
-      </label>
+      <textarea
+        className="input h-24 font-mono text-xs"
+        style={{ WebkitTextSecurity: 'disc' } as CSSProperties}
+        placeholder="Paste the copied cURL command here"
+        autoComplete="off"
+        spellCheck={false}
+        value={pasted}
+        onChange={(e) => setPasted(e.target.value)}
+      />
+      {pasted.trim() ? (
+        <div className="flex gap-4 text-sm">
+          <Found name="T" ok={found.T !== undefined} />
+          <Found name="Y" ok={found.Y !== undefined} />
+          {found.T === undefined ? (
+            <span className="text-warn">
+              No <code>T</code>: copy the request with <b>Copy as cURL</b>, not from the console.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <details className="text-sm text-soft">
+        <summary className="cursor-pointer">Enter the two cookies separately instead</summary>
+        <div className="mt-2 flex flex-col gap-2">
+          <ManualField label="T cookie" value={manualT} onChange={setManualT} />
+          <ManualField label="Y cookie" value={manualY} onChange={setManualY} />
+          <p className="text-xs text-mut">
+            DevTools → Application (Firefox/Safari: Storage) → Cookies → a yahoo.com site → copy the
+            Value of <code>T</code> and <code>Y</code>.
+          </p>
+        </div>
+      </details>
       {connect.error ? <ErrorNote error={connect.error} /> : null}
       <button className="btn btn-primary" type="submit" disabled={!ready || connect.isPending}>
         {connect.isPending ? 'Checking with Yahoo…' : 'Connect'}
@@ -145,62 +162,57 @@ function CookieForm({
   );
 }
 
+function Found({ name, ok }: { name: string; ok: boolean }) {
+  return (
+    <span className={ok ? 'text-good' : 'text-bad'}>
+      {ok ? '✓' : '✗'} <code>{name}</code>
+    </span>
+  );
+}
+
+function ManualField(props: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="font-medium">{props.label}</span>
+      <input
+        className="input font-mono"
+        type="password"
+        autoComplete="off"
+        spellCheck={false}
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
 function Instructions() {
   return (
     <div className="flex flex-col gap-2 text-sm text-soft">
       <p>
-        This app reads your team using your Yahoo session. On a <b>desktop</b> browser where you’re
-        signed in to Yahoo Fantasy, copy the values of two cookies, <code>T</code> and{' '}
-        <code>Y</code>:
+        On a <b>computer</b> where you’re signed in to Yahoo Fantasy:
       </p>
-      <details className="rounded-lg bg-well p-2" open>
-        <summary className="cursor-pointer font-medium text-ink">Chrome / Edge</summary>
-        <ol className="mt-1 list-decimal pl-5">
-          <li>
-            Open <code>https://sports.yahoo.com/fantasy</code> and make sure you’re signed in.
-          </li>
-          <li>
-            Open DevTools (F12, or ⌥⌘I on a Mac) → <b>Application</b> tab.
-          </li>
-          <li>
-            Under <b>Storage → Cookies</b>, pick <code>https://*.yahoo.com</code> (e.g.
-            sports.yahoo.com).
-          </li>
-          <li>
-            Find the rows named <code>T</code> and <code>Y</code>, and copy each <b>Value</b> in
-            full.
-          </li>
-        </ol>
-      </details>
-      <details className="rounded-lg bg-well p-2">
-        <summary className="cursor-pointer font-medium text-ink">Firefox</summary>
-        <ol className="mt-1 list-decimal pl-5">
-          <li>
-            Open a Yahoo Fantasy page while signed in, then DevTools (F12) → <b>Storage</b> tab.
-          </li>
-          <li>
-            Expand <b>Cookies</b>, pick the <code>yahoo.com</code> site, and copy the Value of{' '}
-            <code>T</code> and <code>Y</code>.
-          </li>
-        </ol>
-      </details>
-      <details className="rounded-lg bg-well p-2">
-        <summary className="cursor-pointer font-medium text-ink">Safari</summary>
-        <ol className="mt-1 list-decimal pl-5">
-          <li>Enable Settings → Advanced → “Show features for web developers”.</li>
-          <li>
-            On a Yahoo Fantasy page, Develop → Show Web Inspector → <b>Storage</b> → Cookies.
-          </li>
-          <li>
-            Copy the Value of <code>T</code> and <code>Y</code>.
-          </li>
-        </ol>
-      </details>
+      <ol className="list-decimal pl-5">
+        <li>
+          Open <code>hockey.fantasysports.yahoo.com</code>.
+        </li>
+        <li>
+          Press <b>F12</b> (Mac: <b>⌥⌘I</b>), choose the <b>Network</b> tab, then reload the page.
+        </li>
+        <li>
+          Right-click the first request in the list → <b>Copy</b> → <b>Copy as cURL</b>.
+        </li>
+        <li>Paste it below and press Connect.</li>
+      </ol>
+      <p className="text-xs text-mut">
+        Only the <code>T</code> and <code>Y</code> cookies are taken from what you paste; the rest
+        never leaves this page. (A console script can’t do this: Yahoo hides <code>T</code> from
+        page scripts.) Safari needs Settings → Advanced → “Show features for web developers” first.
+      </p>
       <p className="rounded-lg border border-warn/50 bg-warn/10 p-2">
-        <b>What this grants:</b> these two cookies are a live session for your{' '}
-        <b>whole Yahoo account</b> — not a fantasy-only grant. They’re sent once over HTTPS, checked
-        against Yahoo, and stored <b>encrypted</b>; they’re never shown again or logged. To revoke
-        access at any time, <b>sign out of Yahoo</b> in that browser (which kills the session), or
+        <b>What this grants:</b> the two cookies are a live session for your{' '}
+        <b>whole Yahoo account</b>. They’re checked against Yahoo, stored <b>encrypted</b>, and
+        never shown again or logged. To revoke access, <b>sign out of Yahoo</b> in that browser, or
         press Disconnect here.
       </p>
     </div>
