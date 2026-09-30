@@ -4,6 +4,7 @@ import { HttpError } from '../http.js';
 import { userPermissions } from '../permissions.js';
 import type { Services } from '../services.js';
 import { storedCredentials, type LiveLeagueSource } from '../yahoo.js';
+import { injuredTargets } from './grabInputs.js';
 import { nyDate, nyHour } from './schedule.js';
 import {
   goalieEvents,
@@ -88,7 +89,11 @@ function risingFreeAgents(pool: readonly YahooPlayer[]): YahooPlayer[] {
     .slice(0, WATCHED_FREE_AGENTS);
 }
 
-/** Our roster, Ben's ask/locked players and the rising free agents: status and news. */
+/**
+ * Our roster, Ben's ask/locked players, the rising free agents and (D-016) the injured free
+ * agents whose healthy value would clear the auto-grab bar: status and news. The injured set is
+ * recomputed from the cached league on every poll, so it follows the roster and the settings.
+ */
 async function pollPlayers(env: WatchEnv, userId: string): Promise<number> {
   const { s } = env;
   const { reader, teamKey } = readerFor(s, userId);
@@ -100,7 +105,8 @@ async function pollPlayers(env: WatchEnv, userId: string): Promise<number> {
   const roster = await reader.rosterDetailed(teamKey, today);
   const ours = new Set(roster.roster.entries.map((e) => e.player.playerKey));
   const perms = userPermissions(s.store, s.config.permissionsFile, userId);
-  const extra = [...new Set([...perms.players.ask, ...perms.players.locked])].filter(
+  const targets = view === undefined ? [] : injuredTargets(view, s.store, perms);
+  const extra = [...new Set([...perms.players.ask, ...perms.players.locked, ...targets])].filter(
     (k) => !ours.has(k),
   );
   const others = extra.length === 0 ? [] : await reader.playersByKey(extra);

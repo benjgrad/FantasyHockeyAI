@@ -61,4 +61,13 @@ describe('daily digest text', () => {
     expect(body).not.toContain('move 5');
     expect(body).toContain('This week vs Them: projected ahead in 7, behind in 5.');
   });
+
+  it('an Auto-grab line when something was grabbed or proposed', () => {
+    const { body } = digestText({
+      ...base,
+      autoGrab: ['grabbed Vincent Trocheck (drop Alexander Nikishin): +2.40'],
+    });
+    expect(body).toContain('Auto-grab: 1 move(s).\n• grabbed Vincent Trocheck');
+    expect(digestText({ ...base, autoGrab: [] }).body).not.toContain('Auto-grab');
+  });
 });

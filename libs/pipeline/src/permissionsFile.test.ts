@@ -29,6 +29,7 @@ describe('permissions file', () => {
     expect(p.dryRun).toBe(true);
     expect(p.plans.tradePropose?.mode).toBe('ask');
     expect(p.plans.draftPick).toBeUndefined();
+    expect(p.autoGrab).toEqual({ enabled: true, minGain: 1.5, ignoreDryRun: false });
   });
 
   it('lock moves a player off the ask list, and unlock clears both', () => {

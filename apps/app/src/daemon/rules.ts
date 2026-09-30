@@ -9,11 +9,17 @@ import type { DaemonJob } from './schedule.js';
  *
  * A rule never decides a roster move. It pushes Ben a fact and queues the agent whose job the
  * fact concerns; that agent's proposal then meets the same validation and gate as any other
- * (P1, P2). League moves that aren't ours cause nothing immediate: they are already stored as
- * events, and the Monday league review reads them.
+ * (P1, P2). League moves that aren't ours are stored for the Monday league review, with one
+ * exception (D-016): a free agent back from out, or a player another team dropped, who could be
+ * a substantial upgrade queues an auto-grab evaluation. That evaluation is deterministic code
+ * (libs/model `evaluateOpportunity`) and its plan meets the same pipeline and gate.
  */
+export type AutoGrabTrigger = 'back' | 'dropped';
+
 export type RuleAction =
-  { type: 'push'; notice: Notice } | { type: 'enqueue'; job: DaemonJob; reason: string };
+  | { type: 'push'; notice: Notice }
+  | { type: 'enqueue'; job: DaemonJob; reason: string }
+  | { type: 'autoGrab'; playerKey: string; name: string; trigger: AutoGrabTrigger; reason: string };
 
 export interface RuleDecision {
   event: EventRecord;
@@ -37,6 +43,41 @@ export interface RuleContext {
   lastActed: ReadonlyMap<string, number>;
   /** With this user's latest statuses applied, would the waiver agent help? (rosterHealth) */
   needsWaivers: (userId: string) => boolean;
+  /** This user's team, to tell another team's drop from ours. Unknown → no auto-grab. */
+  ourTeamKey?: (userId: string) => string | undefined;
+  /**
+   * Cheap pre-check from the cached league: auto-grab is on and this player, healthy, could clear
+   * the bar. Absent → no auto-grab. The full evaluation re-reads Yahoo and decides for real.
+   */
+  autoGrabWorth?: (userId: string, playerKey: string) => boolean;
+}
+
+type Worth = (playerKey: string) => boolean;
+
+function autoGrab(playerKey: string, name: string | null, trigger: AutoGrabTrigger): RuleAction {
+  const who = name ?? playerKey;
+  const reason = trigger === 'back' ? `${who} is back from out` : `${who} was dropped`;
+  return { type: 'autoGrab', playerKey, name: who, trigger, reason };
+}
+
+/** A free agent back from out (to healthy or DTD), not on anyone's roster. */
+function backFromOut(p: StatusChangedPayload, worth: Worth): RuleAction[] | undefined {
+  if (p.ownerTeamKey !== null) return undefined;
+  if (!isOut(p.from ?? undefined) || isOut(p.to ?? undefined)) return undefined;
+  return worth(p.playerKey) ? [autoGrab(p.playerKey, p.name, 'back')] : undefined;
+}
+
+/** Players another team dropped (to waivers or free agency) who could be worth grabbing. */
+function droppedByOthers(
+  p: TransactionPayload,
+  ourTeam: string | undefined,
+  worth: Worth,
+): RuleAction[] {
+  if (ourTeam === undefined) return [];
+  return p.players
+    .filter((x) => x.fromTeamKey !== null && x.fromTeamKey !== ourTeam && x.toTeamKey === null)
+    .filter((x) => worth(x.playerKey))
+    .map((x) => autoGrab(x.playerKey, x.name, 'dropped'));
 }
 
 function statusActions(
@@ -78,12 +119,19 @@ function statusActions(
 /** The actions for one event, before debouncing. */
 function actionsFor(
   e: EventRecord,
-  needsWaivers: () => boolean,
+  ctx: RuleContext,
 ): { actions: RuleAction[]; subject: string } | NonNullable<RuleDecision['skipped']> {
+  const needsWaivers = () => ctx.needsWaivers(e.userId);
+  const worth: Worth = (k) => ctx.autoGrabWorth?.(e.userId, k) ?? false;
   if (e.kind === EVENT_KINDS.statusChanged) {
     const p = StatusChangedPayload.safeParse(e.payload);
     if (!p.success) return 'unparseable';
-    if (!p.data.ours) return 'collected';
+    if (!p.data.ours) {
+      const grab = backFromOut(p.data, worth);
+      return grab === undefined
+        ? 'collected'
+        : { actions: grab, subject: `autoGrab:${p.data.playerKey}` };
+    }
     const actions = statusActions(p.data, needsWaivers);
     return actions === undefined ? 'no_rule' : { actions, subject: p.data.playerKey };
   }
@@ -93,7 +141,15 @@ function actionsFor(
     const reason = `trade offer ${p.data.transactionKey}`;
     return { actions: [{ type: 'enqueue', job: 'trades', reason }], subject: 'trade.offered' };
   }
-  if (e.kind === EVENT_KINDS.transaction || e.kind === EVENT_KINDS.news) return 'collected';
+  if (e.kind === EVENT_KINDS.transaction) {
+    const p = TransactionPayload.safeParse(e.payload);
+    if (!p.success) return 'unparseable';
+    const grabs = droppedByOthers(p.data, ctx.ourTeamKey?.(e.userId), worth);
+    const first = grabs[0];
+    if (first === undefined || first.type !== 'autoGrab') return 'collected';
+    return { actions: grabs, subject: `autoGrab:${first.playerKey}` };
+  }
+  if (e.kind === EVENT_KINDS.news) return 'collected';
   return 'no_rule';
 }
 
@@ -108,7 +164,7 @@ export function decideEvents(
 ): { decisions: RuleDecision[]; lastActed: Map<string, number> } {
   const lastActed = new Map(ctx.lastActed);
   const decisions = events.map((event): RuleDecision => {
-    const r = actionsFor(event, () => ctx.needsWaivers(event.userId));
+    const r = actionsFor(event, ctx);
     if (typeof r === 'string') return { event, actions: [], skipped: r };
     const key = `${event.userId}:${r.subject}`;
     const last = lastActed.get(key);

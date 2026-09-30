@@ -1,6 +1,12 @@
 import { Permissions } from '@fha/core';
 import { describe, expect, it } from 'vitest';
-import { diffPermissions, modeOf, parseLimit, widensAutonomy } from './permissionsDiff';
+import {
+  diffPermissions,
+  modeOf,
+  parseLimit,
+  parseMinGain,
+  widensAutonomy,
+} from './permissionsDiff';
 
 const base = Permissions.parse({
   dryRun: true,
@@ -140,5 +146,37 @@ describe('parseLimit', () => {
     expect(parseLimit('maxPerWeek', '2.6')).toBe(3);
     expect(parseLimit('maxPerWeek', '-1')).toBe(0);
     expect(parseLimit('minTradeGain', '-1.5')).toBe(-1.5);
+  });
+});
+
+describe('auto-grab settings', () => {
+  it('parses from a document without the section, with the documented defaults', () => {
+    expect(base.autoGrab).toEqual({ enabled: true, minGain: 1.5, ignoreDryRun: false });
+  });
+
+  it('enabling, lowering the bar, acting through dry run and loosening the cap widen', () => {
+    const off = edit((p) => (p.autoGrab.enabled = false));
+    expect(diffPermissions(off, base)[0]).toMatchObject({ path: 'autoGrab.enabled', widens: true });
+    expect(only(off).widens).toBe(false);
+    expect(only(edit((p) => (p.autoGrab.minGain = 1))).widens).toBe(true);
+    expect(only(edit((p) => (p.autoGrab.minGain = 2))).widens).toBe(false);
+    const through = only(edit((p) => (p.autoGrab.ignoreDryRun = true)));
+    expect(through).toMatchObject({ path: 'autoGrab.ignoreDryRun', widens: true });
+    expect(only(edit((p) => (p.autoGrab.maxPerWeek = 2))).widens).toBe(false);
+    const capped = edit((p) => (p.autoGrab.maxPerWeek = 2));
+    expect(diffPermissions(capped, base)[0]?.widens).toBe(true);
+    expect(
+      diffPermissions(
+        capped,
+        edit((p) => (p.autoGrab.maxPerWeek = 3)),
+      )[0]?.widens,
+    ).toBe(true);
+  });
+
+  it('parseMinGain keeps the current value for blank or junk, floors at 0', () => {
+    expect(parseMinGain('', 1.5)).toBe(1.5);
+    expect(parseMinGain('abc', 1.5)).toBe(1.5);
+    expect(parseMinGain('2.25', 1.5)).toBe(2.25);
+    expect(parseMinGain('-1', 1.5)).toBe(0);
   });
 });

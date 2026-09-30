@@ -3,11 +3,14 @@ import { EVENT_KINDS } from '@fha/tools';
 import { YahooAuthError } from '@fha/yahoo';
 import { HttpError } from '../http.js';
 import type { Services } from '../services.js';
+import { userPermissions } from '../permissions.js';
 import { yahooFailure } from '../yahoo.js';
+import { runAutoGrab } from './autoGrab.js';
+import { worthGrabbing } from './grabInputs.js';
 import { errText, executeJob, type JobOutcome } from './jobs.js';
 import { acquireLock, type Lock } from './lock.js';
 import { SerialQueue } from './queue.js';
-import { decideEvents, type RuleDecision } from './rules.js';
+import { decideEvents, type RuleAction, type RuleDecision } from './rules.js';
 import {
   addDays,
   dueSlots,
@@ -252,6 +255,42 @@ export class Daemon {
     return h.thinPositions.length > 0 || h.irMovesAvailable.length > 0;
   }
 
+  /**
+   * The rules' cheap auto-grab pre-check (D-016), on the cached league: auto-grab is on and this
+   * player, healthy, would clear the bar. With no cached league the full evaluation decides.
+   */
+  autoGrabWorth(userId: string, playerKey: string): boolean {
+    const perms = userPermissions(this.s.store, this.s.config.permissionsFile, userId);
+    if (!perms.autoGrab.enabled) return false;
+    const view = this.s.league.peek(userId)?.view;
+    return view === undefined || worthGrabbing(view, this.s.store, perms, playerKey);
+  }
+
+  /**
+   * Queue an auto-grab evaluation. It runs in the job queue, not beside it: it may write to
+   * Yahoo, and must not interleave with the waivers job. One waiting copy per player.
+   */
+  enqueueAutoGrab(userId: string, a: Extract<RuleAction, { type: 'autoGrab' }>): boolean {
+    return this.queue.enqueue({
+      key: `autoGrab:${userId}:${a.playerKey}`,
+      run: async () => {
+        if (!this.users().includes(userId)) return;
+        this.s.log(`daemon: autoGrab for ${userId} (${a.reason})`);
+        try {
+          await runAutoGrab(this.s, {
+            userId,
+            playerKey: a.playerKey,
+            name: a.name,
+            trigger: a.trigger,
+          });
+        } catch (err) {
+          if (isAuthFailure(err)) await this.onAuthFailure(userId, err);
+          else this.s.log(`daemon: autoGrab for ${userId} failed (${errText(err)})`);
+        }
+      },
+    });
+  }
+
   /** Apply the rules to every unhandled event, then mark each handled. */
   async processEvents(): Promise<RuleDecision[]> {
     const events = this.s.store.events.unhandled(RULE_KINDS, 200);
@@ -260,11 +299,14 @@ export class Daemon {
       now: this.now(),
       lastActed: this.lastActed,
       needsWaivers: (u) => this.needsWaivers(u),
+      ourTeamKey: (u) => this.s.store.yahooConnections.get(u)?.teamKey,
+      autoGrabWorth: (u, k) => this.autoGrabWorth(u, k),
     });
     this.lastActed = lastActed;
     for (const d of decisions) {
       for (const a of d.actions) {
         if (a.type === 'push') await this.s.push.notify(d.event.userId, a.notice);
+        else if (a.type === 'autoGrab') this.enqueueAutoGrab(d.event.userId, a);
         else this.enqueue(d.event.userId, a.job, a.reason);
       }
       this.s.store.events.markHandled(d.event.id);

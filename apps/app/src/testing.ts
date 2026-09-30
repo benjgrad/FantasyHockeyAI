@@ -122,6 +122,10 @@ export interface FakeYahoo extends YahooAccess {
   matchup: Matchup | undefined;
   /** Every league read, by method name. */
   reads: string[];
+  /** playerKeys the free-agent (`FA`) and waiver (`W`) pool reads return; empty by default. */
+  pool: { FA: string[]; W: string[] };
+  /** playerKeys removed from whatever roster the recording had them on (a drop). */
+  dropped: Set<string>;
 }
 
 function detailFor(fake: FakeYahoo, playerKey: string): PlayerDetail {
@@ -154,6 +158,8 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
     txs: [],
     matchup: undefined,
     reads: [],
+    pool: { FA: [], W: [] },
+    dropped: new Set(),
     myTeams: (c) => {
       fake.seen.push(c);
       if (c.T === BAD_COOKIE) return Promise.reject(new YahooAuthError('401 from Yahoo'));
@@ -187,6 +193,7 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
         rosterDetailed: (teamKey, date) =>
           guard('roster', () => {
             const entries = (snap.rosters[teamKey] ?? []).flatMap((e) => {
+              if (fake.dropped.has(e.playerKey)) return [];
               const player: Player | undefined = byKey.get(e.playerKey);
               return player === undefined
                 ? []
@@ -199,7 +206,12 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
             );
             return { roster: { teamKey, date, entries }, details, editable: true };
           }),
-        playersDetailed: () => guard('players', () => []),
+        playersDetailed: (q) =>
+          guard('players', () =>
+            q.position === undefined && (q.status === 'FA' || q.status === 'W')
+              ? detailed(fake.pool[q.status])
+              : [],
+          ),
         playersByKey: (keys) => guard('playersByKey', () => detailed(keys)),
         transactions: (q) =>
           guard('transactions', () =>

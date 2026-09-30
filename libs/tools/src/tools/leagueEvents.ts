@@ -16,6 +16,8 @@ export const EVENT_KINDS = {
   tradeOffered: 'trade.offered',
   goalieStarting: 'goalie.starting',
   matchupUpdate: 'matchup.update',
+  /** The daemon considered grabbing a player at once (D-016): what it did, or why not. */
+  autoGrab: 'autoGrab.evaluated',
 } as const;
 
 export const StatusChangedPayload = z.object({
@@ -83,6 +85,49 @@ export const MatchupUpdatePayload = z.object({
   losing: z.array(z.string()),
 });
 export type MatchupUpdatePayload = z.infer<typeof MatchupUpdatePayload>;
+
+export const AUTO_GRAB_OUTCOMES = [
+  'skipped',
+  'denied',
+  'proposed',
+  'pending',
+  'executed',
+  'unverified',
+  'failed',
+] as const;
+
+export const AutoGrabPayload = z.object({
+  playerKey: z.string(),
+  name: z.string(),
+  /** What set it off: a free agent back from out, or another team's drop. */
+  trigger: z.enum(['back', 'dropped']),
+  outcome: z.enum(AUTO_GRAB_OUTCOMES),
+  kind: z.enum(['add', 'waiverClaim']).nullable(),
+  drop: z.string().nullable(),
+  dropName: z.string().nullable(),
+  /** Net rest-of-season VORP gain, and the bar it had to clear. */
+  gain: z.number().nullable(),
+  required: z.number().nullable(),
+  /** One line: why it was skipped, or what happened. */
+  reason: z.string(),
+  planId: z.string().nullable(),
+});
+export type AutoGrabPayload = z.infer<typeof AutoGrabPayload>;
+
+/** "considered X: skipped, gain 0.80 < 1.50" — for the league review and the digest. */
+export function autoGrabLine(p: AutoGrabPayload): string {
+  const drop = p.dropName === null ? '' : ` (drop ${p.dropName})`;
+  const gain = p.gain === null ? '' : ` +${p.gain.toFixed(2)}`;
+  switch (p.outcome) {
+    case 'executed':
+      return `grabbed ${p.name}${drop}:${gain}`;
+    case 'proposed':
+    case 'pending':
+      return `proposed grabbing ${p.name}${drop}:${gain}, waiting for you`;
+    default:
+      return `considered ${p.name}${drop}: ${p.outcome}, ${p.reason}`;
+  }
+}
 
 /** Rank by season value (1 = best) among every valued player in the snapshot. */
 function valueRanks(view: LeagueView): Map<string, number> {
@@ -160,6 +205,10 @@ export function eventLine(view: LeagueView, e: EventRecord): string | undefined 
         .join('; ');
       const label = e.kind === EVENT_KINDS.tradeOffered ? 'trade offered to us' : p.data.type;
       return `${p.data.timestamp.slice(0, 10) || day} ${label}: ${moves}`;
+    }
+    case EVENT_KINDS.autoGrab: {
+      const p = AutoGrabPayload.safeParse(e.payload);
+      return p.success ? `${day} auto-grab ${autoGrabLine(p.data)}` : undefined;
     }
     case EVENT_KINDS.goalieStarting: {
       const p = GoalieStartingPayload.safeParse(e.payload);

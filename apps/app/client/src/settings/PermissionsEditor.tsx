@@ -5,7 +5,7 @@ import { api, type PermissionsViewT, type PlayerRefT } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
 import { Toggle } from '../components/Toggle';
 import { diffPermissions, widensAutonomy, type Change } from './permissionsDiff';
-import { PlanRow, PlayerLists, ToolSwitches } from './permissionsParts';
+import { AutoGrabSection, PlanRow, PlayerLists, ToolSwitches } from './permissionsParts';
 
 /**
  * The full Permissions editor. Edits a local draft; Save shows every change and needs an
@@ -89,6 +89,10 @@ function Editor({ view, saved }: { view: PermissionsViewT; saved: Permissions })
           tone="bad"
           onChange={(on) => edit((d) => void (d.paused = on))}
         />
+      </div>
+
+      <div className="card">
+        <AutoGrabSection draft={draft} edit={edit} />
       </div>
 
       <div className="card">

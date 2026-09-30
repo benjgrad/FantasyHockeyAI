@@ -4,7 +4,14 @@ import { useEffect, useState } from 'react';
 import { api, type PlayerRefT } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
 import { Toggle } from '../components/Toggle';
-import { PLAN_LABELS, limitsOf, modeOf, parseLimit, toolEnabled } from './permissionsDiff';
+import {
+  PLAN_LABELS,
+  limitsOf,
+  modeOf,
+  parseLimit,
+  parseMinGain,
+  toolEnabled,
+} from './permissionsDiff';
 
 type Edit = (fn: (draft: Permissions) => void) => void;
 
@@ -88,14 +95,92 @@ export function PlanRow({ kind, draft, edit }: { kind: PlanKind; draft: Permissi
   );
 }
 
+/**
+ * Auto-grab (D-016): act on a substantial upgrade the moment it appears, instead of waiting for
+ * the 08:00 waivers run. Every grab still meets the rules above.
+ */
+export function AutoGrabSection({ draft, edit }: { draft: Permissions; edit: Edit }) {
+  const a = draft.autoGrab;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold">Auto-grab</div>
+          <div className="text-xs text-mut">
+            {a.enabled
+              ? 'When a free agent is back from injury, or another team drops a healthy player, and he is a big upgrade, act at once.'
+              : 'Off: upgrades wait for the daily waivers run.'}
+          </div>
+        </div>
+        <Toggle
+          label="Auto-grab"
+          on={a.enabled}
+          onChange={(on) => edit((d) => void (d.autoGrab.enabled = on))}
+        />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <label className="flex flex-col gap-0.5 text-xs text-mut">
+          Minimum gain (VORP, rest of season)
+          <LimitInput
+            value={a.minGain}
+            scale={1}
+            placeholder="1.5"
+            onCommit={(raw) =>
+              edit((d) => void (d.autoGrab.minGain = parseMinGain(raw, d.autoGrab.minGain)))
+            }
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 text-xs text-mut">
+          Max per week
+          <LimitInput
+            value={a.maxPerWeek}
+            scale={1}
+            onCommit={(raw) =>
+              edit((d) => {
+                const n = parseLimit('maxPerWeek', raw);
+                if (n === undefined) delete d.autoGrab.maxPerWeek;
+                else d.autoGrab.maxPerWeek = n;
+              })
+            }
+          />
+        </label>
+      </div>
+      <p className="text-xs text-mut">
+        Gain is the player&rsquo;s value over the rest of the season minus the player dropped, both
+        discounted for time out. The ordinary add bar is 0.5; using the week&rsquo;s last add needs
+        twice the minimum.
+      </p>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">Act even while dry run is on</div>
+          <div className="text-xs text-mut">
+            {a.ignoreDryRun
+              ? 'Free-agent grabs really execute on Yahoo, even in dry run.'
+              : 'In dry run you get an urgent “Grab X now?” push and do it with one tap.'}{' '}
+            Waiver claims are always yours to file in Yahoo.
+          </div>
+        </div>
+        <Toggle
+          label="Act even while dry run is on"
+          on={a.ignoreDryRun}
+          tone="warn"
+          onChange={(on) => edit((d) => void (d.autoGrab.ignoreDryRun = on))}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Commits on blur so typing "1" on the way to "12" is not a change of its own. */
 function LimitInput({
   value,
   scale,
+  placeholder = 'no limit',
   onCommit,
 }: {
   value: number | undefined;
   scale: number;
+  placeholder?: string;
   onCommit: (raw: string) => void;
 }) {
   const shown = value === undefined ? '' : String(Math.round(value * scale * 100) / 100);
@@ -105,7 +190,7 @@ function LimitInput({
     <input
       className="input w-28 py-1"
       inputMode="decimal"
-      placeholder="no limit"
+      placeholder={placeholder}
       value={text}
       onChange={(e) => setText(e.target.value)}
       onBlur={() => onCommit(text)}

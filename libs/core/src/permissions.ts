@@ -31,6 +31,37 @@ export type PlanPermission = z.infer<typeof PlanPermission>;
 
 const planKeys = z.enum(PLAN_KINDS);
 
+/**
+ * Auto-grab (D-016): when a substantial upgrade appears between scheduled waiver runs (a free
+ * agent back from injury, a healthy player another team dropped), act at once instead of
+ * waiting for the 08:00 waivers job.
+ *
+ * `minGain` is in **VORP units over the rest of the season**, net of the player dropped and
+ * discounted for expected time out (`waiverWorth` in libs/model): the same z-score units as
+ * `addThreshold` (§18.3, default 0.5). The default 1.5 is three times the ordinary add bar, so
+ * only a clear upgrade (about a starter-for-a-replacement swap) acts without the daily agent
+ * run; the right value is an open question (U-21). Using the league's last weekly add needs
+ * twice `minGain`, because an add spent now cannot answer a later injury this week.
+ *
+ * Every auto-grab still goes through the pipeline and the gate (P2): locks, pause, tool
+ * switches, plan-kind modes, the weekly add cap and ask/protected players all apply.
+ */
+export const AutoGrab = z
+  .object({
+    enabled: z.boolean().default(true),
+    /** Net rest-of-season VORP gain an opportunity must exceed. */
+    minGain: z.number().nonnegative().default(1.5),
+    /**
+     * Execute a free-agent add even while `dryRun` is on. Off: with dry run on, an auto-grab is
+     * an urgent proposal push that Ben completes with one tap (D-015).
+     */
+    ignoreDryRun: z.boolean().default(false),
+    /** At most this many auto-grabs (executed or proposed) per scoring week. Unset: no own cap. */
+    maxPerWeek: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+export type AutoGrab = z.infer<typeof AutoGrab>;
+
 export const Permissions = z
   .object({
     /** Overrides every mode: nothing executes, everything is logged as "would execute". */
@@ -54,6 +85,7 @@ export const Permissions = z
       })
       .strict()
       .default({}),
+    autoGrab: AutoGrab.default({}),
   })
   .strict();
 export type Permissions = z.infer<typeof Permissions>;

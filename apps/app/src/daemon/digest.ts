@@ -1,4 +1,4 @@
-import { EVENT_KINDS, MatchupUpdatePayload } from '@fha/tools';
+import { AutoGrabPayload, EVENT_KINDS, MatchupUpdatePayload, autoGrabLine } from '@fha/tools';
 import type { DecisionCard } from '@fha/api';
 import { listCards } from '../decisionCard.js';
 import type { Services } from '../services.js';
@@ -18,6 +18,8 @@ export interface DigestInput {
   matchup: MatchupUpdatePayload | undefined;
   /** The projected outlook, when no scoreboard reading exists yet. */
   projected: { opponent: string; ahead: number; behind: number } | undefined;
+  /** Auto-grabs done or proposed yesterday (D-016), one line each. */
+  autoGrab?: string[];
 }
 
 const STATUS_WORDS: Readonly<Record<string, string>> = {
@@ -72,6 +74,11 @@ export function digestText(i: DigestInput): { title: string; body: string } {
       ),
     );
   }
+  const grabs = i.autoGrab ?? [];
+  if (grabs.length > 0) {
+    lines.push(`Auto-grab: ${grabs.length} move(s).`);
+    lines.push(...list(grabs, (g) => g));
+  }
   lines.push(...i.health);
   const m = matchupLine(i);
   if (m !== undefined) lines.push(m);
@@ -91,6 +98,14 @@ export function gatherDigest(s: Services, userId: string, now: Date): DigestInpu
   const since = new Date(now.getTime() - 36 * 3_600_000).toISOString();
   const reading = s.store.events.recent(userId, since, [EVENT_KINDS.matchupUpdate]).at(-1);
   const parsed = MatchupUpdatePayload.safeParse(reading?.payload);
+  const autoGrab = s.store.events
+    .recent(userId, from, [EVENT_KINDS.autoGrab])
+    .filter((e) => e.createdAt < to)
+    .flatMap((e) => {
+      const p = AutoGrabPayload.safeParse(e.payload);
+      if (!p.success || !['executed', 'proposed', 'pending'].includes(p.data.outcome)) return [];
+      return [autoGrabLine(p.data)];
+    });
   const league = s.league.peek(userId);
   const team = league === undefined ? undefined : teamView(league, now);
   const cats = team?.categories.filter((c) => c.winProb !== null) ?? [];
@@ -100,6 +115,7 @@ export function gatherDigest(s: Services, userId: string, now: Date): DigestInpu
     pending,
     health: team?.health ?? ['Roster: no league data cached yet.'],
     matchup: parsed.success ? parsed.data : undefined,
+    autoGrab,
     projected:
       team?.opponent == null
         ? undefined

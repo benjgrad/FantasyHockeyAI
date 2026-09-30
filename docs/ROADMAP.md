@@ -86,7 +86,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
 | **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013); waits on a live LLM run and the Yahoo write adapter (U-12) | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
-| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; built, not yet deployed): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push | Proposals carry evidence; nothing writes without approval | §12.8 |
+| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; built, not yet deployed): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push; **auto-grab** (D-016; built, not yet deployed): a free agent back from out or a healthy player another team dropped who clears `autoGrab.minGain` is proposed at once (urgent push) or, with `ignoreDryRun`/dry run off, added through the same gate | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
 | **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; not deployed | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
@@ -161,6 +161,8 @@ first use and update the row.
 | **U-18** | `percent_owned.delta` on free agents is a recent (daily) change, and the top 75 FAs by `sort=OR` contain the risers | — | Compare the watcher's top-50 risers with Yahoo's "trending" list for a week | UNVERIFIED — the status/news watcher ranks FAs by it (`apps/app/src/daemon/watchers.ts`) |
 | **U-19** | Rotowire notes' wording for absences ("4-6 months after surgery in June", "until at least early November", "a couple of weeks", "six-game suspension") | §12.1 | Check `daysOutFromNote` against real returns over the first month | UNVERIFIED — patterns written against the 2026-09-29 notes only (`libs/model/src/injuryNote.ts`); anything else falls back to U-13's defaults |
 | **U-20** | A roster read (`/roster;date=…/players`) carries `starting_status` for goalies | §11.4 | Look at a goalie on a game day | UNVERIFIED — the goalie watcher reads it there; absent, it records nothing (see U-15) |
+| **U-21** | `autoGrab.minGain` 1.5 (net rest-of-season VORP, 3× the 0.5 add bar) separates "substantial" upgrades from churn | D-016 | Review the `autoGrab.evaluated` events (grabbed vs skipped with their gains) against what the 08:00 waivers run and Ben would have done, over the first month | UNVERIFIED — a judgment call; tune in Settings → Permissions → Auto-grab |
+| **U-22** | A waiver claim can be filed through the same website `addplayer` form as an add (and a dropped player always goes to waivers first) | D-016, U-12 | Capture Ben filing one claim in DevTools | UNVERIFIED — auto-grab reads Yahoo's `ownership` (`waivers` + `waiver_date`); a claim is always handed to Ben (Open in Yahoo), never sent. If the ownership read fails, a player another team just dropped is assumed to be on waivers [R] |
 
 **Source URLs for re-verification** stay in the spec at **§26 (research register)** — source
 links are stable reference material and belong next to the claims they support, unlike the
@@ -178,6 +180,42 @@ for 2025-26 with G/A/P/SOG/PPP/+−/GP present; `/skater/realtime` has hits and 
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-016 — 2026-09-29 — Auto-grab: act on a substantial upgrade the moment it appears
+Ben: "If a player is no longer out and is a substantial gain, we should grab them immediately.
+Or if another team drops someone healthy that's a substantial gain, the same goes."
+- **Triggers** (daemon rules, debounced 30 min per player): a free agent's status going from out
+  (O/IR*/NA/SUSP) to healthy or DTD (`player.status_changed`, not rostered), and another team's
+  drop in a `league.transaction` (ours never). The status watcher now also follows the injured
+  free agents whose *healthy* value would clear the bar (≤ 25, recomputed from the cached league
+  each poll). A cheap pre-check on the cached league filters both before anything is queued.
+- **Evaluation** (queued in the job queue, so it never interleaves with the waivers job): refresh
+  the snapshot, read the player's Yahoo ownership (free agent, or on waivers until a date), then
+  `evaluateOpportunity` (libs/model, pure; the waiver scorer's `waiverWorth`/`scoreWaiverPair`).
+  **Unit**: net rest-of-season VORP, availability-discounted, add minus drop (the add alone with
+  an open roster spot) — the `addThreshold` units. Default `minGain` 1.5 (U-21). The drop is the
+  lowest-worth droppable player, never locked/protected/ask-listed or in an IR seat, never one
+  that opens an unfillable starting slot; dead spots win ties. No adds left → skip; the week's
+  last add needs 2× `minGain`. A player still out is never grabbed.
+- **Acting**: plan `agent: waivers`, `sourceTool` `proposeAddDrop` / `proposeWaiverClaim`,
+  rationale = the reasons, submitted through the real pipeline and gate with dry run forced (so
+  the verdict is on file before any write). Deny → nothing sent. Ask → urgent approval push.
+  Otherwise a **free-agent add executes** only when `autoGrab.enabled` and (dry run off **or**
+  `autoGrab.ignoreDryRun`) and the app can write to Yahoo: `executeByHuman` with `via:
+  'autoGrab'` (re-validated, re-gated, sent once, verified by a re-read) → push "Grabbed X
+  (dropped Y): +gain", or a failure push to the card (Do it / Open in Yahoo). Everything else is
+  an urgent "Grab X now? +gain · drop Y — tap to act" push to the actionable card. **Waiver
+  claims stay manual until the write is observed (U-12, U-22)**: "on waivers until <date> — file
+  a claim in Yahoo", with the Yahoo link.
+- **Never twice**: an add already pending, approved, landed or proposed (dry run) this week is
+  skipped. Optional `autoGrab.maxPerWeek` caps auto-grabs on top of the plan kinds' own caps.
+- **Visibility**: every evaluation is an `autoGrab.evaluated` event ("considered X (drop Y):
+  skipped, gain 0.80 < 1.50"), read by `getLeagueEvents` (the Monday review) and the digest's
+  "Auto-grab" line. Settings → Permissions has an Auto-grab section; enabling it, lowering
+  `minGain`, `ignoreDryRun` on or a looser cap count as widening autonomy.
+- Permissions gain `autoGrab: {enabled: true, minGain: 1.5, ignoreDryRun: false, maxPerWeek?}`;
+  stored rows without it parse with these defaults.
+- *Amends D-013's "everything else is collected": these two kinds of league move now act.*
 
 ### D-015 — 2026-09-29 — A human action on a proposal executes it even in dry run
 - **Dry run means "don't act without me", not "you can't act".** With `dryRun: true` the agents'

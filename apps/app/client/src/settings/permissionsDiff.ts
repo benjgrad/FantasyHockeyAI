@@ -67,6 +67,7 @@ export function diffPermissions(
     ...diffPlayers(before, after, nameOf),
     ...diffTools(before, after),
     ...diffProtected(before, after),
+    ...diffAutoGrab(before.autoGrab, after.autoGrab),
   ];
 }
 
@@ -190,6 +191,59 @@ function diffProtected(before: Permissions, after: Permissions): Change[] {
       widens: to < from,
     },
   ];
+}
+
+/** Auto-grab's minimum gain as typed; blank or junk keeps `current`, negatives become 0. */
+export function parseMinGain(raw: string, current: number): number {
+  const n = Number(raw);
+  if (raw.trim() === '' || !Number.isFinite(n)) return current;
+  return Math.max(0, Math.round(n * 100) / 100);
+}
+
+/**
+ * Auto-grab (D-016) acts between scheduled runs, so switching it on, lowering its bar, letting it
+ * act through dry run or loosening its weekly cap all widen autonomy.
+ */
+export function diffAutoGrab(
+  before: Permissions['autoGrab'],
+  after: Permissions['autoGrab'],
+): Change[] {
+  const out: Change[] = [];
+  if (before.enabled !== after.enabled) {
+    out.push({
+      path: 'autoGrab.enabled',
+      label: after.enabled
+        ? 'Auto-grab ON: substantial upgrades are acted on at once'
+        : 'Auto-grab OFF: upgrades wait for the daily waivers run',
+      widens: after.enabled,
+    });
+  }
+  if (before.minGain !== after.minGain) {
+    out.push({
+      path: 'autoGrab.minGain',
+      label: `Auto-grab minimum gain: ${before.minGain} → ${after.minGain}`,
+      widens: after.minGain < before.minGain,
+    });
+  }
+  if (before.ignoreDryRun !== after.ignoreDryRun) {
+    out.push({
+      path: 'autoGrab.ignoreDryRun',
+      label: after.ignoreDryRun
+        ? 'Auto-grab acts even while dry run is on: free-agent adds really execute on Yahoo'
+        : 'Auto-grab respects dry run: it proposes instead of acting',
+      widens: after.ignoreDryRun,
+    });
+  }
+  const from = before.maxPerWeek;
+  const to = after.maxPerWeek;
+  if (from !== to) {
+    out.push({
+      path: 'autoGrab.maxPerWeek',
+      label: `Auto-grab max per week: ${from ?? 'none'} → ${to ?? 'none'}`,
+      widens: to === undefined ? true : from === undefined ? false : to > from,
+    });
+  }
+  return out;
 }
 
 export function widensAutonomy(changes: Change[]): boolean {

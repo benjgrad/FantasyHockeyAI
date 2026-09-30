@@ -37,3 +37,21 @@ tools:
 # Our top-N by rest-of-season VORP need approval before they can be dropped or traded.
 protected:
   topNByVorp: 6
+
+# Auto-grab (D-016): when a free agent comes back from injury, or another team drops a healthy
+# player, and he is a substantial upgrade, act at once instead of waiting for the 08:00 waivers
+# job. It goes through the same gate as everything else: the plan modes, caps, locks, protected
+# and ask-listed players, pause and tool switches above all still apply.
+autoGrab:
+  # Off: nothing is evaluated between scheduled runs.
+  enabled: true
+  # Net gain needed, in VORP units over the rest of the season: the add's value minus the
+  # drop's, each discounted for expected time out (the waiver scorer's units; the ordinary add
+  # bar is 0.5). Using the week's last add needs twice this.
+  minGain: 1.5
+  # With dry run on, an auto-grab is an urgent "Grab X now?" push you complete with one tap.
+  # true: execute free-agent adds even while dry run is on. Waiver claims are always yours to
+  # file in Yahoo (unobserved write, U-12).
+  ignoreDryRun: false
+  # Optional: at most this many auto-grabs (done or proposed) per week.
+  # maxPerWeek: 2

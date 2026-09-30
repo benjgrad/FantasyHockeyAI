@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ToolResult } from '@fha/llm';
-import { EVENT_KINDS, getLeagueEvents, notableReason } from './tools/leagueEvents.js';
+import {
+  EVENT_KINDS,
+  autoGrabLine,
+  getLeagueEvents,
+  notableReason,
+  type AutoGrabPayload,
+} from './tools/leagueEvents.js';
 import { testRun } from './testing.js';
 
 function summary<T>(r: ToolResult<T>): string {
@@ -106,5 +112,38 @@ describe('getLeagueEvents', () => {
     expect(notableReason(ctx.view, { kind, payload: { ...base, ours: true } })).toBeUndefined();
     expect(notableReason(ctx.view, { kind, payload: { ...base, from: 'IR' } })).toBeUndefined();
     expect(notableReason(ctx.view, { kind, payload: { ...base, to: 'DTD' } })).toBeUndefined();
+  });
+});
+
+describe('auto-grab in the league review (D-016)', () => {
+  const skipped: AutoGrabPayload = {
+    playerKey: '477.p.1',
+    name: 'Seth Jarvis',
+    trigger: 'back',
+    outcome: 'skipped',
+    kind: 'add',
+    drop: '477.p.2',
+    dropName: 'Nico Hischier',
+    gain: 0.8,
+    required: 1.5,
+    reason: 'gain 0.80 < 1.50',
+    planId: null,
+  };
+
+  it('says what was considered and why it was skipped, or what was done', () => {
+    expect(autoGrabLine(skipped)).toBe(
+      'considered Seth Jarvis (drop Nico Hischier): skipped, gain 0.80 < 1.50',
+    );
+    expect(autoGrabLine({ ...skipped, outcome: 'executed', gain: 2.4 })).toBe(
+      'grabbed Seth Jarvis (drop Nico Hischier): +2.40',
+    );
+  });
+
+  it('getLeagueEvents lists auto-grab evaluations', async () => {
+    const { ctx, store } = testRun({ agent: 'leagueReview' });
+    const user = store.users.upsertBySub('sub-1');
+    store.events.record({ userId: user.id, kind: EVENT_KINDS.autoGrab, payload: skipped });
+    const out = summary(await getLeagueEvents.execute({ sinceDays: 7 }, { ...ctx, userId: user.id }));
+    expect(out).toContain('auto-grab considered Seth Jarvis (drop Nico Hischier): skipped, gain 0.80 < 1.50');
   });
 });
