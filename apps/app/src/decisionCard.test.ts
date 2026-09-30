@@ -83,6 +83,29 @@ describe('actionsFor', () => {
   });
 });
 
+describe('yahooUrlFor: trades', () => {
+  it('opens the propose-trade page prefilled with the partner and both sides', () => {
+    const trade = {
+      planId: 'p',
+      runId: 'r',
+      agent: 'trades' as const,
+      sourceTool: 'proposeTrade',
+      createdAt: '2026-09-30T12:00:00Z',
+      rationale: 'x',
+      payload: {
+        kind: 'tradePropose' as const,
+        partnerTeamKey: '477.l.48535.t.2',
+        give: ['477.p.6395'],
+        get: ['477.p.6877', '477.p.5981'],
+        expectedGain: 0.5,
+      },
+    };
+    expect(yahooUrlFor(trade, { leagueKey: '477.l.48535', teamKey: '477.l.48535.t.6' })).toBe(
+      'https://hockey.fantasysports.yahoo.com/hockey/48535/6/proposetrade?stage=1&mid2=2&tpids2[]=6877&tpids2[]=5981&tpids[]=6395',
+    );
+  });
+});
+
 describe('yahooUrlFor', () => {
   const links = { leagueKey: '477.l.48535', teamKey: US };
   it('an add opens the add-player page for that player', () => {
@@ -91,7 +114,7 @@ describe('yahooUrlFor', () => {
     );
     expect(yahooUrlFor(plan({ kind: 'waiverClaim', add: TROCHECK }), links)).toMatch(/apid=5381$/);
   });
-  it('lineups, drops and trades open the team page; no connection, no link', () => {
+  it('lineups open the team page, trades the prefilled propose-trade page; no connection, no link', () => {
     expect(yahooUrlFor(lineup, links)).toBe(
       'https://hockey.fantasysports.yahoo.com/hockey/48535/6',
     );
@@ -102,7 +125,9 @@ describe('yahooUrlFor', () => {
       get: [TROCHECK],
       expectedGain: 1,
     });
-    expect(yahooUrlFor(trade, links)).toBe('https://hockey.fantasysports.yahoo.com/hockey/48535/6');
+    expect(yahooUrlFor(trade, links)).toMatch(
+      /^https:\/\/hockey\.fantasysports\.yahoo\.com\/hockey\/48535\/6\/proposetrade\?stage=1&mid2=\d+&tpids2\[\]=\d+&tpids\[\]=\d+$/,
+    );
     expect(yahooUrlFor(addDrop, { leagueKey: null, teamKey: null })).toBeNull();
   });
 });

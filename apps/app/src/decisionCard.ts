@@ -84,8 +84,10 @@ function idAfter(key: string, marker: '.l.' | '.t.' | '.p.'): string | undefined
 
 /**
  * The Yahoo page for a move. An add goes to the add-player page for that player [V: the URL
- * Ben's captured add used]; everything else to our team page. Yahoo's trade page URL has not
- * been observed [U], so trades also get the team page rather than a guessed URL (§24.11).
+ * Ben's captured add used]. A trade proposal opens Yahoo's propose-trade page prefilled: the
+ * partner (`mid2`) and their players (`tpids2[]`) are [V] (the links on a rival's team page,
+ * 2026-09-30), our side (`tpids[]`) is the form's own field name used as a query parameter [U] —
+ * if Yahoo ignores it, Ben ticks our players himself. Everything else goes to our team page.
  */
 export function yahooUrlFor(
   plan: Plan,
@@ -99,7 +101,30 @@ export function yahooUrlFor(
     if (pid !== undefined) return `${YAHOO}/${league}/addplayer?apid=${pid}`;
   }
   const team = links.teamKey === null ? undefined : idAfter(links.teamKey, '.t.');
-  return team === undefined ? `${YAHOO}/${league}` : `${YAHOO}/${league}/${team}`;
+  if (team === undefined) return `${YAHOO}/${league}`;
+  if (p.kind === 'tradePropose') {
+    const partner = idAfter(p.partnerTeamKey, '.t.');
+    if (partner !== undefined) return proposeTradeUrl(league, team, partner, p.give, p.get);
+  }
+  return `${YAHOO}/${league}/${team}`;
+}
+
+function proposeTradeUrl(
+  league: string,
+  team: string,
+  partner: string,
+  give: readonly string[],
+  get: readonly string[],
+): string {
+  const ids = (keys: readonly string[]) =>
+    keys.map((k) => idAfter(k, '.p.')).filter((x): x is string => x !== undefined);
+  const q = [
+    'stage=1',
+    `mid2=${partner}`,
+    ...ids(get).map((id) => `tpids2[]=${id}`),
+    ...ids(give).map((id) => `tpids[]=${id}`),
+  ];
+  return `${YAHOO}/${league}/${team}/proposetrade?${q.join('&')}`;
 }
 
 const list = (names: string[]) =>
