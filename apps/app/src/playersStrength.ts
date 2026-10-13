@@ -1,19 +1,16 @@
 import type { Player, Valuation } from '@fha/core';
 import {
   CATEGORY_SATURATION,
-  SEASON_TEAM_GAMES,
   availabilityAdjustedVorp,
-  availableShare,
   categoryNeedWeights,
   lowerIsBetter,
 } from '@fha/model';
 import type { Store } from '@fha/store';
 import {
-  SEASON_WEEKS,
-  availabilityOf,
   currentMatchup,
+  playerSeasonShare,
   scoringCategories,
-  weeksRemaining,
+  seasonHorizonGames,
   type LeagueView,
 } from '@fha/tools';
 
@@ -55,15 +52,12 @@ const round = (n: number, dp = 2): number => Math.round(n * 10 ** dp) / 10 ** dp
 
 /** Team games left in the season, the horizon every availability share is taken over. */
 export function restOfSeasonGames(view: LeagueView): number {
-  return Math.max(
-    1,
-    Math.round((SEASON_TEAM_GAMES * weeksRemaining(view.snap.week)) / SEASON_WEEKS),
-  );
+  return seasonHorizonGames(view);
 }
 
 /** Share of the rest of the season a player is expected to be available for, 0..1. */
 export function seasonShare(view: LeagueView, p: Player): number {
-  return availableShare(availabilityOf(view, p), restOfSeasonGames(view));
+  return playerSeasonShare(view, p);
 }
 
 /**

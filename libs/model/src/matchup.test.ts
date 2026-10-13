@@ -3,6 +3,8 @@ import { availability } from './availability.js';
 import { goalie, resetIds, skater } from './fixtures.js';
 import {
   type CategoryLine,
+  bankedLine,
+  finalLine,
   categoryValue,
   categoryWeightsForWeek,
   categoryWinProbability,
@@ -198,5 +200,37 @@ describe('projectedWeekGames — availability', () => {
     // Back in 2 days: 2 × 82/186 = 0.88 games missed of 4.
     const back = availability({ status: 'O', returnDate: '2026-10-01', now });
     expect(projectedWeekGames(4, { availability: back })).toBeCloseTo(4 - (2 * 82) / 186, 12);
+  });
+});
+
+describe('bankedLine', () => {
+  const cats = ['G', 'SOG', 'W', 'GAA', 'SV%'];
+  it('takes counts as they are and rebuilds goalie volume from GA, SA, SV and GAA', () => {
+    // Ben's week-1 scoreboard (2026-10-02): GA 15, SA 79, SV 64, GAA 5.13.
+    const line = bankedLine(
+      { G: 2, SOG: 26, W: 1, GA: 15, SA: 79, SV: 64, GAA: 5.13, 'SV%': 0.81 },
+      cats,
+    );
+    expect(line.counts).toEqual({ G: 2, SOG: 26, W: 1 });
+    expect(line.saves).toBe(64);
+    expect(line.shotsAgainst).toBe(79);
+    expect(line.toiMinutes).toBeCloseTo(175.4, 1);
+    expect(categoryValue(line, 'GAA')).toBeCloseTo(5.13, 2);
+    expect(categoryValue(line, 'SV%')).toBeCloseTo(0.81, 2);
+    expect(line.estimatedMinutes).toBe(false);
+  });
+
+  it('estimates minutes from shots when no goal was allowed, and says so', () => {
+    const line = bankedLine({ GA: 0, SA: 30, SV: 30, GAA: 0 }, cats);
+    expect(line.toiMinutes).toBe(60);
+    expect(line.estimatedMinutes).toBe(true);
+  });
+
+  it('banked totals carry no variance: a finished week is decided', () => {
+    const banked = bankedLine({ G: 10 }, ['G']);
+    const done = { actual: banked, remaining: emptyLine() };
+    const them = { actual: bankedLine({ G: 4 }, ['G']), remaining: emptyLine() };
+    expect(categoryWinProbability(done, them, 'G')).toBe(1);
+    expect(categoryValue(finalLine(done), 'G')).toBe(10);
   });
 });

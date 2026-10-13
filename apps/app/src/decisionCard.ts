@@ -27,10 +27,18 @@ export interface CardContext {
   now: Date;
 }
 
-/** Kinds the Yahoo website adapter executes itself (U-12: add/drop is the one write observed). */
+/**
+ * Kinds the Yahoo website adapter executes itself: add/drop and lineups (U-12) and trade
+ * proposals (U-23) are observed. Answering an offer and waiver claims are not.
+ */
 export function canAutomate(plan: Plan, live: boolean): boolean {
   const p = plan.payload;
-  return live && p.kind === 'addDrop' && p.add !== undefined;
+  if (!live) return false;
+  return (
+    p.kind === 'lineup' ||
+    p.kind === 'tradePropose' ||
+    (p.kind === 'addDrop' && p.add !== undefined)
+  );
 }
 
 /** A plan whose moment has passed (a deadline gone, a lineup for a past date) offers nothing. */
@@ -54,6 +62,10 @@ export function actionsFor(
       if (executions.length === 0 && !lapsed(d.plan, ctx.now)) {
         return auto ? ['execute', 'openInYahoo'] : ['openInYahoo', 'done', 'dismiss'];
       }
+      // A lineup handed to Ben (nothing sent) can still be sent once the app can make it.
+      if (handedToBen && auto && d.plan.payload.kind === 'lineup' && !lapsed(d.plan, ctx.now)) {
+        return ['execute', 'openInYahoo', 'done', 'dismiss'];
+      }
       // Sent and never confirmed: only a read can settle it. Handed to Ben: he may drop it.
       return handedToBen ? ['openInYahoo', 'done', 'dismiss'] : ['openInYahoo', 'done'];
     case 'pending':
@@ -62,6 +74,14 @@ export function actionsFor(
     case 'dry_run':
       if (lapsed(d.plan, ctx.now)) return ['dismiss'];
       return auto ? ['execute', 'dismiss', 'openInYahoo'] : ['openInYahoo', 'done', 'dismiss'];
+    case 'failed':
+      // A lineup that never reached Yahoo (e.g. the session had expired) can be sent again.
+      return auto &&
+        d.plan.payload.kind === 'lineup' &&
+        !lapsed(d.plan, ctx.now) &&
+        executions.every((e) => e === 'failed' || e === 'needsHuman')
+        ? ['execute', 'openInYahoo']
+        : [];
     default:
       return [];
   }
@@ -169,9 +189,12 @@ export function toCard(store: Store, d: DecisionRecord, ctx: CardContext): Decis
   const planId = d.plan.planId;
   const approval = store.approvals.get(planId);
   const executions = store.executions.forPlan(planId).map((e) => e.status);
-  // For a gated plan the store keeps the gate's reasons in `validation`.
+  // For a gated plan the store keeps the gate's reasons in `validation`; for an invalid one
+  // (rejected by the pipeline's backstop check), the validation errors: never a bare "invalid".
   const reasons =
-    d.gate !== undefined && Array.isArray(d.validation) ? d.validation.map(String) : [];
+    (d.gate !== undefined || d.status === 'invalid') && Array.isArray(d.validation)
+      ? d.validation.map(String)
+      : [];
   const actions = actionsFor(d, executions, ctx);
   return {
     planId,

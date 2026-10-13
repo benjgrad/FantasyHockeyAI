@@ -6,6 +6,7 @@ import { App } from './App';
 import { RequestError } from './api/client';
 import { ensureWorker, pushSupported } from './push/notifications';
 import { listenForInstallPrompt } from './pwa/install';
+import { trackAppHeight } from './pwa/appHeight';
 import { offlineMutationError } from './pwa/online';
 import './styles.css';
 
@@ -47,6 +48,8 @@ const queryClient: QueryClient = new QueryClient({
 
 // Before render: Chrome fires beforeinstallprompt once, early (see pwa/install.ts).
 listenForInstallPrompt();
+// Before render too: the installed iOS app's height is measured, not trusted (pwa/appHeight.ts).
+trackAppHeight();
 
 // Registered on boot so the app is installable; enabling push reuses this registration.
 if (import.meta.env.PROD && pushSupported()) {

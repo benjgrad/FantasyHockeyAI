@@ -26,6 +26,19 @@ export interface LineupPlayer {
   value: number;
   /** Goalies: probability he starts (§12.3). Defaults to 1. */
   pStart?: number | undefined;
+  /** Reserve seats Yahoo lists for him (U-10); when present, they replace the status table. */
+  reserveSlots?: readonly string[] | undefined;
+}
+
+/** May `e` sit in reserve seat `slot`? Yahoo's own list wins over the status table (U-10). */
+function fitsReserve(
+  table: Readonly<Record<string, readonly string[]>>,
+  slot: string,
+  e: Pick<LineupPlayer, 'status' | 'reserveSlots'>,
+): boolean {
+  return e.reserveSlots !== undefined
+    ? e.reserveSlots.includes(slot)
+    : reserveAllows(table, slot, e.status);
 }
 
 export interface LineupInput {
@@ -124,7 +137,7 @@ function weight(
   const stay = c.position === e.currentSlot ? CURRENT_SLOT_BONUS : 0;
   if (c.kind === 'bench') return stay;
   if (c.kind === 'reserve') {
-    if (reserveAllows(ctx.table, c.position, e.status)) return RESERVE_BONUS + stay;
+    if (fitsReserve(ctx.table, c.position, e)) return RESERVE_BONUS + stay;
     // Already there but no longer allowed: legal only as a last resort, and warned about.
     return c.position === e.currentSlot ? ctx.illegalStay : Number.NEGATIVE_INFINITY;
   }
@@ -205,7 +218,7 @@ function lineupWarnings(
         `${e.playerKey} starts at ${c.position} but ${why}: no benched alternative plays`,
       );
     }
-    if (c.kind === 'reserve' && !reserveAllows(table, c.position, e.status)) {
+    if (c.kind === 'reserve' && !fitsReserve(table, c.position, e)) {
       warnings.push(
         `${e.playerKey} is in ${c.position} but status ${e.status ?? 'healthy'} no longer allows it; a roster spot must be cleared`,
       );

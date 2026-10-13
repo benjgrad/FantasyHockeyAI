@@ -90,6 +90,9 @@ export const AutoGrab = z
   .strict();
 export type AutoGrab = z.infer<typeof AutoGrab>;
 
+export const ValueLens = z.enum(['preseason', 'rest-of-season']);
+export type ValueLens = z.infer<typeof ValueLens>;
+
 export const Permissions = z
   .object({
     /** Overrides every mode: nothing executes, everything is logged as "would execute". */
@@ -114,6 +117,20 @@ export const Permissions = z
       .strict()
       .default({}),
     autoGrab: AutoGrab.default({}),
+    /**
+     * Which value lens each automated decision uses (D-026): the preseason projection, or the
+     * rest-of-season one (updated by this season's games). Every decision also runs on the
+     * other lens in shadow and records where it would have decided differently.
+     */
+    valueLens: z
+      .object({
+        lineup: ValueLens.default('preseason'),
+        autoGrab: ValueLens.default('preseason'),
+        protected: ValueLens.default('preseason'),
+        trades: ValueLens.default('preseason'),
+      })
+      .strict()
+      .default({}),
   })
   .strict();
 export type Permissions = z.infer<typeof Permissions>;

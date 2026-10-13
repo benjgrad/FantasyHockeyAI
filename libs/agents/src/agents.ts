@@ -10,12 +10,21 @@ import { ToolAgent, type ToolAgentConfig } from './toolAgent.js';
  * needed here to persist it.
  */
 
+/** Adds left this week and the cap, or undefined when no weekly cap is configured. */
+export function addsRemaining(
+  deps: Pick<AgentDeps, 'view' | 'store'>,
+  permissions: Permissions,
+): { left: number; cap: number } | undefined {
+  const cap = weeklyAddCap(permissions);
+  if (cap === undefined) return undefined;
+  return { left: Math.max(0, cap - addsUsedThisWeek(deps.view, deps.store)), cap };
+}
+
 /** Adds left this week, computed by code so the model never counts them (P1). */
 export function addsRemainingFact(deps: AgentDeps, permissions: Permissions): string[] {
-  const cap = weeklyAddCap(permissions);
-  if (cap === undefined) return ['Adds remaining this week: no weekly cap is configured.'];
-  const used = addsUsedThisWeek(deps.view, deps.store);
-  return [`Adds remaining this week: ${Math.max(0, cap - used)} of ${cap}.`];
+  const r = addsRemaining(deps, permissions);
+  if (r === undefined) return ['Adds remaining this week: no weekly cap is configured.'];
+  return [`Adds remaining this week: ${r.left} of ${r.cap}.`];
 }
 
 export const AGENT_CONFIGS = {

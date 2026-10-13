@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AGENT_NAMES } from '@fha/core';
 import { zodToJsonSchema } from '@fha/llm';
-import { ALL_TOOLS, AGENT_TOOLS, toolsFor, validationContextFor } from './registry.js';
+import { ALL_TOOLS, AGENT_TOOLS, toolsFor } from './registry.js';
+import { validationContextFor } from './validationContext.js';
 import { mockPermissions, mockView, MOCK_NOW } from './testing.js';
 import { openStore } from '@fha/store';
 
@@ -51,7 +52,7 @@ describe('registry', () => {
     }
   });
 
-  it('only propose tools and setCategoryWeights carry propose risk', () => {
+  it('only propose tools, setCategoryWeights and the watch-list writers carry propose risk', () => {
     const propose = Object.values(ALL_TOOLS)
       .filter((t) => t.risk === 'propose')
       .map((t) => t.name)
@@ -63,6 +64,8 @@ describe('registry', () => {
       'proposeTradeResponse',
       'proposeWaiverClaim',
       'setCategoryWeights',
+      'stopWatching',
+      'watchPlayers',
     ]);
   });
 

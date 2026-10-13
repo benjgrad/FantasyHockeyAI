@@ -119,6 +119,20 @@ describe('event → action rules', () => {
     ).toEqual([]);
   });
 
+  it('out → IR-eligible (Hellebuyck NA → IR-NR): tell Ben and run the lineup to use the seat', () => {
+    const d = decideEvents(
+      [status({ name: 'Connor Hellebuyck', from: 'NA', to: 'IR-NR', slot: 'BN', note: null })],
+      ctx(),
+    ).decisions[0];
+    expect(summary(d?.actions ?? [])).toEqual([
+      'push injury: Connor Hellebuyck is now IR-NR, so he can go to IR. The lineup agent is checking whether a seat is free.',
+      'run lineup',
+    ]);
+    // Already in a reserve seat: nothing to do.
+    const seated = decideEvents([status({ from: 'NA', to: 'IR-NR', slot: 'NA' })], ctx());
+    expect(seated.decisions[0]?.actions).toEqual([]);
+  });
+
   it('debounces a second action on the same player within 30 minutes', () => {
     const first = decideEvents([status({})], ctx());
     const again = decideEvents([status({ from: 'O', to: null })], {
@@ -214,5 +228,35 @@ describe('event → action rules', () => {
     const { decisions } = decideEvents([dropped, back], ctx({ worth: all }));
     expect(decisions[0]?.actions).toHaveLength(1);
     expect(decisions[1]?.skipped).toBe('debounced');
+  });
+});
+
+describe('goalie starting flags (D-029)', () => {
+  const flag = (p: Record<string, unknown>): EventRecord => ({
+    id: ++id,
+    userId: 'u1',
+    kind: 'goalie.starting',
+    subject: '477.p.5336',
+    payload: { playerKey: '477.p.5336', name: 'Darcy Kuemper', date: '2026-10-06', ...p },
+    createdAt: NOW.toISOString(),
+  });
+  it('a goalie in G flagged not starting today: notify and re-run the lineup', () => {
+    const d = decideEvents([flag({ isStarting: false, ours: true, slot: 'G' })], ctx())
+      .decisions[0];
+    expect(summary(d?.actions ?? [])).toEqual([
+      'push injury: Yahoo says Darcy Kuemper is not starting tonight. The lineup agent is re-checking the G slots.',
+      'run lineup',
+    ]);
+  });
+  it('nothing when the flag agrees with his slot, is another day, or is not ours', () => {
+    for (const p of [
+      { isStarting: true, ours: true, slot: 'G' },
+      { isStarting: false, ours: true, slot: 'BN' },
+      { isStarting: false, ours: true, slot: 'G', date: '2026-10-05' },
+      { isStarting: false, ours: false, slot: null },
+      { isStarting: false },
+    ]) {
+      expect(decideEvents([flag(p)], ctx()).decisions[0]?.actions, JSON.stringify(p)).toEqual([]);
+    }
   });
 });

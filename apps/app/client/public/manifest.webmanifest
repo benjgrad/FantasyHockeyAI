@@ -1,6 +1,6 @@
 {
   "id": "/",
-  "name": "FantasyHockeyAI",
+  "name": "Hockey GM",
   "short_name": "Hockey GM",
   "description": "Your Yahoo NHL fantasy team's assistant: lineups, waivers, trades and approvals.",
   "lang": "en",
@@ -9,8 +9,8 @@
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0f1720",
-  "theme_color": "#0f1720",
+  "background_color": "#0a1520",
+  "theme_color": "#0a1520",
   "categories": ["sports", "productivity", "utilities"],
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

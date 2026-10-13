@@ -6,7 +6,7 @@ import { offering, mustCard } from './decisions.js';
 import type { CardContext } from './decisionCard.js';
 import { newYorkDate } from './league.js';
 import type { Services } from './services.js';
-import { storedCredentials, yahooFailure } from './yahoo.js';
+import { rotationSaver, storedCredentials, yahooFailure } from './yahoo.js';
 
 /**
  * "I did it in Yahoo" (D-015): Ben made the move by hand. The plan is marked `executed` only
@@ -108,10 +108,12 @@ export async function confirmDone(
     if (live !== undefined && rec.plan.payload.kind === 'addDrop') {
       ok = await live.verify(rec.plan);
     } else {
+      const deps = { store: s.store, secretKey: s.config.secretKey, log: s.log };
       const reader = s.yahoo.reader(
-        storedCredentials({ store: s.store, secretKey: s.config.secretKey }, userId),
+        storedCredentials(deps, userId),
         league.leagueKey,
         league.teamKey,
+        rotationSaver(deps, userId),
       );
       ok = await confirmedInYahoo(
         rec.plan,

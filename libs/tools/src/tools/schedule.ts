@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { isOut } from '@fha/model';
 import { defineTool, fail, ok } from '../context.js';
-import { DATE_RE, availabilityOf, dateProblem, dayStatus, label, table } from '../derive.js';
+import { DATE_RE, availabilityOf, dateProblem, fmt, label, table } from '../derive.js';
+import { goalieStartsFor } from '../goalieStarts.js';
 import { resolvePlayers } from '../resolve.js';
 
 /** Read tools over time: the NHL schedule, goalie starts and player news. */
@@ -50,35 +50,28 @@ export const getSchedule = defineTool({
 export const getGoalieStarts = defineTool({
   name: 'getGoalieStarts',
   description:
-    'Start status for our goalies on a date: whether their team plays, and whether the start is confirmed. Call it before proposeLineup.',
+    "Who starts in goal for our goalies on a date, from Yahoo's starting flag, starter notes (e.g. 'expected to guard the home crease Saturday') and a teammate named as the starter: confirmed, likely, notStarting, unknown (no report yet), noGame or out, each with its evidence and the start probability the lineup solver uses. Call it before proposeLineup; the solver already applies it.",
   input: z.object({ date: z.string().regex(DATE_RE, 'use YYYY-MM-DD') }),
   risk: 'read',
   execute: (input, ctx) => {
     const problem = dateProblem(ctx.view, input.date);
     if (problem !== undefined) return Promise.resolve(fail(problem));
-    // No confirmation source is connected yet (§11: DailyFaceoff et al.). Saying "unknown" is
-    // honest; inventing "probable" would be a stub that looks like data (§24.11).
-    const goalies = ctx.view
-      .roster()
-      .entries.filter((e) => e.player.positionType === 'G')
-      .map(({ player }) => {
-        const day = dayStatus(ctx.view, player, input.date, ctx.now);
-        const start =
-          day.opponent === undefined ? 'noGame' : isOut(player.status) ? 'out' : 'unknown';
-        return {
-          playerKey: player.playerKey,
-          name: player.name,
-          start,
-          opponent: day.opponent ?? null,
-          source: 'none',
-          label: label(player),
-        };
-      });
+    const goalies = goalieStartsFor(ctx.view, ctx.store, ctx.userId, input.date, ctx.now);
     const summary =
-      `Goalie starts on ${input.date} (no confirmation source is connected: "unknown" means not yet known, not unlikely):\n` +
+      `Goalie starts on ${input.date} (unknown = no report yet; the solver then uses his usual start share):\n` +
       table(
-        ['playerKey', 'goalie', 'start', 'opponent'],
-        goalies.map((g) => [g.playerKey, g.label, g.start, g.opponent ?? '-']),
+        ['playerKey', 'goalie', 'start', 'P(start)', 'opponent', 'evidence'],
+        goalies.map((g) => {
+          const p = ctx.view.player(g.playerKey);
+          return [
+            g.playerKey,
+            p === undefined ? g.name : label(p),
+            g.start,
+            fmt(g.pStart, 2),
+            g.opponent ?? '-',
+            g.evidence.join('; ') || '-',
+          ];
+        }),
       );
     return Promise.resolve(ok({ date: input.date, goalies }, summary));
   },

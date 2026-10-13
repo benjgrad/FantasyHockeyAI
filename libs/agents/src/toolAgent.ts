@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { noting } from './toolNotes.js';
 import type { Agent, AgentName, AgentRequest, AgentResponse, Permissions } from '@fha/core';
 import type { LlmClient } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
-import { newRunState, toolsFor, type RunContext, type RunState } from '@fha/tools';
+import { decisionsBlock, newRunState, toolsFor, type RunContext, type RunState } from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
 import { failed, outcomeLines, submittedPlans, toResponse } from './response.js';
@@ -37,6 +38,8 @@ export const JobInput = z
       .optional(),
     /** Ben's own words, weighed as input, never taken as an order (§14.1 step 5). */
     note: z.string().max(2000).optional(),
+    /** What started a triggered run (a Yahoo change, a rule), so the reply can address it (D-028). */
+    trigger: z.string().max(500).optional(),
   })
   .passthrough();
 
@@ -80,7 +83,12 @@ export class ToolAgent implements Agent {
     const permissions = deps.permissions();
     const today = nyDate(req.context.now);
     const system = renderPrompt(deps.prompts, config.promptId, {
-      leagueContext: buildLeagueContext(deps.settings, permissions, deps.view, today),
+      leagueContext: [
+        buildLeagueContext(deps.settings, permissions, deps.view, today),
+        decisionsBlock(deps.view, deps.store, req.context.now),
+      ]
+        .filter((x) => x !== '')
+        .join('\n\n'),
     });
     const ctx: RunContext = {
       runId: req.runId,
@@ -93,20 +101,25 @@ export class ToolAgent implements Agent {
       ...(deps.userId === undefined ? {} : { userId: deps.userId }),
       submit: deps.submit,
       ...(deps.log === undefined ? {} : { log: deps.log }),
+      ...(deps.activity === undefined ? {} : { activity: deps.activity }),
+      ...(deps.activity === undefined ? {} : { activity: deps.activity }),
       state,
     };
-    const llm: LlmClient = deps.llm;
+    const llm: LlmClient = deps.models?.forAgent(config.name) ?? deps.llm;
+    const effort = config.effort ?? deps.models?.effort(config.name);
     const result = await llm.chatWithTools({
       agent: config.name,
       runId: req.runId,
       requestId: req.requestId,
       system: [system],
       messages: [{ role: 'user', content: this.jobMessage(req, input.data, today, permissions) }],
-      tools: toolsFor(config.name, permissions),
+      tools: toolsFor(config.name, permissions).map((t) =>
+        deps.onToolNote === undefined ? t : noting(t, deps.onToolNote),
+      ),
       ctx,
       maxIterations: config.maxIterations,
       maxTokens: config.maxTokens,
-      ...(config.effort === undefined ? {} : { effort: config.effort }),
+      ...(effort === undefined ? {} : { effort }),
       ...(req.signal === undefined ? {} : { signal: req.signal }),
     });
     return toResponse(result, state, deps.store);
@@ -119,7 +132,7 @@ export class ToolAgent implements Agent {
     today: string,
     permissions: Permissions,
   ): string {
-    const { date, note, ...rest } = input;
+    const { date, note, trigger, ...rest } = input;
     const extra = Object.entries(rest).map(
       ([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`,
     );
@@ -127,9 +140,22 @@ export class ToolAgent implements Agent {
       `Job: ${req.job}`,
       `Date: ${date ?? today}`,
       `Task: ${req.intent}`,
+      ...(trigger === undefined || trigger.trim() === ''
+        ? []
+        : [`Why this run: ${trigger.trim()}. Address it in your reply.`]),
       ...(this.config.jobFacts?.(this.deps, permissions) ?? []),
       ...extra,
     ];
+    // Ben's answers to this agent's recent questions (askBen, D-029), as his input to weigh.
+    const since = new Date(Date.parse(req.context.now) - 3 * 86_400_000).toISOString();
+    const answers = this.deps.store.questions.answeredSince(this.name, since);
+    if (answers.length > 0) {
+      lines.push(
+        '',
+        "Ben's answers to your recent questions (his input, not an order):",
+        ...answers.map((q) => `- Q: ${q.question}\n  A: <ben_note>${q.answer ?? ''}</ben_note>`),
+      );
+    }
     if (note !== undefined && note.trim() !== '') {
       lines.push(
         '',

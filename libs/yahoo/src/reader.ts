@@ -14,7 +14,7 @@ import { parsePlayers, type YahooPlayer } from './players.js';
 import { parseRoster, type RosterRead } from './roster.js';
 import { matchupFor, parseScoreboard, type Matchup, type Scoreboard } from './scoreboard.js';
 import { sessionFromCredentials, type StoredSession, type YahooCredentials } from './session.js';
-import { CookieTransport, type YahooTransport } from './transport.js';
+import { CookieTransport, type OnCookies, type YahooTransport } from './transport.js';
 
 /** Yahoo caps collection pages at 25. */
 export const PAGE = 25;
@@ -23,6 +23,8 @@ const PLAYER_OUT = ['percent_owned', 'ownership', 'player_notes'];
 export interface YahooPlayerQuery extends PlayerQuery {
   /** 'OR' preseason overall rank, 'AR' actual rank, 'NAME', or a stat id. */
   sort?: string;
+  /** With sort 'AR': the window it ranks over ('season', 'lastweek', 'lastmonth', …). */
+  sortType?: string;
   start?: number;
 }
 
@@ -148,6 +150,7 @@ export function playersPath(
   if (q.status !== undefined) parts.push(`status=${q.status}`);
   if (q.position !== undefined) parts.push(`position=${q.position}`);
   if (q.sort !== undefined) parts.push(`sort=${q.sort}`);
+  if (q.sortType !== undefined) parts.push(`sort_type=${q.sortType}`);
   if (q.search !== undefined) parts.push(`search=${encodeURIComponent(q.search)}`);
   parts.push(`start=${start}`, `count=${Math.min(count, PAGE)}`, `out=${PLAYER_OUT.join(',')}`);
   return `/league/${leagueKey}/players;${parts.join(';')}`;
@@ -166,6 +169,8 @@ export interface WebSessionReaderOptions {
   minIntervalMs?: number;
   /** Wraps the live transport, e.g. to record responses (§20.4). */
   wrap?: (t: YahooTransport) => YahooTransport;
+  /** Cookies Yahoo rotated, to persist (D-033). */
+  onCookies?: OnCookies;
 }
 
 export function createWebSessionReader(o: WebSessionReaderOptions): WebSessionReader {
@@ -175,6 +180,7 @@ export function createWebSessionReader(o: WebSessionReaderOptions): WebSessionRe
     session,
     ...(o.fetchImpl === undefined ? {} : { fetchImpl: o.fetchImpl }),
     ...(o.minIntervalMs === undefined ? {} : { minIntervalMs: o.minIntervalMs }),
+    ...(o.onCookies === undefined ? {} : { onCookies: o.onCookies }),
   });
   return new WebSessionReader(o.wrap ? o.wrap(live) : live, o.leagueKey, o.teamKey);
 }

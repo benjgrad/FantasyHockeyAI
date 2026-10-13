@@ -160,3 +160,30 @@ describe('redactPersonal', () => {
     expect(sink).toHaveBeenCalledWith('/p', { email: 'REDACTED' });
   });
 });
+
+describe('CookieTransport cookie rotation (D-033)', () => {
+  it('keeps cookies Yahoo sets, sends them next, and reports the whole jar', async () => {
+    const cookies: string[] = [];
+    let first = true;
+    const fetchImpl = ((_url: string, init: RequestInit) => {
+      cookies.push((init.headers as Record<string, string>).cookie);
+      const h = new Headers({ 'content-type': 'application/json' });
+      if (first) h.append('set-cookie', 'A3=a3; Domain=.yahoo.com; Max-Age=100');
+      first = false;
+      return Promise.resolve(new Response('{"fantasy_content":{}}', { status: 200, headers: h }));
+    }) as typeof fetch;
+    const original = sessionFromCredentials({ T: 'a', Y: 'b' });
+    const seen: { names: string[]; jar: string[] }[] = [];
+    const t = new CookieTransport({
+      session: original,
+      fetchImpl,
+      minIntervalMs: 0,
+      onCookies: (names, s) => seen.push({ names, jar: s.cookies.map((c) => c.name) }),
+    });
+    await t.get('/a');
+    await t.get('/b');
+    expect(cookies).toEqual(['T=a; Y=b', 'T=a; Y=b; A3=a3']);
+    expect(seen).toEqual([{ names: ['A3'], jar: ['T', 'Y', 'A3'] }]);
+    expect(original.cookies.map((c) => c.name)).toEqual(['T', 'Y']);
+  });
+});

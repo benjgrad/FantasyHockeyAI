@@ -1,4 +1,5 @@
 import { clockTime } from '@fha/pipeline';
+import { recordNotice } from './activity.js';
 import type { NotificationPrefs, Store } from '@fha/store';
 import type { VapidKeys } from './config.js';
 
@@ -119,6 +120,7 @@ export class PushService {
   /** Record, then push unless prefs say not to. Never throws: a push is best effort (P9). */
   async notify(userId: string, n: Notice): Promise<NotifyResult> {
     const id = this.d.store.notifications.record({ userId, ...n });
+    recordNotice(this.d.store, userId, n);
     if (this.d.vapid === undefined) return { id, sent: 0, suppressed: 'push_off' };
     const prefs = this.prefs(userId);
     if (prefs.kinds[n.kind] === false) return { id, sent: 0, suppressed: 'kind_off' };
@@ -139,7 +141,7 @@ export class PushService {
   async test(userId: string): Promise<number> {
     if (this.d.vapid === undefined) return 0;
     return this.sendAll(userId, {
-      title: 'FantasyHockeyAI',
+      title: 'Hockey GM',
       body: 'Notifications are working.',
       url: '/',
       kind: 'test',

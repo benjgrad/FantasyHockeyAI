@@ -17,6 +17,11 @@ describe('rank colour scale', () => {
     expect(rankColor(1, 8)).toBe(RANK_COLORS[0]);
   });
 
+  it('paints with the theme tokens, so the scale follows light and dark', () => {
+    expect(rankColor(1, 12)).toBe('var(--color-heat-1)');
+    expect(rankColor(12, 12)).toBe('var(--color-heat-7)');
+  });
+
   it('is monotone in rank and survives a one-team league', () => {
     const buckets = [1, 2, 3, 4, 5, 6, 7, 8].map((r) => rankBucket(r, 8));
     expect(buckets).toEqual([...buckets].sort((a, b) => a - b));

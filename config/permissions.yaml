@@ -67,3 +67,15 @@ autoGrab:
   ignoreDryRun: false
   # Optional: at most this many auto-grabs (done or proposed) per week.
   # maxPerWeek: 2
+
+# Value lens per automated decision (D-026): `preseason` (the draft-day projection) or
+# `rest-of-season` (that projection updated by this season's games). Every decision also runs on
+# the other lens in shadow; where they would decide differently it is recorded, and listed in
+# Settings and by `fha shadow --since 7d`. Switch a decision once the shadow record convinces you.
+# Note the thresholds (autoGrab.minGain, the 0.5 add bar, minTradeGain) are in the same units on
+# both lenses, but rest-of-season numbers move: re-check them when you switch.
+valueLens:
+  lineup: preseason
+  autoGrab: preseason
+  protected: preseason
+  trades: preseason

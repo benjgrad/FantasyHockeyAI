@@ -100,9 +100,33 @@ describe('validatePlan', () => {
     expect(errs(r).join()).toMatch(/deadline/);
   });
 
-  it('refuses a duplicate of a pending plan', () => {
+  it('refuses a trade re-offering players already in a pending Yahoo trade, as terminal', () => {
+    const trade = plan({
+      kind: 'tradePropose',
+      partnerTeamKey: THEM,
+      give: ['477.p.1'],
+      get: ['477.p.6'],
+      expectedGain: 1,
+    });
+    const r = validatePlan(trade, ctx({ pendingTradesTouching: () => ['477.l.1.pt.9'] }));
+    expect(r).toMatchObject({ ok: false, terminal: true });
+    expect(errs(r).join()).toMatch(/already in a trade pending in Yahoo \(477\.l\.1\.pt\.9\)/);
+  });
+
+  it('refuses a duplicate of an open plan as terminal: no edit can fix it', () => {
     const r = validatePlan(plan(lineup([[7, 'Util']])), ctx({ conflicting: () => ['old'] }));
-    expect(errs(r).join()).toMatch(/already pending/);
+    expect(errs(r).join()).toMatch(/already open/);
+    expect(r).toMatchObject({ ok: false, terminal: true });
+    const fixable = validatePlan(
+      plan(
+        lineup([
+          [7, 'C'],
+          [8, 'C'],
+        ]),
+      ),
+      ctx(),
+    );
+    expect(fixable).toMatchObject({ ok: false, terminal: false });
   });
 
   describe('lineup', () => {
@@ -257,5 +281,56 @@ describe('slotAccepts', () => {
   it('Util takes any skater but not a goalie', () => {
     expect(slotAccepts('Util', mk(1, ['D']))).toBe(true);
     expect(slotAccepts('Util', mk(2, ['G']))).toBe(false);
+  });
+});
+
+describe('league rules from Yahoo (D-029)', () => {
+  const trade: PlanPayload = {
+    kind: 'tradePropose',
+    partnerTeamKey: THEM,
+    give: ['477.p.7'],
+    get: ['477.p.6'],
+  };
+
+  it('refuses a trade after the deadline, and only after it (New York day)', () => {
+    expect(validatePlan(plan(trade), ctx({ tradeDeadline: '2026-10-13' })).ok).toBe(true);
+    const r = validatePlan(plan(trade), ctx({ tradeDeadline: '2026-10-12' }));
+    expect(errs(r).join()).toMatch(/trade deadline \(2026-10-12\) has passed/);
+    expect(!r.ok && r.terminal).toBe(true);
+  });
+
+  it('a player on waivers is claimed, not added', () => {
+    const waiverCtx = ctx({
+      player: (k) =>
+        k === '477.p.5'
+          ? mk(5, ['RW', 'Util'], { onWaivers: true, waiverDate: '2026-10-15' })
+          : players.find((p) => p.playerKey === k),
+    });
+    expect(
+      errs(
+        validatePlan(plan({ kind: 'addDrop', add: '477.p.5', drop: '477.p.7' }), waiverCtx),
+      ).join(),
+    ).toMatch(/on waivers until 2026-10-15: use proposeWaiverClaim/);
+    expect(
+      validatePlan(plan({ kind: 'waiverClaim', add: '477.p.5', drop: '477.p.7' }), waiverCtx).ok,
+    ).toBe(true);
+  });
+
+  it('an undroppable player cannot be dropped or traded away', () => {
+    const locked = ctx({
+      player: (k) =>
+        k === '477.p.7'
+          ? mk(7, ['C', 'Util'], { undroppable: true })
+          : players.find((p) => p.playerKey === k),
+    });
+    expect(
+      errs(validatePlan(plan({ kind: 'addDrop', add: '477.p.5', drop: '477.p.7' }), locked)).join(),
+    ).toMatch(/undroppable/);
+    expect(errs(validatePlan(plan(trade), locked)).join()).toMatch(/undroppable/);
+  });
+
+  it("Yahoo's own reserve list wins over the status table (U-10)", () => {
+    expect(slotAccepts('IR', mk(9, ['C'], { status: 'DTD', reserveEligible: ['IR'] }))).toBe(true);
+    expect(slotAccepts('IR', mk(9, ['C'], { status: 'O', reserveEligible: [] }))).toBe(false);
   });
 });

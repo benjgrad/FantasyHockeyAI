@@ -30,6 +30,8 @@ export interface RunContext {
   /** The action pipeline, injected. Propose tools hand it plans; they never execute anything. */
   submit: (plan: Plan) => Promise<SubmitOutcome>;
   log?: (event: ToolEvent) => void;
+  /** A line for the user's Background activity chat (D-027/D-028), when the app records one. */
+  activity?: (text: string) => void;
   state: RunState;
 }
 
@@ -46,10 +48,11 @@ export type FinishKind = 'abstain' | 'askBen' | 'proposed';
 
 /** Per-run mutable record. The agent reads it after the loop to know how the run ended. */
 export interface RunState {
+  /** Plans the pipeline accepted and recorded. An invalid attempt is never one of them. */
   plans: { planId: string; kind: PlanKind; outcome: SubmitOutcome }[];
   /**
-   * Invalid proposals per plan kind (and for the weekly strategy): the second one ends the run
-   * (§9.1, one fix attempt).
+   * Invalid proposals per plan kind (and for the weekly strategy). After `MAX_FIX_ATTEMPTS`
+   * retries the kind is refused for the rest of the run (§9.1, `submitProposal`).
    */
   invalidAttempts: Map<AttemptKind, number>;
   finished?: { kind: FinishKind; reason: string };

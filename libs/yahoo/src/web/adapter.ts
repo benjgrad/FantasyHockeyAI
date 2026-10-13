@@ -1,26 +1,32 @@
-import type { ExecResult, ExecutionAdapter, Plan, Roster, TeamKey } from '@fha/core';
+import type { ExecResult, ExecutionAdapter, Plan, Roster, TeamKey, Transaction } from '@fha/core';
 import { NotObservedError, WriteOutcomeUnknownError, YahooAuthError } from '../errors.js';
-import type { AddDropRequest, WriteResult } from './writer.js';
+import type { TradeRequest } from './trade.js';
+import type { AddDropRequest, LineupRequest, WriteResult } from './writer.js';
 
 /**
- * `ExecutionAdapter` over Yahoo's website (§10.6), for the one write we have observed: add, or
- * add and drop (U-12). It lives in libs/yahoo so libs/pipeline stays free of Yahoo.
+ * `ExecutionAdapter` over Yahoo's website (§10.6), for the writes we have observed (U-12, U-23):
+ * add, or add and drop, a lineup for one date, and a trade proposal. It lives in libs/yahoo so
+ * libs/pipeline stays free of Yahoo.
  *
- * Every other plan kind — lineup and IR moves, waiver claims, trades, a pure drop — is answered
- * `needsHuman` with the exact action for Ben, *because* those writes have never been observed;
- * guessing an endpoint would be a stub that looks implemented (§24.11). The adapter never
- * reports `done`: the pipeline calls {@link YahooWebAdapter.verify}, which re-reads our roster.
+ * Every other plan kind — waiver claims, answering a trade offer, a pure drop — is answered `needsHuman` with the
+ * exact action for Ben, *because* those writes have never been observed; guessing an endpoint
+ * would be a stub that looks implemented (§24.11). The adapter never reports `done`: the
+ * pipeline calls {@link YahooWebAdapter.verify}, which re-reads our roster.
  */
-export interface AddDropWriter {
+export interface YahooWriter {
   addDrop(req: AddDropRequest, signal?: AbortSignal): Promise<WriteResult>;
+  setLineup(req: LineupRequest, signal?: AbortSignal): Promise<WriteResult>;
+  proposeTrade(req: TradeRequest, signal?: AbortSignal): Promise<WriteResult>;
 }
 
 export interface RosterSource {
   roster(teamKey: TeamKey, date: string): Promise<Roster>;
+  /** Pending trades, to confirm a proposal landed. */
+  transactions(q: { type?: Transaction['type'] }): Promise<Transaction[]>;
 }
 
 export interface YahooWebAdapterOptions {
-  writer: AddDropWriter;
+  writer: YahooWriter;
   /** The existing read path, used only by `verify`. */
   reader: RosterSource;
   /** Our team, from config or the stored connection (P8). */
@@ -42,13 +48,26 @@ export class YahooWebAdapter implements ExecutionAdapter {
 
   async execute(plan: Plan): Promise<ExecResult> {
     const p = plan.payload;
-    if (p.kind !== 'addDrop')
-      return this.byHand(plan, `Yahoo's ${p.kind} write is unobserved (U-12)`);
-    const req: AddDropRequest = {
-      ...(p.add === undefined ? {} : { addPlayerKey: p.add }),
-      ...(p.drop === undefined ? {} : { dropPlayerKey: p.drop }),
-    };
     try {
+      if (p.kind === 'lineup') {
+        const res = await this.o.writer.setLineup({ date: p.date, moves: p.moves });
+        return { status: res.status, detail: res.detail };
+      }
+      if (p.kind === 'tradePropose') {
+        const res = await this.o.writer.proposeTrade({
+          partnerTeamKey: p.partnerTeamKey,
+          give: p.give,
+          get: p.get,
+          ...(p.note === undefined ? {} : { note: p.note }),
+        });
+        return { status: res.status, detail: res.detail };
+      }
+      if (p.kind !== 'addDrop')
+        return this.byHand(plan, `Yahoo's ${p.kind} write is unobserved (U-12)`);
+      const req: AddDropRequest = {
+        ...(p.add === undefined ? {} : { addPlayerKey: p.add }),
+        ...(p.drop === undefined ? {} : { dropPlayerKey: p.drop }),
+      };
       const res = await this.o.writer.addDrop(req);
       return { status: res.status, detail: res.detail };
     } catch (err) {
@@ -63,6 +82,8 @@ export class YahooWebAdapter implements ExecutionAdapter {
    */
   async verify(plan: Plan): Promise<boolean> {
     const p = plan.payload;
+    if (p.kind === 'lineup') return this.verifyLineup(p.date, p.moves);
+    if (p.kind === 'tradePropose') return this.verifyTrade(p.partnerTeamKey, p.give, p.get);
     if (p.kind !== 'addDrop') return false;
     const today = (this.o.today ?? newYorkToday)();
     for (const date of [today, nextDay(today)]) {
@@ -78,6 +99,47 @@ export class YahooWebAdapter implements ExecutionAdapter {
       }
     }
     return false;
+  }
+
+  /** Did the lineup land? Every moved player must sit in his requested slot on that date. */
+  private async verifyLineup(
+    date: string,
+    moves: readonly { playerKey: string; slot: string }[],
+  ): Promise<boolean> {
+    try {
+      const slots = new Map(
+        (await this.o.reader.roster(this.o.teamKey, date)).entries.map((e) => [
+          e.player.playerKey,
+          e.slot,
+        ]),
+      );
+      return moves.every((m) => slots.get(m.playerKey) === m.slot);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Did the offer land? A pending trade from us to that partner with exactly these players. */
+  private async verifyTrade(
+    partner: TeamKey,
+    give: readonly string[],
+    get: readonly string[],
+  ): Promise<boolean> {
+    const same = (a: readonly string[], b: readonly string[]) =>
+      a.length === b.length && [...a].sort().join() === [...b].sort().join();
+    try {
+      const pending = await this.o.reader.transactions({ type: 'pending_trade' });
+      return pending.some((t) => {
+        if (t.teamKey !== this.o.teamKey || t.tradeeTeamKey !== partner) return false;
+        const ours = t.players
+          .filter((x) => x.fromTeamKey === this.o.teamKey)
+          .map((x) => x.playerKey);
+        const theirs = t.players.filter((x) => x.fromTeamKey === partner).map((x) => x.playerKey);
+        return same(ours, give) && same(theirs, get);
+      });
+    } catch {
+      return false;
+    }
   }
 
   private onError(plan: Plan, err: unknown): ExecResult {

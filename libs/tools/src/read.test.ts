@@ -78,10 +78,30 @@ describe('read tools over the mock league', () => {
     expect(r.summary).toContain('free agent');
   });
 
-  it('searchPlayers says honestly that waiver players are not recorded', async () => {
-    const { ctx } = testRun();
-    const s = summary(await searchPlayers.execute({ status: 'W', sort: 'value', limit: 5 }, ctx));
-    expect(s).toContain('does not record players on waivers');
+  it('searchPlayers separates waivers (a claim, with the clear date) from free agents (D-029)', async () => {
+    const { ctx } = testRun({
+      edit: (snap) => {
+        const owned = new Set(Object.values(snap.rosters).flat().map((e) => e.playerKey));
+        const fa = snap.players.find((p) => !owned.has(p.playerKey) && p.positionType === 'P');
+        if (fa) Object.assign(fa, { onWaivers: true, waiverDate: '2026-10-15', name: 'Waiver Guy' });
+      },
+    });
+    const w = summary(await searchPlayers.execute({ status: 'W', sort: 'value', limit: 5 }, ctx));
+    expect(w).toMatch(/Waiver Guy.*waivers until 2026-10-15/);
+    const f = summary(await searchPlayers.execute({ status: 'FA', sort: 'value', limit: 25, query: 'Waiver Guy' }, ctx));
+    expect(f).toMatch(/no players match/);
+  });
+
+  it('searchPlayers matches names without accents or case', async () => {
+    const { ctx } = testRun({
+      edit: (snap) => {
+        const owned = new Set(Object.values(snap.rosters).flat().map((e) => e.playerKey));
+        const fa = snap.players.find((p) => !owned.has(p.playerKey) && p.positionType === 'P');
+        if (fa) Object.assign(fa, { name: 'Nils Höglander' });
+      },
+    });
+    const s = summary(await searchPlayers.execute({ status: 'FA', sort: 'value', limit: 5, query: 'HOGLANDER' }, ctx));
+    expect(s).toContain('Nils Höglander');
   });
 
   it('getSchedule counts games per team and per rostered player', async () => {
@@ -91,13 +111,17 @@ describe('read tools over the mock league', () => {
     expect(s).toMatch(/Cale Makar \d/);
   });
 
-  it('getGoalieStarts reports unknown, not a pretend confirmation', async () => {
+  it('getGoalieStarts reports unknown when nothing reported, never a pretend confirmation', async () => {
     const { ctx } = testRun();
     const r = await getGoalieStarts.execute({ date: '2026-10-13' }, ctx);
     if (!r.ok) throw new Error(r.error);
     expect(r.data.goalies).toHaveLength(2);
     expect(r.data.goalies.every((g) => ['unknown', 'noGame', 'out'].includes(g.start))).toBe(true);
-    expect(r.summary).toContain('no confirmation source is connected');
+    expect(r.summary).toContain('unknown = no report yet');
+    for (const g of r.data.goalies.filter((x) => x.start === 'unknown')) {
+      expect(g.evidence[0]).toMatch(/no report yet/);
+      expect(g.pStart).toBeLessThan(1);
+    }
   });
 
   it('getNews gives status and says when nothing is recorded', async () => {

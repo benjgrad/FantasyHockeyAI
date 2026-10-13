@@ -1,5 +1,6 @@
 import { solveLineup, type LineupPlayer, type LineupResult } from '@fha/model';
 import { lineupEntries } from './derive.js';
+import type { GoalieStartSignal } from './goalieStarts.js';
 import type { LeagueView } from './view.js';
 
 /**
@@ -25,8 +26,10 @@ export function solveOurLineup(
   date: string,
   now: string,
   overrides: readonly LineupOverride[] = [],
+  opts: { goalieStarts?: readonly GoalieStartSignal[] } = {},
 ): SolveOutcome {
-  const entries = lineupEntries(view, date, now);
+  const starts = new Map((opts.goalieStarts ?? []).map((g) => [g.playerKey, g.pStart]));
+  const entries = lineupEntries(view, date, now, (k) => starts.get(k));
   const byKey = new Map(entries.map((e) => [e.playerKey, e]));
   for (const o of overrides) {
     const e = byKey.get(o.playerKey);

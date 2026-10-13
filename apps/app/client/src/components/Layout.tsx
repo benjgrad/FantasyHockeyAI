@@ -1,19 +1,27 @@
 import type { Me } from '@fha/api';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { chatHref, isChatPath, lastConversation } from '../chat/lastConversation';
 import { api } from '../api/endpoints';
 import { clearApiCache } from '../pwa/cache';
 import { OnlineBadge } from '../pwa/OfflineStatus';
 import { PwaBanners } from '../pwa/PwaBanners';
+import { ChatIcon, DecisionsIcon, PlayersIcon, SettingsIcon, TeamIcon } from './icons';
+import { scrollPaneToTop } from './pane';
 
 const TABS = [
-  { to: '/', label: 'Chat', icon: '💬', end: true },
-  { to: '/team', label: 'Team', icon: '🏒', end: false },
-  { to: '/decisions', label: 'Decisions', icon: '✅', end: false },
-  { to: '/players', label: 'Players', icon: '🔎', end: false },
-  { to: '/settings', label: 'Settings', icon: '⚙️', end: false },
+  { to: '/', label: 'Chat', icon: <ChatIcon />, end: true },
+  { to: '/team', label: 'Team', icon: <TeamIcon />, end: false },
+  { to: '/decisions', label: 'Decisions', icon: <DecisionsIcon />, end: false },
+  { to: '/players', label: 'Players', icon: <PlayersIcon />, end: false },
+  { to: '/settings', label: 'Settings', icon: <SettingsIcon />, end: false },
 ];
 
 export function Layout({ me, children }: { me: Me; children: ReactNode }) {
@@ -35,16 +43,21 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
       : t.to === '/team'
         ? isActive || pathname.startsWith('/league')
         : isActive;
+  // Tapping the tab you're already on scrolls its page back to the top (the iOS status-bar tap
+  // can't: the page itself never scrolls, only its pane).
+  const onTab = (href: string) => (e: ReactMouseEvent) => {
+    if (pathname === href.split('?')[0] && scrollPaneToTop()) e.preventDefault();
+  };
 
   return (
     <div className="flex h-full flex-col">
-      <header className="sticky top-0 z-20 border-b border-line bg-bg/95 pt-[env(safe-area-inset-top)] backdrop-blur">
+      {/* Solid, not translucent: nothing scrolls under the bars (each page scrolls in its own
+          pane), so a blur only smeared the status-bar strip on iOS. */}
+      <header className="z-20 shrink-0 border-b border-line bg-bg pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-3 py-2">
-          <img src="/icon-192.png" alt="" className="h-7 w-7 rounded-lg" />
+          <img src="/favicon.svg" alt="" className="size-8 rounded-lg ring-1 ring-line" />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[15px] font-semibold">
-              {me.yahoo.teamName ?? 'FantasyHockeyAI'}
-            </div>
+            <div className="truncate font-semibold">{me.yahoo.teamName ?? 'Hockey GM'}</div>
             <ModeBadges me={me} />
           </div>
           <nav className="hidden gap-1 sm:flex">
@@ -53,12 +66,15 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
                 key={t.to}
                 to={t.href}
                 end={t.end}
+                onClick={onTab(t.href)}
                 className={({ isActive }) =>
-                  `relative rounded-lg px-3 py-1.5 text-sm ${active(t, isActive) ? 'bg-raised text-ink' : 'text-mut hover:text-ink'}`
+                  `relative rounded-lg px-3 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-brand ${active(t, isActive) ? 'bg-raised text-ink shadow-[inset_0_-2px_0_var(--color-brand)]' : 'text-mut hover:text-ink'}`
                 }
               >
                 {t.label}
-                {t.to === '/decisions' && pendingCount > 0 ? <Count n={pendingCount} /> : null}
+                {t.to === '/decisions' && pendingCount > 0 ? (
+                  <Count n={pendingCount} at="-top-1 -right-1" />
+                ) : null}
               </NavLink>
             ))}
           </nav>
@@ -67,21 +83,30 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
         <PwaBanners />
       </header>
       <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">{children}</main>
-      <nav className="sticky bottom-0 z-20 grid grid-cols-5 border-t border-line bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
+      <nav className="z-20 grid shrink-0 grid-cols-5 border-t border-line bg-bg pb-[env(safe-area-inset-bottom)] sm:hidden">
         {tabs.map((t) => (
           <NavLink
             key={t.to}
             to={t.href}
             end={t.end}
+            onClick={onTab(t.href)}
             className={({ isActive }) =>
-              `relative flex flex-col items-center py-2 text-[11px] ${active(t, isActive) ? 'text-acc' : 'text-mut'}`
+              `relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-2xs transition-transform focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand active:scale-95 ${active(t, isActive) ? 'font-semibold text-brand-ink' : 'text-mut'}`
             }
           >
-            <span aria-hidden className="text-lg leading-none">
-              {t.icon}
-            </span>
-            {t.label}
-            {t.to === '/decisions' && pendingCount > 0 ? <Count n={pendingCount} /> : null}
+            {({ isActive }) => (
+              <>
+                <span
+                  aria-hidden
+                  className={`absolute top-0 h-0.5 w-7 rounded-b ${active(t, isActive) ? 'bg-brand' : ''}`}
+                />
+                {t.icon}
+                {t.label}
+                {t.to === '/decisions' && pendingCount > 0 ? (
+                  <Count n={pendingCount} at="top-1 right-[calc(50%-1.375rem)]" />
+                ) : null}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -89,9 +114,11 @@ export function Layout({ me, children }: { me: Me; children: ReactNode }) {
   );
 }
 
-function Count({ n }: { n: number }) {
+function Count({ n, at }: { n: number; at: string }) {
   return (
-    <span className="absolute top-0.5 right-1 min-w-4 rounded-full bg-warn px-1 text-center text-[10px] leading-4 font-bold text-bg">
+    <span
+      className={`absolute ${at} min-w-4 rounded-full bg-warn px-1 text-center text-3xs leading-4 font-bold text-bg`}
+    >
       {n}
     </span>
   );
@@ -99,7 +126,7 @@ function Count({ n }: { n: number }) {
 
 function ModeBadges({ me }: { me: Me }) {
   return (
-    <div className="flex gap-1.5 text-[11px]">
+    <div className="flex gap-1.5 text-2xs">
       <OnlineBadge />
       {me.paused ? <span className="text-bad">● Paused</span> : null}
       {me.dryRun ? (
@@ -144,7 +171,7 @@ function AccountMenu({ me }: { me: Me }) {
   return (
     <div ref={ref} className="relative">
       <button
-        className="grid h-8 w-8 place-items-center rounded-full border border-line bg-raised text-sm"
+        className="icon-btn border border-line bg-raised text-sm text-ink"
         aria-label="Account menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}

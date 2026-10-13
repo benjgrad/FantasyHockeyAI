@@ -1,4 +1,10 @@
-import { TOOL_FOR_KIND, askTimeoutMinutes, type LeagueSettings, type Permissions } from '@fha/core';
+import {
+  TOOL_FOR_KIND,
+  askTimeoutMinutes,
+  glossaryText,
+  type LeagueSettings,
+  type Permissions,
+} from '@fha/core';
 import type { LeagueView } from '@fha/tools';
 
 /**
@@ -6,7 +12,8 @@ import type { LeagueView } from '@fha/tools';
  * and Ben's standing permissions, as plain text.
  *
  * It sits in `system`, behind the cache breakpoint, so it holds only what is stable for a day:
- * settings, categories, slots, limits, today's date and the permission summary. Rosters,
+ * settings, categories, slots, limits, today's date, the permission summary and the glossary
+ * of what every number means. Rosters,
  * candidates and Ben's note go in the user message. The permission line is informational — the
  * gate enforces it in code (P2) — but telling the model up front saves it proposing moves that
  * are certain to be refused.
@@ -29,9 +36,38 @@ export function buildLeagueContext(
     ...(lowerBetter.length > 0 ? [`Lower is better: ${lowerBetter.join(', ')}.`] : []),
     `Roster slots: ${slots}.`,
     `Waivers: ${settings.usesFaab ? 'FAAB' : 'rolling priority, no FAAB'}.`,
+    ...rulesLine(view, today),
     limitsLine(permissions),
     permissionsLine(permissions, view),
+    // The same definitions the app's explainers show Ben (D-026): quote numbers by these names.
+    glossaryText(),
   ].join('\n');
+}
+
+/** The league's own rules from Yahoo's settings (D-029), with the days left where it matters. */
+function rulesLine(view: LeagueView, today: string): string[] {
+  const r = view.snap.rules;
+  if (r === undefined) return [];
+  const days = (d: string) =>
+    Math.round((Date.parse(`${d}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000);
+  const week = view.weekOf(today);
+  const parts = [
+    `This fantasy week: ${week.start}..${week.end}`,
+    ...(r.minGoalieGames === undefined
+      ? []
+      : [`goalie minimum ${r.minGoalieGames} games a week (below it GAA and SV% do not count)`]),
+    ...(r.tradeEndDate === undefined
+      ? []
+      : [
+          days(r.tradeEndDate) < 0
+            ? `the trade deadline (${r.tradeEndDate}) has passed: no trades`
+            : `trade deadline ${r.tradeEndDate} (${days(r.tradeEndDate)} days)`,
+        ]),
+    ...(r.playoffStartWeek === undefined ? [] : [`playoffs from week ${r.playoffStartWeek}`]),
+    ...(r.waiverDays === undefined ? [] : [`dropped players sit on waivers ${r.waiverDays} days`]),
+    ...(r.maxWeeklyAdds === undefined ? [] : [`Yahoo allows ${r.maxWeeklyAdds} adds a week`]),
+  ];
+  return [`League rules (Yahoo): ${parts.join('; ')}.`];
 }
 
 function limitsLine(p: Permissions): string {

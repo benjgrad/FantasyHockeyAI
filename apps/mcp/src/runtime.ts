@@ -129,8 +129,8 @@ export function openRuntime(opts: RuntimeOptions = {}): Runtime {
         store,
         // A human is driving the MCP client: an allowed plan waits for approvePlan.
         submit: (plan) => submitPlan(plan, { ...deps, requireHumanApproval: true }),
-        // Per call, not per session: an interactive human is in the loop, so §9.1's "second
-        // invalid proposal ends the run" would only lock the session out of a plan kind.
+        // Per call, not per session: an interactive human is in the loop, so §9.1's retry
+        // limit per plan kind would only lock the session out of that kind.
         state: newRunState(),
         signal,
       };

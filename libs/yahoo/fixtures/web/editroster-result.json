@@ -1,0 +1,11 @@
+{
+  "status": 200,
+  "contentType": "application/json",
+  "body": {
+    "content": "<section id=\"team-roster\">(trimmed)</section>",
+    "hash": "267bcc903c26115204bf7a17778f4b07",
+    "js": "window.location.href=window.location.href",
+    "objects": [],
+    "errors": []
+  }
+}

@@ -1,13 +1,15 @@
 import { z } from 'zod';
 import { ANSWER_STOPS, type AnyToolSpec, type LoopResult, type ToolResult } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
-import { newRunState, toolsFor, type RunContext } from '@fha/tools';
+import { decisionsBlock, newRunState, toolsFor, type RunContext } from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { SPECIALIST_JOBS, type JobName, type JobResult } from './gm.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
+import { brief, describeInput } from './toolNotes.js';
 import {
   HISTORY_LIMIT,
   replayHistory,
+  withTurnContext,
   type StoredAssistantMessage,
   type ToolNote,
 } from './assistantHistory.js';
@@ -131,10 +133,11 @@ export const runSpecialistTool: ChatTool = {
 };
 
 /** The first line of a tool's summary or error, capped: enough for a chip in the UI. */
-function brief(text: string | undefined): string | undefined {
-  const first = text?.split('\n')[0]?.trim();
-  if (first === undefined || first === '') return undefined;
-  return first.length > 160 ? `${first.slice(0, 157)}...` : first;
+/** A tool's whole result for the chip's expanded view, capped so one event stays small. */
+function full(text: string | undefined): string | undefined {
+  const t = text?.trim();
+  if (t === undefined || t === '') return undefined;
+  return t.length > 4000 ? `${t.slice(0, 3997)}...` : t;
 }
 
 /**
@@ -146,37 +149,39 @@ export function observed(tool: ChatTool): ChatTool {
   return {
     ...tool,
     async execute(input: unknown, ctx) {
-      ctx.emit({ type: 'tool', name: tool.name, status: 'start' });
-      let r: ToolResult<unknown>;
-      try {
-        r = await tool.execute(input, ctx);
-      } catch (err) {
-        const detail = brief(err instanceof Error ? err.message : String(err));
+      const asked = describeInput(input);
+      const shortAsked = brief(asked?.replace(/\n/g, ' · '));
+      ctx.emit({
+        type: 'tool',
+        name: tool.name,
+        status: 'start',
+        ...(asked === undefined ? {} : { input: asked }),
+      });
+      // Stored notes stay short (a chat replays every turn); the live chip gets the whole result.
+      const finish = (ok: boolean, text: string | undefined) => {
+        const detail = brief(text);
+        const whole = full(text);
         ctx.toolNotes.push({
           name: tool.name,
-          ok: false,
+          ok,
           ...(detail === undefined ? {} : { detail }),
+          ...(shortAsked === undefined ? {} : { input: shortAsked }),
         });
         ctx.emit({
           type: 'tool',
           name: tool.name,
-          status: 'error',
-          ...(detail === undefined ? {} : { detail }),
+          status: ok ? 'ok' : 'error',
+          ...(whole === undefined ? {} : { detail: whole }),
         });
+      };
+      let r: ToolResult<unknown>;
+      try {
+        r = await tool.execute(input, ctx);
+      } catch (err) {
+        finish(false, err instanceof Error ? err.message : String(err));
         throw err;
       }
-      const detail = brief(r.ok ? r.summary : r.error);
-      ctx.toolNotes.push({
-        name: tool.name,
-        ok: r.ok,
-        ...(detail === undefined ? {} : { detail }),
-      });
-      ctx.emit({
-        type: 'tool',
-        name: tool.name,
-        status: r.ok ? 'ok' : 'error',
-        ...(detail === undefined ? {} : { detail }),
-      });
+      finish(r.ok, r.ok ? r.summary : r.error);
       return r;
     },
   };
@@ -255,19 +260,27 @@ async function loop(deps: AssistantDeps, turn: AssistantTurn, t: TurnState): Pro
     settings: deps.settings,
     permissions,
     store: deps.store,
+    ...(deps.userId === undefined ? {} : { userId: deps.userId }),
     submit: deps.submit,
     ...(deps.log === undefined ? {} : { log: deps.log }),
+    ...(deps.activity === undefined ? {} : { activity: deps.activity }),
     state: t.state,
     emit: turn.emit,
     runSpecialist: deps.runSpecialist,
     specialistPlans: t.specialistPlans,
     toolNotes: t.toolNotes,
   };
-  return deps.llm.chatWithTools({
+  const llm = deps.models?.forAgent('assistant') ?? deps.llm;
+  const effort = deps.models?.effort('assistant');
+  return llm.chatWithTools({
     agent: 'assistant',
+    ...(effort === undefined ? {} : { effort }),
     runId: t.runId,
     system: [system],
-    messages: replayHistory(deps.store.conversations.messages(turn.conversationId, HISTORY_LIMIT)),
+    messages: withTurnContext(
+      replayHistory(deps.store.conversations.messages(turn.conversationId, HISTORY_LIMIT)),
+      decisionsBlock(deps.view, deps.store, deps.now),
+    ),
     tools: assistantTools(permissions),
     ctx,
     maxIterations: ASSISTANT_MAX_ITERATIONS,

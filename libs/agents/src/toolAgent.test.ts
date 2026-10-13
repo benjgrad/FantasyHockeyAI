@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentResponse } from '@fha/core';
-import type { LlmClient } from '@fha/llm';
+import { createLlmRouter, scriptedCreateMessage, type LlmClient } from '@fha/llm';
 import { MOCK_SETTINGS, mockPermissions } from '@fha/tools';
 import { ToolAgent } from './toolAgent.js';
 import { AGENT_CONFIGS, createAgent } from './agents.js';
@@ -12,6 +12,28 @@ const DATE = '2026-10-13';
 
 const toolNames = (body: { tools?: unknown[] } | undefined) =>
   (body?.tools ?? []).map((t) => (t as { name: string }).name);
+
+describe('per-agent models (D-023)', () => {
+  it("runs the agent on its configured model and effort, not the default client's", async () => {
+    const h = agentHarness('lineup', []);
+    const wire = scriptedCreateMessage([{ text: 'Lineup is already right.' }]);
+    const models = createLlmRouter(
+      { createMessage: wire.create },
+      {
+        default: 'claude-opus-5',
+        agents: { lineup: 'claude-sonnet-5-5' },
+        effort: { lineup: 'low' },
+      },
+    );
+    const r = await createAgent('lineup', { ...h.deps, models }).handle(h.request());
+    expect(r.error).toBeUndefined();
+    expect(h.fake.bodies).toHaveLength(0);
+    expect(wire.bodies[0]).toMatchObject({
+      model: 'claude-sonnet-5-5',
+      output_config: { effort: 'low' },
+    });
+  });
+});
 
 describe('lineup agent', () => {
   it('reads the roster, proposes a lineup and reports it as a dry-run success', async () => {
@@ -51,6 +73,31 @@ describe('lineup agent', () => {
     const msg = JSON.stringify(h.fake.bodies[0]?.messages[0]);
     expect(msg).toContain('<ben_note>Sit Makar</ben_note>');
     expect(msg).toContain('not an order');
+  });
+
+  it("an agent's next run gets Ben's answers to its questions (askBen, D-029)", async () => {
+    const h = agentHarness('lineup', [say('ok')]);
+    const id = h.deps.store.questions.ask('r0', 'lineup', 'Start Greaves over Kuemper?', [
+      'yes',
+      'no',
+    ]);
+    h.deps.store.questions.answer(id, 'Yes, Kuemper is out tonight');
+    await createAgent('lineup', h.deps).handle(h.request());
+    const msg = JSON.stringify(h.fake.bodies[0]?.messages[0]);
+    expect(msg).toContain('Start Greaves over Kuemper?');
+    expect(msg).toContain('<ben_note>Yes, Kuemper is out tonight</ben_note>');
+  });
+
+  it('a triggered run is told why it runs (D-028)', async () => {
+    const h = agentHarness('lineup', [say('ok')]);
+    await createAgent('lineup', h.deps).handle(
+      h.request({ input: { trigger: 'Connor Hellebuyck now IR-eligible' } }),
+    );
+    const msg = JSON.stringify(h.fake.bodies[0]?.messages[0]);
+    expect(msg).toContain(
+      'Why this run: Connor Hellebuyck now IR-eligible. Address it in your reply.',
+    );
+    expect(msg).not.toContain('trigger:');
   });
 });
 
@@ -143,12 +190,20 @@ describe('failure stops (P6) and never throwing (§6.1)', () => {
     expect(r.error?.code).toBe('empty_response');
   });
 
-  it('a second invalid proposal ends the run → failed tool_error', async () => {
+  it('invalid proposals get three retries, then are refused, and the run still answers (§9.1)', async () => {
     const bad = { partnerTeamName: 'No Such Team', give: [OURS], get: [THEIRS], reason: 'x' };
-    const h = agentHarness('trades', [call('proposeTrade', bad), call('proposeTrade', bad)]);
+    const h = agentHarness('trades', [
+      call('proposeTrade', bad),
+      call('proposeTrade', bad),
+      call('proposeTrade', bad),
+      call('proposeTrade', bad),
+      call('proposeTrade', bad),
+      say('No trade: I could not find that team. Ben, which team did you mean?'),
+    ]);
     const r = await createAgent('trades', h.deps).handle(h.request());
-    expect(r.error?.code).toBe('tool_error');
-    expect(r.error?.detail).toMatch(/^STOP/);
+    expect(r.error).toBeUndefined();
+    expect(r.plans).toEqual([]);
+    expect(h.store.decisions.listByStatus('invalid')).toHaveLength(0);
   });
 
   it('an aborted request → failed aborted, and no model call', async () => {

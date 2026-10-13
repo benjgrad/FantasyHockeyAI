@@ -60,6 +60,9 @@ export const Me = z.object({
     teamName: z.string().nullable(),
     lastOkAt: z.string().nullable(),
     error: z.string().nullable(),
+    /** When the website (writes, keepalive) last worked, and who set an expiry (D-033). */
+    siteOkAt: z.string().nullable().default(null),
+    expiredBy: z.enum(['api', 'site']).nullable().default(null),
   }),
   dryRun: z.boolean(),
   paused: z.boolean(),
@@ -72,6 +75,14 @@ export const YahooConnectRequest = z.object({
   /** The `T` and `Y` cookie values copied from a signed-in browser. Never logged. */
   T: z.string().min(10),
   Y: z.string().min(10),
+  /**
+   * Every other cookie from the pasted request (D-033: A1, A3, A1S… keep the website signed
+   * in). Names are cookie tokens; bounded so a paste cannot grow without limit. Never logged.
+   */
+  cookies: z
+    .record(z.string().regex(/^[A-Za-z0-9_.-]{1,64}$/), z.string().max(4096))
+    .refine((c) => Object.keys(c).length <= 60, 'too many cookies')
+    .optional(),
 });
 export const YahooTeamChoice = z.object({
   leagueKey: z.string(),
@@ -80,7 +91,11 @@ export const YahooTeamChoice = z.object({
   teamName: z.string(),
   season: z.string(),
 });
-export const YahooConnectResponse = z.object({ teams: z.array(YahooTeamChoice) });
+export const YahooConnectResponse = z.object({
+  teams: z.array(YahooTeamChoice),
+  /** The team now managed without asking: the one already chosen, or the account's only team. */
+  selected: YahooTeamChoice.optional(),
+});
 export const YahooSelectTeamRequest = z.object({ leagueKey: z.string(), teamKey: z.string() });
 // POST   /api/settings/yahoo         YahooConnectRequest → YahooConnectResponse (validates live)
 // POST   /api/settings/yahoo/team    YahooSelectTeamRequest → Me
@@ -104,6 +119,90 @@ export const PermissionsView = z.object({
   updatedAt: z.string().nullable(),
 });
 export const PermissionsUpdate = z.object({ permissions: z.record(z.string(), z.unknown()) });
+
+/**
+ * What the agents follow and when they act (D-027): the players the last poll watched and why,
+ * each watcher's last run, the schedule and the event rules; and the Background activity chat.
+ */
+export const ActivityView = z.object({
+  conversationId: z.string().nullable(),
+  watchedAt: z.string().nullable(),
+  players: z.array(
+    z.object({
+      playerKey: z.string(),
+      name: z.string(),
+      nhlTeam: z.string(),
+      status: z.string().nullable(),
+      reasons: z.array(z.string()),
+    }),
+  ),
+  watchers: z.array(
+    z.object({
+      name: z.string(),
+      what: z.string(),
+      everyMinutes: z.number(),
+      last: z
+        .object({
+          at: z.string(),
+          ok: z.boolean(),
+          events: z.number(),
+          error: z.string().nullable(),
+        })
+        .nullable(),
+    }),
+  ),
+  schedule: z.array(z.object({ job: z.string(), when: z.string() })),
+  rules: z.array(z.object({ when: z.string(), then: z.string() })),
+  /** Players an agent chose to follow (D-028); Ben can stop any of them. */
+  followed: z
+    .array(
+      z.object({
+        playerKey: z.string(),
+        name: z.string(),
+        reason: z.string(),
+        addedBy: z.string(),
+        expiresAt: z.string(),
+      }),
+    )
+    .default([]),
+  /** Every agent: what it is for, its model, when it runs, its tools, what it may do (D-028). */
+  agents: z
+    .array(
+      z.object({
+        name: z.string(),
+        purpose: z.string(),
+        model: z.string(),
+        schedule: z.array(z.string()),
+        triggers: z.array(z.string()),
+        tools: z.array(z.string()),
+        may: z.array(z.string()),
+        lastRun: z
+          .object({ at: z.string(), status: z.string(), summary: z.string().nullable() })
+          .nullable(),
+      }),
+    )
+    .default([]),
+});
+export type ActivityView = z.infer<typeof ActivityView>;
+// GET /api/activity → ActivityView
+// DELETE /api/activity/watch/:playerKey → ActivityView (stop following a player an agent added)
+
+/** Shadow, then switch (D-026): where the other value lens would have decided differently. */
+export const ShadowReportView = z.object({
+  since: z.string(),
+  counts: z.record(z.string(), z.number()),
+  rows: z.array(
+    z.object({
+      date: z.string(),
+      decision: z.enum(['lineup', 'autoGrab', 'protected', 'trades']),
+      activeLens: z.enum(['preseason', 'rest-of-season']),
+      summary: z.string(),
+      outcome: z.string().optional(),
+    }),
+  ),
+});
+export type ShadowReportView = z.infer<typeof ShadowReportView>;
+// GET /api/settings/shadow?days=14 → ShadowReportView (the user's league; days 1–60, default 14)
 // GET /api/players/search?q=… → { players: PlayerRef[] }  (exact and near matches, never auto-picks)
 
 // ── team ─────────────────────────────────────────────────────────────────────────────────────
@@ -122,8 +221,92 @@ export const RosterRow = z.object({
   availability: Availability,
   gamesThisWeek: z.number(),
   gameToday: z.string().nullable(),
+  /** Preseason value (the seed's §12.2 value). */
   value: z.number().nullable(),
+  /** Rest of season (D-026): VOFA, CWA and the 7-day VOLS change; null when unavailable. */
+  now: z
+    .object({ vofa: z.number(), cwa: z.number().nullable(), delta7d: z.number().nullable() })
+    .nullable()
+    .optional(),
 });
+/** `GET /api/league/status`: how fresh the league data on the page is. */
+export const LeagueStatus = z.object({
+  /** When the snapshot the pages are serving was recorded; null before the first one. */
+  asOf: z.string().nullable(),
+  /** A rebuild from Yahoo is running; pages refetch when it finishes. */
+  refreshing: z.boolean(),
+  /** Older than the 15-minute refresh age. */
+  stale: z.boolean(),
+});
+export type LeagueStatus = z.infer<typeof LeagueStatus>;
+
+/** `GET /api/players/:key/form` (D-025): game-level form, both projection lenses, forecasts. */
+export const PlayerFormView = z.object({
+  playerKey: z.string(),
+  kind: z.enum(['skater', 'goalie', 'none']),
+  asOf: z.string(),
+  trends: z.array(
+    z.object({
+      cat: z.string(),
+      recent: z.number(),
+      baseline: z.number(),
+      z: z.number(),
+      nRecent: z.number(),
+      label: z.string(),
+    }),
+  ),
+  /** Per-game values by window (goalies: starts, W, SV%, GAA). */
+  windows: z.array(
+    z.object({ label: z.string(), gp: z.number(), values: z.record(z.string(), z.number()) }),
+  ),
+  /** Rolling 10-game average per category, oldest to newest, for sparklines. */
+  series: z.array(z.object({ cat: z.string(), points: z.array(z.number()), baseline: z.number() })),
+  lens: z
+    .object({
+      inSeason: z.record(z.string(), z.number()),
+      preseason: z.record(z.string(), z.number()),
+      gpCurrent: z.number(),
+      weightCurrent: z.number(),
+    })
+    .nullable(),
+  forecast: z.array(
+    z.object({
+      days: z.number(),
+      scheduled: z.number(),
+      expectedGames: z.number(),
+      totals: z.record(z.string(), z.number()),
+      lens: z.string(),
+      goalie: z.object({ svPct: z.number(), gaa: z.number(), startShare: z.number() }).nullable(),
+    }),
+  ),
+  games: z.array(
+    z.object({
+      date: z.string(),
+      opponent: z.string(),
+      home: z.boolean(),
+      line: z.record(z.string(), z.number()),
+    }),
+  ),
+});
+export type PlayerFormView = z.infer<typeof PlayerFormView>;
+
+/** `GET /api/league/forecast` (D-025): every team's typical week against every other. */
+export const SeasonForecastView = z.object({
+  lens: z.string(),
+  teams: z.array(
+    z.object({
+      teamKey: z.string(),
+      name: z.string(),
+      us: z.boolean(),
+      expectedCatsWon: z.number(),
+      pWinWeek: z.number(),
+      vsUs: z.number().nullable(),
+    }),
+  ),
+  categories: z.number(),
+});
+export type SeasonForecastView = z.infer<typeof SeasonForecastView>;
+
 export const TeamView = z.object({
   asOf: z.string(),
   source: z.enum(['yahoo', 'mock']),
@@ -135,11 +318,19 @@ export const TeamView = z.object({
   categories: z.array(
     z.object({
       cat: z.string(),
+      /** Projected final: the score so far plus the projected games not yet started. */
       us: z.number().nullable(),
       them: z.number().nullable(),
       winProb: z.number().nullable(),
+      /** The score so far from Yahoo's scoreboard; absent when it was not read. */
+      usNow: z.number().nullable().optional(),
+      themNow: z.number().nullable().optional(),
+      /** No remaining game can change the winner. */
+      decided: z.boolean().optional(),
     }),
   ),
+  /** When the scoreboard behind usNow/themNow was read; null when it was not. */
+  liveAsOf: z.string().nullable().optional(),
 });
 export type TeamView = z.infer<typeof TeamView>;
 // GET /api/team → TeamView ; POST /api/team/refresh → TeamView (records a fresh snapshot)
@@ -262,7 +453,10 @@ export const ChatEvent = z.discriminatedUnion('type', [
     type: z.literal('tool'),
     name: z.string(),
     status: z.enum(['start', 'ok', 'error']),
+    /** The tool's result (or error) in full, for the chip's expanded view. */
     detail: z.string().optional(),
+    /** What the model asked the tool for, as `key: value` lines. Sent with `start`. */
+    input: z.string().optional(),
   }),
   z.object({ type: z.literal('decision'), card: DecisionCard }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
@@ -298,6 +492,22 @@ export const ChatMessage = z.object({
   decisions: z.array(DecisionCard),
   /** Set when the assistant's turn failed (cut off, cancelled, interrupted by a restart). */
   error: z.object({ code: z.string(), message: z.string() }).optional(),
+  /**
+   * `background`: written by the daemon into the Background activity chat (D-027). A user-role
+   * background message is a trigger (a schedule slot, a Yahoo change), not something Ben said.
+   */
+  source: z.literal('background').optional(),
+  /** The tools the turn called, in order, as stored (a short result, not the full one). */
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        ok: z.boolean(),
+        detail: z.string().optional(),
+        input: z.string().optional(),
+      }),
+    )
+    .optional(),
   createdAt: z.string(),
 });
 export type ChatMessage = z.infer<typeof ChatMessage>;
@@ -407,6 +617,48 @@ export const PlayerFit = z.object({
   /** Which of our targets he is clearly good at (z ≥ 0.5). */
   targetHits: z.array(z.string()),
 });
+/**
+ * The mid-season value family (D-026) on the rest-of-season lens, beside the preseason `value`.
+ * The glossary (`@fha/core` GLOSSARY) defines each number; the client's explainers show it.
+ */
+export const RefName = z.object({ playerKey: z.string(), name: z.string() });
+export const ValueNowView = z.object({
+  lens: z.string(),
+  value: z.number(),
+  vols: z.number(),
+  adjusted: z.number(),
+  perGameValue: z.number(),
+  vofa: z.number(),
+  vofaPosition: z.string().nullable(),
+  vofaAgainst: RefName.nullable(),
+  cwa: z.number().nullable(),
+  cwaByCategory: z.record(z.string(), z.number()),
+  cwaSwap: RefName.nullable(),
+  weekCwa: z.number().nullable(),
+  gpCurrent: z.number(),
+  weightCurrent: z.number(),
+  lowConfidence: z.boolean(),
+  luck: z
+    .object({
+      stat: z.enum(['SH%', 'SV%']),
+      recent: z.number(),
+      baseline: z.number(),
+      z: z.number(),
+      games: z.number(),
+      label: z.enum(['lucky', 'unlucky', 'normal', 'too small a sample']),
+    })
+    .nullable(),
+  trend: z
+    .object({
+      sincePreseason: z.number().nullable(),
+      since7d: z.number().nullable(),
+      sinceYesterday: z.number().nullable(),
+      series: z.array(z.object({ date: z.string(), vols: z.number() })),
+    })
+    .nullable(),
+});
+export type ValueNowView = z.infer<typeof ValueNowView>;
+
 export const PlayerCard = z.object({
   playerKey: z.string(),
   name: z.string(),
@@ -428,6 +680,8 @@ export const PlayerCard = z.object({
     })
     .nullable(),
   fit: PlayerFit,
+  /** Rest of season (D-026); absent when the value family could not be built (P9). */
+  now: ValueNowView.nullable().optional(),
   market: z.object({ adp: z.number().nullable(), percentOwned: z.number().nullable() }),
   lowConfidence: z.boolean(),
   categories: z.array(PlayerCategory),
@@ -491,6 +745,24 @@ export const PlayerListRow = z.object({
   lowConfidence: z.boolean(),
   /** His best three categories by z, plus the sort category when sorting by one. */
   keyCats: z.array(z.object({ cat: z.string(), z: z.number() })),
+  /** Categories labelled hot or cold over his last 10 games (D-025); null: no game history. */
+  form: z
+    .object({ hot: z.array(z.string()), cold: z.array(z.string()) })
+    .nullable()
+    .optional(),
+  /** Rest-of-season measures (D-026); null when unavailable. */
+  now: z
+    .object({
+      vols: z.number(),
+      vofa: z.number(),
+      cwa: z.number().nullable(),
+      weekCwa: z.number().nullable(),
+      delta7d: z.number().nullable(),
+      luck: z.enum(['lucky', 'unlucky', 'normal', 'too small a sample']).nullable(),
+      lowConfidence: z.boolean(),
+    })
+    .nullable()
+    .optional(),
 });
 export type PlayerListRow = z.infer<typeof PlayerListRow>;
 export const PlayerList = z.object({
@@ -499,11 +771,19 @@ export const PlayerList = z.object({
   total: z.number(),
   players: z.array(PlayerListRow),
   notes: z.array(z.string()),
+  /**
+   * A name search that missed the league's player pool and found these on Yahoo (D-032). They
+   * are being added to the pool; they appear in `players` when the background refresh lands.
+   */
+  found: z
+    .array(z.object({ playerKey: z.string(), name: z.string(), nhlTeam: z.string() }))
+    .optional(),
 });
 export type PlayerList = z.infer<typeof PlayerList>;
-// GET /api/players?status=FA|W|ours|all&position=C&sort=fit|value|cat:<CAT>&q=&limit=50 → PlayerList
-//     defaults: status=FA, sort=fit, limit=50 (max 200). `fit` sorts by score (adjustedVorp + fit),
-//     `value` by adjustedVorp, `cat:X` by z in X.
+// GET /api/players?status=FA|W|ours|all&position=C&sort=fit|value|cwa|vofa|ros|cat:<CAT>&q=&limit=50
+//     → PlayerList. Defaults: status=FA, sort=fit, limit=50 (max 200). `fit` sorts by score
+//     (adjustedVorp + fit), `value` by adjustedVorp (preseason), `cwa`/`vofa`/`ros` by the
+//     rest-of-season CWA, VOFA and VOLS (D-026), `cat:X` by z in X.
 
 export const CategoryStrengthRow = z.object({
   cat: z.string(),
@@ -572,6 +852,19 @@ export const TeamStrengthRow = z.object({
   injuredStarters: z.number(),
   /** Scheduled games of the starters, snapshot date to the end of this week. */
   gamesThisWeek: z.number(),
+  /**
+   * This week so far, from Yahoo's scoreboard (D-025): each category's total ranked across the
+   * league this week, and the score in categories against this team's own opponent.
+   */
+  live: z
+    .object({
+      opponent: z.string().nullable(),
+      leading: z.number(),
+      trailing: z.number(),
+      cells: z.array(z.object({ cat: z.string(), value: z.number(), rank: z.number() })),
+    })
+    .nullable()
+    .optional(),
   /** Against us; null on our own row. */
   vsUs: z
     .object({
@@ -640,6 +933,8 @@ export const LeagueCompare = z.object({
   profile: LeagueProfile,
   /** Most complementary first. */
   partners: z.array(TradePartner),
+  /** The projection lens the ranks were built on. */
+  lens: z.string().optional(),
   notes: z.array(z.string()),
 });
 export type LeagueCompare = z.infer<typeof LeagueCompare>;
@@ -681,3 +976,38 @@ export const HeadToHead = z.object({
 });
 export type HeadToHead = z.infer<typeof HeadToHead>;
 // GET /api/league/compare/:teamKey → HeadToHead, or 404 not_found (unknown team or our own)
+
+// ── Mentions ─────────────────────────────────────────────────────────────────────────────────
+//
+// What chat links: every player and team the league index knows, by display name. The client
+// links a name only when it resolves to exactly one of these keys (P3); it never guesses.
+
+export const MentionIndex = z.object({
+  asOf: z.string(),
+  /** `aliases`: nicknames and first-name forms ("Ovi", "Nate MacKinnon"), when he has any. */
+  players: z.array(PlayerMini.extend({ aliases: z.array(z.string()).optional() })),
+  teams: z.array(z.object({ teamKey: z.string(), name: z.string(), isUs: z.boolean() })),
+});
+export type MentionIndex = z.infer<typeof MentionIndex>;
+// GET /api/league/names → MentionIndex
+
+export const TeamRosterEntry = z.object({
+  playerKey: z.string(),
+  name: z.string(),
+  /** The roster slot he is in today (C, LW, BN, IR+…). */
+  slot: z.string(),
+  nhlTeam: z.string(),
+  eligible: z.array(z.string()),
+  /** Yahoo's injury status (DTD, IR…); null when healthy. */
+  status: z.string().nullable(),
+});
+export const TeamSheet = z.object({
+  asOf: z.string(),
+  teamKey: z.string(),
+  name: z.string(),
+  manager: z.string().nullable(),
+  isUs: z.boolean(),
+  roster: z.array(TeamRosterEntry),
+});
+export type TeamSheet = z.infer<typeof TeamSheet>;
+// GET /api/league/teams/:teamKey → TeamSheet, or 404 not_found (no such team in the league)

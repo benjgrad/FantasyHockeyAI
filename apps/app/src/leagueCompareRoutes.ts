@@ -1,3 +1,4 @@
+import { inSeasonView } from '@fha/tools';
 import { sendJson } from './http.js';
 import { leagueCompare } from './leagueCompare.js';
 import { headToHead } from './leagueCompareH2H.js';
@@ -17,8 +18,9 @@ export function leagueCompareRoutes(s: Services): Route[] {
       path: '/api/league/compare',
       auth: 'user',
       handle: async ({ res, user }) => {
-        const { view } = await s.league.get(user.id);
-        sendJson(res, 200, await leagueCompare(view));
+        const { view } = await s.league.forDisplay(user.id);
+        // Ranks on the in-season lens (D-025): this season's games move them as they accrue.
+        sendJson(res, 200, await leagueCompare(inSeasonView(view, s.store)));
       },
     },
     {
@@ -26,8 +28,8 @@ export function leagueCompareRoutes(s: Services): Route[] {
       path: '/api/league/compare/:teamKey',
       auth: 'user',
       handle: async ({ res, params, user }) => {
-        const { view } = await s.league.get(user.id);
-        sendJson(res, 200, headToHead(view, params['teamKey'] ?? ''));
+        const { view } = await s.league.forDisplay(user.id);
+        sendJson(res, 200, headToHead(inSeasonView(view, s.store), params['teamKey'] ?? ''));
       },
     },
   ];

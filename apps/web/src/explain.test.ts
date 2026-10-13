@@ -120,7 +120,9 @@ describe('generate', () => {
     const create = vi.fn().mockResolvedValue(reply('ok'));
     await generate(11, card(), [], ctx, create);
     const body = create.mock.calls[0]?.[0] as Anthropic.MessageCreateParamsNonStreaming;
-    expect(body.model).toBe('claude-opus-5');
+    expect(body.model).toBe('claude-haiku-4-5');
+    // Haiku rejects an effort setting.
+    expect(body.output_config).toBeUndefined();
     // Bounded, but with headroom: on Opus 5 thinking counts against max_tokens, and a
     // 400-token budget truncated explanations on draft night.
     expect(body.max_tokens).toBeGreaterThanOrEqual(1500);

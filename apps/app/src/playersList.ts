@@ -4,6 +4,7 @@ import { availabilityOf } from '@fha/tools';
 import { HttpError } from './http.js';
 import { fitOf, ownerOf, type CardContext } from './players.js';
 import { adjustedVorpOf } from './playersStrength.js';
+import { listNow } from './playerValueNow.js';
 
 /**
  * The free-agent browser: a compact, filterable list over the league index.
@@ -25,6 +26,8 @@ export interface ListQuery {
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 200;
 const STATUSES: readonly ListStatus[] = ['FA', 'W', 'ours', 'all'];
+/** fit and value are preseason-lens sorts; cwa, vofa and ros the rest-of-season ones (D-026). */
+const NAMED_SORTS: readonly string[] = ['fit', 'value', 'cwa', 'vofa', 'ros'];
 
 function bad(message: string): HttpError {
   return new HttpError(400, 'invalid_request', message);
@@ -35,10 +38,10 @@ export function parseListQuery(params: URLSearchParams, categories: readonly str
   const status = (params.get('status') ?? 'FA') as ListStatus;
   if (!STATUSES.includes(status)) throw bad(`status must be one of ${STATUSES.join(', ')}`);
   const sort = params.get('sort') ?? 'fit';
-  if (sort !== 'fit' && sort !== 'value') {
+  if (!NAMED_SORTS.includes(sort)) {
     const cat = sort.startsWith('cat:') ? sort.slice(4) : undefined;
     if (cat === undefined || !categories.includes(cat)) {
-      throw bad(`sort must be fit, value or cat:<one of ${categories.join(' ')}>`);
+      throw bad(`sort must be ${NAMED_SORTS.join(', ')} or cat:<one of ${categories.join(' ')}>`);
     }
   }
   const rawLimit = params.get('limit');
@@ -68,13 +71,19 @@ export function normalizeName(s: string): string {
 
 function matches(c: CardContext, p: Player, q: ListQuery): boolean {
   const owner = c.view.ownerOf(p.playerKey);
-  if (q.status === 'FA' && owner !== undefined) return false;
+  if (q.status === 'FA' && (owner !== undefined || c.view.onWaivers(p.playerKey))) return false;
+  if (q.status === 'W' && !c.view.onWaivers(p.playerKey)) return false;
   if (q.status === 'ours' && owner !== c.view.teamKey) return false;
   if (q.position !== undefined && !p.eligible.includes(q.position)) return false;
   return q.q === undefined || normalizeName(p.name).includes(normalizeName(q.q));
 }
 
-function rowFor(c: CardContext, p: Player, sortCat: string | undefined): PlayerListRow {
+function rowFor(
+  c: CardContext,
+  p: Player,
+  sortCat: string | undefined,
+  nowOf: (key: string) => PlayerListRow['now'],
+): PlayerListRow {
   const v = c.view.valuation(p.playerKey);
   const a = availabilityOf(c.view, p);
   const adjusted = adjustedVorpOf(c.view, p);
@@ -100,6 +109,7 @@ function rowFor(c: CardContext, p: Player, sortCat: string | undefined): PlayerL
     gamesThisWeek: c.gamesThisWeek.get(p.nhlTeam) ?? 0,
     lowConfidence: v?.lowConfidence ?? true,
     keyCats,
+    now: nowOf(p.playerKey),
   };
 }
 
@@ -107,21 +117,19 @@ function rowFor(c: CardContext, p: Player, sortCat: string | undefined): PlayerL
 function keyOf(row: PlayerListRow, c: CardContext, sort: string): number | null {
   if (sort === 'fit') return row.score;
   if (sort === 'value') return row.adjustedVorp;
+  if (sort === 'cwa') return row.now?.cwa ?? null;
+  if (sort === 'vofa') return row.now?.vofa ?? null;
+  if (sort === 'ros') return row.now?.vols ?? null;
   return c.view.valuation(row.playerKey)?.z[sort.slice(4)] ?? null;
 }
 
 export function listPlayers(c: CardContext, q: ListQuery): PlayerList {
   const notes: string[] = [];
-  if (q.status === 'W') {
-    notes.push(
-      'Waiver status is not recorded in league snapshots yet, so no one is listed as W; players on waivers appear as free agents.',
-    );
-  }
   const sortCat = q.sort.startsWith('cat:') ? q.sort.slice(4) : undefined;
-  const rows =
-    q.status === 'W'
-      ? []
-      : c.view.snap.players.filter((p) => matches(c, p, q)).map((p) => rowFor(c, p, sortCat));
+  const nowOf = listNow(c.view, c.store);
+  const rows = c.view.snap.players
+    .filter((p) => matches(c, p, q))
+    .map((p) => rowFor(c, p, sortCat, nowOf));
   const keyed = rows.map((row) => ({ row, key: keyOf(row, c, q.sort) }));
   keyed.sort((a, b) => {
     if (a.key === null || b.key === null)

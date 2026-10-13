@@ -89,6 +89,12 @@ describe('WebSessionReader paging and identity', () => {
     );
   });
 
+  it('should ask for a ranking window with sort_type', () => {
+    expect(playersPath(LEAGUE, { status: 'FA', sort: 'AR', sortType: 'lastweek' }, 0, 25)).toBe(
+      `/league/${LEAGUE}/players;status=FA;sort=AR;sort_type=lastweek;start=0;count=25;out=percent_owned,ownership,player_notes`,
+    );
+  });
+
   it('should refuse a team outside the league (identity comes from config, P8)', () => {
     expect(() => new WebSessionReader(recorded(), LEAGUE, '477.l.1.t.6')).toThrow(/not in league/);
   });

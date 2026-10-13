@@ -147,6 +147,40 @@ function combined(side: WeekSide): CategoryLine {
   return side.actual ? addLines(side.actual, side.remaining) : side.remaining;
 }
 
+/** A side's projected final line: banked so far plus the projected rest of the week. */
+export function finalLine(side: WeekSide): CategoryLine {
+  return combined(side);
+}
+
+/**
+ * Yahoo's scoreboard totals (by abbreviation) as a banked line. Counting categories are taken
+ * as they are. The rate categories are rebuilt from volume, which the scoreboard carries as
+ * display-only stats in this league (observed 2026-10-02: GA, SA, SV): saves and shots against
+ * directly, and goalie minutes from `GA × 60 / GAA`. With no goals against, GAA says nothing
+ * about minutes, so they are estimated at two minutes per shot against (about 30 shots per 60)
+ * and `estimatedMinutes` says so.
+ */
+export function bankedLine(
+  stats: Readonly<Record<string, number>>,
+  categories: readonly string[],
+): CategoryLine & { estimatedMinutes: boolean } {
+  const line = emptyLine();
+  for (const c of categories) {
+    if (isRateCategory(c)) continue;
+    const v = stats[c];
+    if (v !== undefined) line.counts[c] = v;
+  }
+  const ga = stats['GA'] ?? 0;
+  const sa = stats['SA'] ?? 0;
+  const gaa = stats['GAA'] ?? 0;
+  line.saves = stats['SV'] ?? Math.max(0, sa - ga);
+  line.shotsAgainst = sa;
+  line.goalsAgainst = ga;
+  const exact = ga > 0 && gaa > 0;
+  line.toiMinutes = exact ? (ga * 60) / gaa : sa * 2;
+  return { ...line, estimatedMinutes: !exact && sa > 0 };
+}
+
 /**
  * Variance of a side's **final** category value that comes from the unplayed games.
  * Banked totals are known; only `remaining` is uncertain.

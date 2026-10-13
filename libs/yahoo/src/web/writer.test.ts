@@ -127,6 +127,76 @@ describe('YahooWebWriter.addDrop', () => {
     expect(y.calls).toHaveLength(1);
   });
 
+  it('should keep the cookies a silent sign-in sets and ask for the form once more (U-30)', async () => {
+    let gets = 0;
+    const logs: string[] = [];
+    const y = fakeYahoo({
+      get: () => {
+        gets += 1;
+        if (gets > 1) return new Response(FORM_HTML, { status: 200 });
+        const h = new Headers({
+          location: 'https://login.yahoo.com/config/login?noPrompt=1&.done=https%3A%2F%2Fhockey',
+        });
+        h.append('set-cookie', 'A1=a1-SECRET; Domain=.yahoo.com; Max-Age=31557600; Secure');
+        h.append('set-cookie', 'A3=a3-SECRET; Domain=.yahoo.com; Max-Age=31557600; Secure');
+        return new Response(null, { status: 302, headers: h });
+      },
+    });
+    const res = await writer(y.fetchImpl, logs).addDrop({ addPlayerKey: '477.p.5336' });
+    expect(res.status).toBe('submitted');
+    expect(y.calls.map((c) => c.init.method)).toEqual(['GET', 'GET', 'POST']);
+    expect(headers(y.calls[1]).cookie).toBe(`T=${T}; Y=${Y}; A1=a1-SECRET; A3=a3-SECRET`);
+    expect(headers(y.calls[2]).cookie).toBe(`T=${T}; Y=${Y}; A1=a1-SECRET; A3=a3-SECRET`);
+    expect(logs.join('\n')).not.toContain('SECRET');
+  });
+
+  it('should report rotated cookies and check the site read only (D-033)', async () => {
+    const rotated: string[][] = [];
+    const y = fakeYahoo({
+      get: () => {
+        const h = new Headers();
+        h.append('set-cookie', 'SPT=spt-SECRET; domain=fantasysports.yahoo.com; Max-Age=100');
+        return new Response('<html>team</html>', { status: 200, headers: h });
+      },
+    });
+    const w = new YahooWebWriter({
+      credentials: { T, Y },
+      leagueKey: '477.l.48535',
+      teamKey: '477.l.48535.t.6',
+      fetchImpl: y.fetchImpl,
+      minIntervalMs: 0,
+      onCookies: (names) => rotated.push(names),
+    });
+    await w.checkSite();
+    expect(y.calls.map((c) => [c.init.method, c.url])).toEqual([
+      ['GET', 'https://hockey.fantasysports.yahoo.com/hockey/48535/6'],
+    ]);
+    expect(rotated).toEqual([['SPT']]);
+  });
+
+  it('should report a dead site from the keepalive', async () => {
+    const y = fakeYahoo({
+      get: () =>
+        new Response(null, { status: 302, headers: { location: 'https://login.yahoo.com/' } }),
+    });
+    await expect(writer(y.fetchImpl).checkSite()).rejects.toThrow(YahooAuthError);
+  });
+
+  it('should ask only once more, then report a dead session without POSTing', async () => {
+    const y = fakeYahoo({
+      get: () => {
+        const h = new Headers({ location: 'https://login.yahoo.com/config/login?noPrompt=1' });
+        h.append('set-cookie', 'A1S=x; Domain=.yahoo.com');
+        return new Response(null, { status: 302, headers: h });
+      },
+    });
+    const err = await writer(y.fetchImpl)
+      .addDrop({ addPlayerKey: '477.p.5336' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(YahooAuthError);
+    expect(y.calls.map((c) => c.init.method)).toEqual(['GET', 'GET']);
+  });
+
   it('should refuse a form for a different player than asked', async () => {
     const y = fakeYahoo();
     await expect(writer(y.fetchImpl).addDrop({ addPlayerKey: '477.p.1' })).rejects.toThrow(

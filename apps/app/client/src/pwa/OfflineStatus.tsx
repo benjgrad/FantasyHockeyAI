@@ -15,7 +15,7 @@ export function OnlineBadge() {
 }
 
 /** Re-renders every minute so "5 min ago" stays true. */
-function useNow(): Date {
+export function useNow(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 60_000);

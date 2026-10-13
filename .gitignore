@@ -7,3 +7,6 @@ coverage/
 data/web-push.json
 data/web-subscriptions.json
 prototypes/yahoo-web/data/
+
+# Network captures (HAR) carry session data: never commit them.
+*.har

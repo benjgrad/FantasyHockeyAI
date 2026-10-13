@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LineupMove, LeagueSnapshot } from '@fha/core';
 import { abstain, askBen, setCategoryWeights } from './tools/control.js';
 import { proposeAddDrop, proposeLineup } from './tools/proposeRoster.js';
+import { getLineupSuggestion } from './tools/roster.js';
 import { proposeTrade, proposeTradeResponse } from './tools/proposeTrade.js';
 import { mockPermissions, testRun } from './testing.js';
 
@@ -64,16 +65,52 @@ describe('propose tools and the pipeline', () => {
     expect(store.decisions.listByStatus('proposed', 'invalid', 'dry_run')).toHaveLength(0);
   });
 
-  it('the second invalid proposal of a kind is a non-retryable STOP (§9.1)', async () => {
-    const { ctx } = testRun({ agent: 'waivers' });
-    // THEIRS is on another team, so it is not a free agent: the pipeline's validation fails.
+  it('an invalid proposal is checked before anything is recorded, and retried at most 3 times (§9.1)', async () => {
+    const { ctx, store } = testRun({ agent: 'waivers' });
+    // THEIRS is on another team, so it is not a free agent: validation fails every time.
     const input = { add: THEIRS, drop: OURS, reason: REASON };
-    const first = await proposeAddDrop.execute(input, ctx);
-    expect(first).toMatchObject({ ok: false, retryable: true });
-    expect(!first.ok && first.error).toContain('not a free agent');
-    const second = await proposeAddDrop.execute(input, ctx);
-    expect(second).toMatchObject({ ok: false, retryable: false });
-    expect(!second.ok && second.error.startsWith('STOP')).toBe(true);
+    for (const attempt of [1, 2, 3]) {
+      const r = await proposeAddDrop.execute(input, ctx);
+      expect(r).toMatchObject({ ok: false, retryable: true });
+      expect(!r.ok && r.error).toContain(`attempt ${attempt} of 4`);
+      expect(!r.ok && r.error).toContain('not a free agent');
+    }
+    const last = await proposeAddDrop.execute(input, ctx);
+    expect(last).toMatchObject({ ok: false, retryable: false });
+    // Never STOP: the run (or chat turn) goes on and tells Ben.
+    expect(!last.ok && last.error).toMatch(/^The proposeAddDrop proposal failed validation 4 times/);
+    const after = await proposeAddDrop.execute(input, ctx);
+    expect(after).toMatchObject({ ok: false, retryable: false });
+    expect(store.decisions.listByStatus('proposed', 'invalid', 'dry_run')).toHaveLength(0);
+    expect(ctx.state.plans).toEqual([]);
+    // Each refused attempt is still on record, with its reason (P10).
+    expect(store.attempts.byAgent('2000-01-01T00:00:00Z')).toEqual([
+      { agent: 'waivers', attempts: 4, terminal: 0 },
+    ]);
+  });
+
+  it('a lineup already filed and still open is reported as covered, not filed twice', async () => {
+    const { ctx, store } = testRun();
+    const first = await proposeLineup.execute({ date: '2026-10-13', reason: REASON }, ctx);
+    expect(first).toMatchObject({ ok: true });
+    const firstId = first.ok ? first.data.planId : undefined;
+    const suggestion = await getLineupSuggestion.execute({ date: '2026-10-13' }, ctx);
+    expect(suggestion.ok && suggestion.summary).toContain(`Already filed: ${firstId?.slice(0, 8)}`);
+    const again = await proposeLineup.execute({ date: '2026-10-13', reason: REASON }, ctx);
+    expect(again).toMatchObject({ ok: true, data: { status: 'noChange', planId: firstId } });
+    expect(store.decisions.listByStatus('dry_run', 'invalid')).toHaveLength(1);
+    expect(ctx.state.plans).toHaveLength(1);
+  });
+
+  it('any other duplicate of an open plan is refused at once, unrecorded, without STOP', async () => {
+    const { ctx, store } = testRun({ agent: 'waivers' });
+    const first = await proposeAddDrop.execute({ drop: OURS, reason: REASON }, ctx);
+    expect(first).toMatchObject({ ok: true });
+    const again = await proposeAddDrop.execute({ drop: OURS, reason: REASON }, ctx);
+    expect(again).toMatchObject({ ok: false, retryable: false });
+    expect(!again.ok && again.error).toMatch(/^Not accepted, and no edit can fix it/);
+    expect(store.decisions.listByStatus('invalid')).toHaveLength(0);
+    expect(ctx.state.plans).toHaveLength(1);
   });
 
   it('a trade giving a locked player is denied and the adapter is never called', async () => {

@@ -1,4 +1,5 @@
 import { PLAN_KINDS, Permissions } from '@fha/core';
+import { ValueLensSection } from './ValueLensSection';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { api, type PermissionsViewT, type PlayerRefT } from '../api/endpoints';
@@ -137,6 +138,10 @@ function Editor({ view, saved }: { view: PermissionsViewT; saved: Permissions })
             edit((d) => void (d.protected.topNByVorp = n));
           }}
         />
+      </div>
+
+      <div className="card">
+        <ValueLensSection draft={draft} edit={edit} />
       </div>
 
       <div className="sticky bottom-0 flex flex-col gap-2 rounded-xl border border-line bg-bg/95 p-3 backdrop-blur">

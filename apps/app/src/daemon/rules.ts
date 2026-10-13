@@ -1,6 +1,11 @@
-import { isOut } from '@fha/model';
+import { availability, isOut } from '@fha/model';
 import type { EventRecord } from '@fha/store';
-import { EVENT_KINDS, StatusChangedPayload, TransactionPayload } from '@fha/tools';
+import {
+  EVENT_KINDS,
+  GoalieStartingPayload,
+  StatusChangedPayload,
+  TransactionPayload,
+} from '@fha/tools';
 import type { Notice } from '../push.js';
 import type { DaemonJob } from './schedule.js';
 
@@ -80,9 +85,16 @@ function droppedByOthers(
     .map((x) => autoGrab(x.playerKey, x.name, 'dropped'));
 }
 
+/** Reserve slots (IR, IR+, NA) a status allows, from the shared availability table. */
+function reserveSlotsFor(status: string | null, now: Date): string[] {
+  if (status === null) return [];
+  return availability({ status, now: now.toISOString().slice(0, 10) }).irEligible;
+}
+
 function statusActions(
   p: StatusChangedPayload,
   needsWaivers: () => boolean,
+  now: Date,
 ): RuleAction[] | undefined {
   const note = p.note === null ? '' : `: ${p.note}`;
   const push = (title: string, body: string): RuleAction => ({
@@ -91,6 +103,21 @@ function statusActions(
   });
   const nowOut = isOut(p.to ?? undefined);
   const wasOut = isOut(p.from ?? undefined);
+  // Out → IR (Hellebuyck NA → IR-NR, 2026-10-02): still out, but now he can go to a reserve
+  // seat and free a roster spot. The lineup solver puts reserve-eligible players there first.
+  const reserveNow = reserveSlotsFor(p.to, now);
+  const reserveBefore = reserveSlotsFor(p.from, now);
+  const inReserve = p.slot !== null && ['IR', 'IR+', 'NA'].includes(p.slot);
+  if (wasOut && nowOut && !inReserve && reserveNow.some((x) => !reserveBefore.includes(x))) {
+    const seat = reserveNow.find((x) => !reserveBefore.includes(x)) ?? reserveNow[0] ?? 'IR';
+    return [
+      push(
+        `${p.name} can go to ${seat}`,
+        `${p.name} is now ${p.to ?? 'on IR'}${note}, so he can go to ${seat}. The lineup agent is checking whether a seat is free.`,
+      ),
+      { type: 'enqueue', job: 'lineup', reason: `${p.name} now ${seat}-eligible` },
+    ];
+  }
   if (nowOut && !wasOut) {
     return [
       push(`${p.name} is ${p.to ?? 'out'}`, `${p.name} is ${p.to ?? 'out'}${note}`),
@@ -116,6 +143,31 @@ function statusActions(
   return undefined;
 }
 
+/**
+ * Yahoo's starting flag for one of our goalies today, when it contradicts his slot (D-029): in a
+ * G slot but not starting, or on the bench while starting. Notify and re-run the lineup agent.
+ */
+function goalieActions(p: GoalieStartingPayload, now: Date): RuleAction[] | undefined {
+  if (p.ours !== true || p.slot === undefined || p.slot === null) return undefined;
+  const today = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (p.date !== today) return undefined;
+  const inGoal = p.slot === 'G';
+  if (inGoal === p.isStarting) return undefined;
+  const what = p.isStarting ? 'is starting tonight but is on our bench' : 'is not starting tonight';
+  return [
+    {
+      type: 'push',
+      notice: {
+        kind: 'injury',
+        title: `${p.name} ${p.isStarting ? 'is starting' : 'is not starting'}`,
+        body: `Yahoo says ${p.name} ${what}. The lineup agent is re-checking the G slots.`,
+        url: '/team',
+      },
+    },
+    { type: 'enqueue', job: 'lineup', reason: `Yahoo: ${p.name} ${what}` },
+  ];
+}
+
 /** The actions for one event, before debouncing. */
 function actionsFor(
   e: EventRecord,
@@ -132,7 +184,7 @@ function actionsFor(
         ? 'collected'
         : { actions: grab, subject: `autoGrab:${p.data.playerKey}` };
     }
-    const actions = statusActions(p.data, needsWaivers);
+    const actions = statusActions(p.data, needsWaivers, ctx.now);
     return actions === undefined ? 'no_rule' : { actions, subject: p.data.playerKey };
   }
   if (e.kind === EVENT_KINDS.tradeOffered) {
@@ -148,6 +200,12 @@ function actionsFor(
     const first = grabs[0];
     if (first === undefined || first.type !== 'autoGrab') return 'collected';
     return { actions: grabs, subject: `autoGrab:${first.playerKey}` };
+  }
+  if (e.kind === EVENT_KINDS.goalieStarting) {
+    const p = GoalieStartingPayload.safeParse(e.payload);
+    if (!p.success) return 'unparseable';
+    const actions = goalieActions(p.data, ctx.now);
+    return actions === undefined ? 'collected' : { actions, subject: `goalie:${p.data.playerKey}` };
   }
   if (e.kind === EVENT_KINDS.news) return 'collected';
   return 'no_rule';

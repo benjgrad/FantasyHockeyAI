@@ -1,7 +1,12 @@
 import type { Plan } from '@fha/core';
 import type { Store } from '@fha/store';
 import type { LeagueState } from './league.js';
-import { openCredentials, type LiveWriteAdapter, type YahooAccess } from './yahoo.js';
+import {
+  openCredentials,
+  rotationSaver,
+  type LiveWriteAdapter,
+  type YahooAccess,
+} from './yahoo.js';
 
 /**
  * Which live adapter a user's pipeline gets when dry run is off: the Yahoo website adapter
@@ -47,13 +52,16 @@ export function liveAdapterFor(d: LiveDeps): LiveAdapterFor {
     if (credentials === undefined) return undefined;
     return d.yahoo.writeAdapter(credentials, league.leagueKey, league.teamKey, {
       ...hooks,
+      // The website refused it: an API read must not clear this (U-30).
       onAuthExpired: () =>
         d.store.yahooConnections.markStatus(
           userId,
           'expired',
-          'Yahoo session expired or signed out',
+          'Yahoo website session expired or signed out',
+          'site',
         ),
       log: (line) => d.log(`user ${userId}: ${line}`),
+      onCookies: rotationSaver(d, userId),
     });
   };
 }

@@ -10,8 +10,8 @@ import type { Store } from '@fha/store';
 import {
   addsUsedThisWeek,
   gateStateFor,
+  lensesFor,
   modelInputs,
-  weekBounds,
   type LeagueView,
 } from '@fha/tools';
 
@@ -42,9 +42,18 @@ function openReserveSeats(view: LeagueView): string[] {
     );
 }
 
-/** Everything but the candidate: our roster, the week, the caps and the no-drop lists. */
-export function grabBase(view: LeagueView, store: Store, perms: Permissions): GrabBase {
-  const m = modelInputs(view);
+/**
+ * Everything but the candidate: our roster, the week, the caps and the no-drop lists. `values`
+ * is the view whose valuations are used: the lens Ben chose for auto-grab (D-026), by default the
+ * one `lensesFor` picks; `view` stays the base for rosters, the gate and the week.
+ */
+export function grabBase(
+  view: LeagueView,
+  store: Store,
+  perms: Permissions,
+  values: LeagueView = grabValues(view, store, perms),
+): GrabBase {
+  const m = modelInputs(values);
   const roster: OpportunityPlayer[] = [];
   let unvalued = 0;
   for (const { player, slot } of view.roster().entries) {
@@ -57,7 +66,7 @@ export function grabBase(view: LeagueView, store: Store, perms: Permissions): Gr
     }
     roster.push({ playerKey: player.playerKey, valuation, slot, status: player.status });
   }
-  const { end } = weekBounds(view.snap.date);
+  const { end } = view.weekOf();
   const weights = store.strategy.get(view.snap.week)?.weights;
   return {
     settings: view.settings,
@@ -75,6 +84,11 @@ export function grabBase(view: LeagueView, store: Store, perms: Permissions): Gr
     ask: perms.players.ask,
     openReserveSlots: openReserveSeats(view),
   };
+}
+
+/** The view auto-grab values players on: the lens chosen in permissions (D-026). */
+export function grabValues(view: LeagueView, store: Store, perms: Permissions): LeagueView {
+  return lensesFor(view, store, perms, 'autoGrab').active;
 }
 
 /** A player as an opportunity candidate, or undefined when the view cannot value him (P3). */
@@ -99,7 +113,7 @@ export function worthGrabbing(
   playerKey: string,
 ): boolean {
   if (!perms.autoGrab.enabled || view.ownerOf(playerKey) === view.teamKey) return false;
-  const candidate = candidateFor(view, playerKey);
+  const candidate = candidateFor(grabValues(view, store, perms), playerKey);
   if (candidate === undefined) return false;
   return healthyGain({ ...grabBase(view, store, perms), candidate }) > perms.autoGrab.minGain;
 }
@@ -110,11 +124,12 @@ export function worthGrabbing(
  */
 export function injuredTargets(view: LeagueView, store: Store, perms: Permissions): string[] {
   if (!perms.autoGrab.enabled) return [];
-  const base = grabBase(view, store, perms);
+  const values = grabValues(view, store, perms);
+  const base = grabBase(view, store, perms, values);
   return view.snap.players
     .filter((p) => view.isFreeAgent(p.playerKey) && isOut(p.status))
     .flatMap((p) => {
-      const candidate = candidateFor(view, p.playerKey);
+      const candidate = candidateFor(values, p.playerKey);
       if (candidate === undefined) return [];
       const gain = healthyGain({ ...base, candidate });
       return gain > perms.autoGrab.minGain ? [{ key: p.playerKey, gain }] : [];

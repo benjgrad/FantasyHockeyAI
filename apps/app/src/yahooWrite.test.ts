@@ -97,6 +97,7 @@ async function setup(dryRun: boolean, rosterAfter: string[] | 'unchanged') {
           })),
         });
       },
+      transactions: () => Promise.resolve([]),
     };
     return new YahooWebAdapter({ ...hooks, writer, reader, teamKey, today: () => '2026-09-29' });
   };
@@ -124,10 +125,13 @@ describe('Yahoo add/drop through the pipeline', () => {
   });
 
   it('should execute when dry run is off and mark it executed once the roster shows it', async () => {
-    const { posts, built, pipeline } = await setup(false, [KUEMPER]);
+    const { userId, posts, built, pipeline } = await setup(false, [KUEMPER]);
     expect(pipeline.adapter.name).toBe('yahooWeb');
+    expect(h?.app.services.league.status(userId).stale).toBe(false);
     const p = plan({ kind: 'addDrop', add: KUEMPER, drop: DROP });
     const out = await submitPlan(p, pipeline);
+    // The write changed the roster: the snapshot read before it is stale now (2026-10-05).
+    expect(h?.app.services.league.status(userId).stale).toBe(true);
     expect(out).toMatchObject({ status: 'executed', detail: 'Yahoo: added Darcy Kuemper' });
     expect(built).toEqual(['477.l.48535.t.6']);
     expect(posts).toEqual(['stage=3&crumb=CRUMB_REDACTED&stat1=P&stat2=P&apid=5336&dpid=7163']);
@@ -143,7 +147,18 @@ describe('Yahoo add/drop through the pipeline', () => {
     expect(h.store.decisions.get(p.planId)?.status).toBe('unverified');
   });
 
-  it('should hand a lineup to Ben as a push rather than guess its endpoint', async () => {
+  it('should hand an unobserved kind (a waiver claim) to Ben as a push rather than guess', async () => {
+    const { posts, pipeline } = await setup(false, [KUEMPER]);
+    const out = await submitPlan(plan({ kind: 'waiverClaim', add: KUEMPER, drop: DROP }), pipeline);
+    expect(out).toMatchObject({ status: 'needsHuman' });
+    expect(posts).toEqual([]);
+    // The same "ACTION NEEDED (<plan>): …" line the Manual adapter sends, so it becomes a push.
+    expect(out).toMatchObject({
+      detail: expect.stringMatching(/^ACTION NEEDED \(yw-\d+\): do this in Yahoo/),
+    });
+  });
+
+  it('should send a lineup to Yahoo, and fail closed when the page lacks the lineup form', async () => {
     const { posts, pipeline } = await setup(false, [KUEMPER]);
     const out = await submitPlan(
       plan({
@@ -156,12 +171,9 @@ describe('Yahoo add/drop through the pipeline', () => {
       }),
       pipeline,
     );
-    expect(out).toMatchObject({ status: 'needsHuman' });
+    // This fake Yahoo serves the add/drop page for every GET: no roster-edit form, no POST.
+    expect(out).toMatchObject({ status: 'failed' });
     expect(posts).toEqual([]);
-    // The same "ACTION NEEDED (<plan>): …" line the Manual adapter sends, so it becomes a push.
-    expect(out).toMatchObject({
-      detail: expect.stringMatching(/^ACTION NEEDED \(yw-\d+\): do this in Yahoo/),
-    });
   });
 
   it('should fall back to Manual when the Yahoo connection has expired', async () => {

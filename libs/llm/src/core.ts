@@ -78,7 +78,8 @@ export function buildBody(
   // Forced tool_choice has historically been incompatible with thinking; the model config only
   // allows forcing on models where thinking is off, so never combine the two.
   if (model.supportsAdaptiveThinking && !forced) body.thinking = { type: 'adaptive' };
-  if (p.effort !== undefined) body.output_config = { effort: p.effort };
+  // A model without effort (Haiku 4.5) rejects the field: the agent's setting is dropped there.
+  if (p.effort !== undefined && model.supportsEffort) body.output_config = { effort: p.effort };
   if (x.tools !== undefined && x.tools.length > 0) body.tools = x.tools;
   if (x.toolChoice !== undefined) body.tool_choice = x.toolChoice;
   if (x.cacheHistory === true) body.cache_control = { type: 'ephemeral' };

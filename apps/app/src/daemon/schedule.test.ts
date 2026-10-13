@@ -38,8 +38,9 @@ describe('New York time', () => {
 });
 
 describe('season schedule (§14.2)', () => {
-  it('Monday: refresh, matchup, league review, waivers, digest, two lineups', () => {
+  it('Monday: stats, refresh, matchup, league review, waivers, digest, two lineups', () => {
     expect(jobs('2026-10-05')).toEqual([
+      'stats@09:30',
       'refresh@10:00',
       'matchup@10:30',
       'leagueReview@11:00',
@@ -94,9 +95,9 @@ describe('season schedule (§14.2)', () => {
     expect(
       dueSlots(slots, new Date('2026-11-01T11:00:00Z'), new Date('2026-11-01T11:01:00Z')),
     ).toEqual([]);
-    // From Saturday evening, the next run is Sunday's 06:00 EST refresh.
+    // From Saturday evening, the next run is Sunday's 05:30 EST stats pull.
     const next = nextSlot(slots, new Date('2026-10-31T23:00:00Z'));
-    expect(next?.key).toBe('refresh@2026-11-01#daily');
-    expect(iso(next?.at)).toBe('2026-11-01T11:00:00.000Z');
+    expect(next?.key).toBe('stats@2026-11-01#daily');
+    expect(iso(next?.at)).toBe('2026-11-01T10:30:00.000Z');
   });
 });

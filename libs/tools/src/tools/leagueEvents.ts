@@ -70,6 +70,9 @@ export const GoalieStartingPayload = z.object({
   name: z.string(),
   date: z.string(),
   isStarting: z.boolean(),
+  /** One of ours, and his slot at the reading (D-029); absent on events before then. */
+  ours: z.boolean().optional(),
+  slot: z.string().nullable().optional(),
 });
 export type GoalieStartingPayload = z.infer<typeof GoalieStartingPayload>;
 

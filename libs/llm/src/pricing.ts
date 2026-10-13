@@ -24,6 +24,7 @@ export const PRICES: Readonly<Record<string, Price>> = {
   'claude-opus-5': price(5, 25),
   'claude-opus-5-5': price(4, 20, 0.2),
   'claude-sonnet-5': price(2, 10),
+  'claude-sonnet-5-5': price(2, 10, 0.2),
   'claude-haiku-4-5': price(1, 5),
 };
 

@@ -45,7 +45,7 @@ export function ProfileCard({ data }: { data: LeagueCompareT }) {
           ))}
         </ul>
       ) : null}
-      <p className="text-[11px] text-mut">
+      <p className="text-2xs text-mut">
         Cheapest fix compares the best free agent’s gain in the category (for our weakest player of
         that type) with the best 1-for-1 trade idea’s, in the same z units.
       </p>

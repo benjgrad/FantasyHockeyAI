@@ -6,6 +6,7 @@ import { ChatTurns } from './chatTurns.js';
 import { HttpError, applySecurityHeaders, sendError } from './http.js';
 import { LeagueService } from './league.js';
 import { leagueCompareRoutes } from './leagueCompareRoutes.js';
+import { leagueTeamRoutes } from './leagueTeams.js';
 import { OidcService } from './oidcService.js';
 import { playerRoutes } from './playerRoutes.js';
 import { PushService, noticeFromPipeline } from './push.js';
@@ -87,11 +88,13 @@ export function buildServices(deps: AppDeps, opts: AppOptions = {}): Services {
         });
       },
       liveAdapter: liveAdapterFor({ store, secretKey: config.secretKey, yahoo: deps.yahoo, log }),
+      afterWrite: (userId) => services.league.invalidate(userId),
       quietUntil: (userId, at) => push.quietUntil(userId, at),
     },
     yahoo: deps.yahoo,
     createMessage: deps.createMessage,
     prompts: deps.prompts,
+    pullGames: deps.pullGames,
     usedStates: new Map(),
     chatTurns: new ChatTurns({
       store,
@@ -122,6 +125,7 @@ export function createApp(deps: AppDeps, opts: AppOptions = {}): App {
     ...pushRoutes(services),
     ...playerRoutes(services),
     ...leagueCompareRoutes(services),
+    ...leagueTeamRoutes(services),
   );
   const handler = (req: IncomingMessage, res: ServerResponse): void => {
     const started = Date.now();

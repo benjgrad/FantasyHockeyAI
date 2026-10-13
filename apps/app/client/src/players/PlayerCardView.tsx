@@ -1,5 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import type { PlayerCardT } from './api';
+import { FormSection } from './FormSection';
+import { NowSection } from './NowSection';
+import { StatTip } from '../components/StatTip';
 import { AvailabilityBadge, CatTile, OwnerBadge, Stat } from './parts';
 import { CHAT_PREFILL } from './sheet';
 import { askText, compareHref, fmtCat, signed, topBottom } from './helpers';
@@ -19,7 +22,7 @@ export function PlayerCardView({ card }: { card: PlayerCardT }) {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <div className="text-lg font-semibold">{card.name}</div>
+        <div className="display text-3xl leading-none">{card.name}</div>
         <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-mut">
           <span>
             {card.positions.join('/')} · {card.nhlTeam}
@@ -34,6 +37,7 @@ export function PlayerCardView({ card }: { card: PlayerCardT }) {
           <div className="mt-1 text-xs text-soft">{card.availability.label}</div>
         ) : null}
       </div>
+      {card.now ? <NowSection now={card.now} /> : null}
       <ValueRow card={card} />
       <FitLine card={card} />
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-3">
@@ -49,7 +53,9 @@ export function PlayerCardView({ card }: { card: PlayerCardT }) {
           <tbody>
             {card.categories.map((c) => (
               <tr key={c.cat} className="border-t border-line">
-                <td className="py-1">{c.cat}</td>
+                <td className="py-1">
+                  <StatTip cat={c.cat} />
+                </td>
                 <td className="py-1 text-right">{fmtCat(c.cat, c.total)}</td>
                 <td className="py-1 text-right text-mut">
                   {c.perGame === null ? '—' : `${c.perGame}/g`}
@@ -60,6 +66,7 @@ export function PlayerCardView({ card }: { card: PlayerCardT }) {
           </tbody>
         </table>
       </details>
+      <FormSection playerKey={card.playerKey} />
       {card.reasons.length > 0 ? (
         <ul className="list-disc pl-5 text-sm text-soft">
           {card.reasons.map((r) => (
@@ -93,16 +100,8 @@ function ValueRow({ card }: { card: PlayerCardT }) {
   const v = card.value;
   return (
     <div className="grid grid-cols-4 gap-1.5 text-sm">
-      <Stat
-        label="VORP"
-        value={v ? v.vorp.toFixed(2) : '—'}
-        hint="Value over a replacement player, rest of season"
-      />
-      <Stat
-        label="after injury"
-        value={v ? v.adjustedVorp.toFixed(2) : '—'}
-        hint="VORP net of the games he is expected to miss"
-      />
+      <Stat label="VORP (pre)" value={v ? v.vorp.toFixed(2) : '—'} tip="vorp" />
+      <Stat label="pre, after injury" value={v ? v.adjustedVorp.toFixed(2) : '—'} tip="adjusted" />
       <Stat
         label="proj GP"
         value={v ? v.gp.toFixed(0) : '—'}
@@ -121,7 +120,9 @@ function FitLine({ card }: { card: PlayerCardT }) {
   const { fit, score, targets, targetHits } = card.fit;
   return (
     <div className="rounded-lg bg-well px-2 py-1.5 text-sm">
-      <span className="text-mut">Fit to our needs </span>
+      <span className="text-mut">
+        <StatTip k="fit">Fit to our needs</StatTip>{' '}
+      </span>
       <b className={fit === null ? '' : fit >= 0 ? 'text-good' : 'text-bad'}>{signed(fit)}</b>
       {score !== null ? <span className="text-mut"> · score {score.toFixed(2)}</span> : null}
       {card.market.adp !== null ? (

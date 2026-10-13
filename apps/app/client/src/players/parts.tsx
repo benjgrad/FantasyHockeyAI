@@ -1,3 +1,5 @@
+import type { GlossaryKey } from '@fha/core';
+import { StatTip } from '../components/StatTip';
 import type { CategoryT, PlayerCardT } from './api';
 import { TONE_CLASS, fmtCat, signed, zBar, type Tone } from './helpers';
 
@@ -21,7 +23,9 @@ export function CatTile({ c, target = false }: { c: CategoryT; target?: boolean 
       className={`rounded-lg border bg-raised px-2 py-1.5 ${target ? 'border-acc/70' : 'border-line'}`}
     >
       <div className="flex items-baseline justify-between gap-1 text-xs">
-        <span className="text-mut">{c.cat}</span>
+        <span className="text-mut">
+          <StatTip cat={c.cat} />
+        </span>
         <span className={`tabular-nums ${TONE_CLASS[zBar(c.z).tone]}`}>{signed(c.z)}z</span>
       </div>
       <div className="font-semibold tabular-nums">{fmtCat(c.cat, c.total)}</div>
@@ -57,10 +61,23 @@ export function OwnerBadge({ owner }: { owner: PlayerCardT['owner'] }) {
   return <span className={`pill ${tone}`}>{text}</span>;
 }
 
-export function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+export function Stat({
+  label,
+  value,
+  hint,
+  tip,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** A glossary entry: the label opens its explainer (hover, or tap on a phone). */
+  tip?: GlossaryKey;
+}) {
   return (
-    <div className="rounded-lg bg-well px-2 py-1" title={hint}>
-      <div className="text-[11px] text-mut">{label}</div>
+    <div className="rounded-lg bg-well px-2 py-1" title={tip === undefined ? hint : undefined}>
+      <div className="text-2xs text-mut">
+        {tip === undefined ? label : <StatTip k={tip}>{label}</StatTip>}
+      </div>
       <div className="font-semibold tabular-nums">{value}</div>
     </div>
   );

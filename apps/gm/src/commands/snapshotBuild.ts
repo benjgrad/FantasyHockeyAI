@@ -129,7 +129,8 @@ export async function buildLiveSnapshot(i: SnapshotInputs): Promise<SnapshotResu
 
 /**
  * Free agents by Yahoo's overall rank, plus goalies separately (an overall list is mostly
- * skaters), plus everyone on waivers — the players an add can actually reach.
+ * skaters), plus everyone on waivers and last week's best free agents — the players an add can
+ * actually reach.
  */
 async function freeAgentPool(src: LiveLeagueSource, n: number): Promise<YahooPlayer[]> {
   const goalies = Math.min(25, Math.floor(n / 8));
@@ -137,6 +138,8 @@ async function freeAgentPool(src: LiveLeagueSource, n: number): Promise<YahooPla
     ...(await src.playersDetailed({ status: 'FA', sort: 'OR', limit: n - goalies })),
     ...(await src.playersDetailed({ status: 'FA', position: 'G', sort: 'OR', limit: goalies })),
     ...(await src.playersDetailed({ status: 'W', sort: 'OR', limit: 25 })),
+    // Early-season risers a preseason rank leaves out (D-032).
+    ...(await src.playersDetailed({ status: 'FA', sort: 'AR', sortType: 'lastweek', limit: 50 })),
   ];
 }
 

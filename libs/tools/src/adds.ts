@@ -1,5 +1,5 @@
 import type { Store } from '@fha/store';
-import { weekBounds } from './derive.js';
+import {} from './derive.js';
 import type { LeagueView } from './view.js';
 
 /**
@@ -35,7 +35,7 @@ export function yahooAddsSince(view: LeagueView, sinceIso: string): Set<string> 
 }
 
 export function addsUsedThisWeek(view: LeagueView, store: Store): number {
-  const since = nyMidnightUtc(weekBounds(view.snap.date).start);
+  const since = nyMidnightUtc(view.weekOf().start);
   const yahoo = yahooAddsSince(view, since);
   let ours = 0;
   for (const d of store.decisions.listByStatus('pending', 'approved', 'executed', 'unverified')) {

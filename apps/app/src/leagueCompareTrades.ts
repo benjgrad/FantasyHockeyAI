@@ -1,11 +1,10 @@
 import type { TradeIdea } from '@fha/api';
-import { findTradeTargets, type TradeCandidate } from '@fha/model';
+import type { TradeCandidate } from '@fha/model';
 import {
   modelInputs,
   nameKeys,
   playerSeasonShare,
-  scoringCategories,
-  weeksRemaining,
+  searchTrades,
   type LeagueView,
 } from '@fha/tools';
 
@@ -25,25 +24,8 @@ export const IDEAS_PER_PARTNER = 3;
 const partnerCache = new WeakMap<LeagueView, Map<string, TradeCandidate[]>>();
 const profileCache = new WeakMap<LeagueView, Promise<TradeCandidate[]>>();
 
-function search(view: LeagueView, only: string[], maxPerSide: number): TradeCandidate[] {
-  const m = modelInputs(view);
-  const partners = Object.fromEntries(
-    view.otherTeams().map((t) => [t.teamKey, m.rosterIds(t.teamKey)]),
-  );
-  return findTradeTargets({
-    settings: view.settings,
-    categories: scoringCategories(view.settings),
-    ourRoster: m.rosterIds(view.teamKey),
-    partners,
-    projections: m.projections,
-    valuations: m.valuations,
-    freeAgents: m.freeAgentIds(),
-    weeksRemaining: weeksRemaining(view.snap.week),
-    availability: m.availability,
-    only,
-    maxPerSide,
-    top: Number.MAX_SAFE_INTEGER,
-  });
+function search(view: LeagueView, only: string[], maxPerSide: 1 | 2): TradeCandidate[] {
+  return searchTrades(view, only, maxPerSide);
 }
 
 /** Every shape with one partner, best first; the rest of the league stays in the field. */

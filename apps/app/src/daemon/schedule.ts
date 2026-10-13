@@ -8,7 +8,7 @@
 export const ZONE = 'America/New_York';
 
 export type DaemonJob =
-  'refresh' | 'lineup' | 'waivers' | 'matchup' | 'trades' | 'digest' | 'leagueReview';
+  'stats' | 'refresh' | 'lineup' | 'waivers' | 'matchup' | 'trades' | 'digest' | 'leagueReview';
 
 export interface Slot {
   job: DaemonJob;
@@ -27,6 +27,8 @@ interface Fixed {
 
 /** §14.2, plus the Monday league review (the weekly league-changes analysis) at 07:00. */
 export const FIXED_SLOTS: readonly Fixed[] = [
+  // NHL game stats are final by then (late west-coast games end ~01:30); before the refresh.
+  { job: 'stats', time: '05:30', tag: 'daily' },
   { job: 'refresh', time: '06:00', tag: 'daily' },
   { job: 'matchup', time: '06:30', days: [1, 4], tag: 'daily' },
   { job: 'leagueReview', time: '07:00', days: [1], tag: 'weekly' },

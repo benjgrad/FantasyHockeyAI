@@ -2,7 +2,10 @@ import { z } from 'zod';
 import type { ToolResult } from '@fha/llm';
 import { defineTool } from '../context.js';
 import { DATE_RE, dateProblem, nameKeys } from '../derive.js';
-import { solveOurLineup } from '../lineupSolve.js';
+import { solveOurLineup, type LineupOverride } from '../lineupSolve.js';
+import { lensesFor, recordShadow } from '../lensSwitch.js';
+import { goalieStartsFor } from '../goalieStarts.js';
+import { coveredText, lineupCoveredBy } from '../openDecisions.js';
 import { resolvePlayers } from '../resolve.js';
 import { rejectAttempt, submitProposal, type ProposalResult } from '../submit.js';
 
@@ -40,9 +43,14 @@ export const proposeLineup = defineTool({
     const known = resolvePlayers(view, overrides.map((o) => o.playerKey), 'Use playerKeys from getRoster.');
     if (!known.ok) return rejectAttempt(ctx, 'lineup', [known.error]);
 
-    const solved = solveOurLineup(view, input.date, ctx.now, overrides);
+    // The lens Ben chose for lineups (D-026); the other runs in shadow.
+    const lenses = lensesFor(view, ctx.store, ctx.permissions, 'lineup');
+    // Who starts in goal (D-029): a goalie Yahoo or a starter note rules out is not started.
+    const goalieStarts = goalieStartsFor(view, ctx.store, ctx.userId, input.date, ctx.now);
+    const solved = solveOurLineup(lenses.active, input.date, ctx.now, overrides, { goalieStarts });
     if (!solved.ok) return rejectAttempt(ctx, 'lineup', [solved.error]);
     const { moves, warnings } = solved.result;
+    shadowLineup(ctx, lenses, input.date, overrides, moves);
     const warnText = warnings.map((w) => ` Warning: ${nameKeys(view, w)}.`).join('');
     if (moves.length === 0) {
       ctx.state.finished = { kind: 'proposed', reason: 'no change: the lineup is already right' };
@@ -50,6 +58,14 @@ export const proposeLineup = defineTool({
         ok: true,
         data: { status: 'noChange' as const },
         summary: `No change: the current lineup for ${input.date} is already right, so there is nothing to propose. You are done.${warnText}`,
+      };
+    }
+    const filed = lineupCoveredBy(ctx.store, input.date, ctx.now, moves.map((m) => m.playerKey));
+    if (filed !== undefined) {
+      return {
+        ok: true,
+        data: { status: 'noChange' as const, planId: filed.plan.planId },
+        summary: `${coveredText(view, ctx.store, filed)}${warnText}`,
       };
     }
     const overrideText = overrides.map((o) => ` Override ${o.playerKey} bench=${String(o.bench)}: ${o.reason}.`);
@@ -110,3 +126,30 @@ export const proposeWaiverClaim = defineTool({
     });
   },
 });
+
+/** Record when the other lens would set a different lineup (never acted on). */
+function shadowLineup(
+  ctx: Parameters<typeof proposeLineup.execute>[1],
+  lenses: ReturnType<typeof lensesFor>,
+  date: string,
+  overrides: readonly LineupOverride[],
+  moves: readonly { playerKey: string; to: string }[],
+): void {
+  if (lenses.other === undefined) return;
+  const goalieStarts = goalieStartsFor(ctx.view, ctx.store, ctx.userId, date, ctx.now);
+  const other = solveOurLineup(lenses.other, date, ctx.now, overrides, { goalieStarts });
+  if (!other.ok) return;
+  const key = (ms: readonly { playerKey: string; to: string }[]) =>
+    ms.map((m) => `${m.playerKey}>${m.to}`).sort().join(',');
+  if (key(moves) === key(other.result.moves)) return;
+  const name = (k: string) => ctx.view.player(k)?.name ?? k;
+  const text = (ms: readonly { playerKey: string; to: string }[]) =>
+    ms.length === 0 ? 'no moves' : ms.map((m) => `${name(m.playerKey)}→${m.to}`).join(', ');
+  recordShadow(ctx.store, ctx.view, lenses, {
+    decision: 'lineup',
+    subject: date,
+    chosen: moves.map((m) => ({ playerKey: m.playerKey, to: m.to })),
+    other: other.result.moves.map((m) => ({ playerKey: m.playerKey, to: m.to })),
+    summary: `Lineup ${date}: ${lenses.lens} chose ${text(moves)}; ${lenses.otherLens} would have chosen ${text(other.result.moves)}.`,
+  });
+}

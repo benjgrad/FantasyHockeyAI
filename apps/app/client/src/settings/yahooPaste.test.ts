@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractYahooCookies } from './yahooPaste';
+import { extractOtherCookies, extractYahooCookies } from './yahooPaste';
 
 // Shaped like real Yahoo values (they contain `=` and `&`), but synthetic.
 const T = 'z=abcDEF123&a=QAE&sk=DAAxyz&ks=EAAq--~G&kt=EAAv&ku=FAAw&d=dGlw&af=JnRzPTE';
@@ -42,5 +42,34 @@ describe('extractYahooCookies', () => {
 
   it('reports what is missing, e.g. a console document.cookie copy without the HttpOnly T', () => {
     expect(extractYahooCookies(`A3=x; Y=${Y}; F=d=abc`)).toEqual({ Y });
+  });
+});
+
+describe('extractOtherCookies (D-033)', () => {
+  const OTHERS = {
+    A1: 'd=AQABBxyz&S=AQAAA',
+    A3: 'd=AQAB',
+    OTH: 'v=2&s=2',
+    AWSALBTG: 'abcdef0123456789',
+  };
+
+  it('reads every cookie but T and Y from each copy format', () => {
+    const bash = `curl 'https://x' \\\n  -H 'accept: text/html' \\\n  -b '${JAR}' \\\n  -H 'user-agent: M'`;
+    expect(extractOtherCookies(bash)).toEqual(OTHERS);
+    expect(extractOtherCookies(`curl 'https://x' -H 'cookie: ${JAR}'`)).toEqual(OTHERS);
+    expect(extractOtherCookies(`curl ^"https://x^" -b ^"${JAR.replace(/&/g, '^&')}^"`)).toEqual(
+      OTHERS,
+    );
+    expect(
+      extractOtherCookies(`fetch("https://x", { "headers": { "cookie": "${JAR}" } });`),
+    ).toEqual(OTHERS);
+    expect(extractOtherCookies(JAR)).toEqual(OTHERS);
+  });
+
+  it('reads PowerShell cookies and skips malformed ones', () => {
+    const ps = `New-Object System.Net.Cookie("A3", "d=AQAB", "/", ".yahoo.com")\nNew-Object System.Net.Cookie("T", "${T}", "/", ".yahoo.com")`;
+    expect(extractOtherCookies(ps)).toEqual({ A3: 'd=AQAB' });
+    expect(extractOtherCookies('A3=; bad name=x; ok=1')).toEqual({ ok: '1' });
+    expect(extractOtherCookies("curl 'https://x' -H 'accept: */*'")).toEqual({});
   });
 });

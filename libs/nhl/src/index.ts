@@ -3,3 +3,4 @@ export * from './rows.js';
 export * from './stats.js';
 export * from './cache.js';
 export * from './schedule.js';
+export * from './games.js';

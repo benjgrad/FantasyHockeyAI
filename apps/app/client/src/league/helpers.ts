@@ -4,20 +4,13 @@
  */
 
 /**
- * A single diverging scale, strong (blue) through a neutral grey to weak (red): blue and red
+ * A single diverging scale, strong (blue) through a neutral to weak (orange): blue and orange
  * stay apart under the common colour-vision deficiencies, the poles also differ in depth, and
- * every cell prints its rank, so colour is never the only cue. Dark enough that the app's light
- * ink reads on every step. Index 0 is rank 1 (strongest).
+ * every cell prints its rank, so colour is never the only cue. The steps are theme tokens
+ * (`--color-heat-1…7` in styles.css), so the scale follows light and dark, and the app's ink
+ * is checked for contrast on every step (src/theme/tokens.test.ts). Index 0 is rank 1.
  */
-export const RANK_COLORS = [
-  '#174a8b',
-  '#2a5d9c',
-  '#34506e',
-  '#383835',
-  '#6e3d37',
-  '#963a32',
-  '#b0302a',
-] as const;
+export const RANK_COLORS = [1, 2, 3, 4, 5, 6, 7].map((n) => `var(--color-heat-${n})`);
 
 /** Which colour step a rank falls in: rank 1 → 0, rank `of` → the last step. */
 export function rankBucket(rank: number, of: number): number {
@@ -28,7 +21,7 @@ export function rankBucket(rank: number, of: number): number {
 }
 
 export function rankColor(rank: number, of: number): string {
-  return RANK_COLORS[rankBucket(rank, of)] ?? RANK_COLORS[3];
+  return RANK_COLORS[rankBucket(rank, of)] ?? 'var(--color-heat-4)';
 }
 
 /** How the heatmap is sorted: by a category's rank, by the totals column, or league order. */

@@ -12,6 +12,10 @@ import {
   table,
 } from '../derive.js';
 import { solveOurLineup } from '../lineupSolve.js';
+import { lensesFor } from '../lensSwitch.js';
+import { goalieStartsFor } from '../goalieStarts.js';
+import { coveredText, lineupCoveredBy } from '../openDecisions.js';
+import { valueNowFor } from './value.js';
 
 /** Read tools over our own roster: who is where, who plays, and what the solver would do. */
 
@@ -22,14 +26,16 @@ const DateInput = z.object({
 export const getRoster = defineTool({
   name: 'getRoster',
   description:
-    'Our roster for a date (default today): playerKey, slot, eligible positions, status and availability (chance to play, expected return), whether his team plays that day and against whom, whether he is locked (game started), and per-game value. Call it before any proposal.',
+    'Our roster for a date (default today): playerKey, slot, eligible positions, status and availability (chance to play, expected return), whether his team plays that day and against whom, whether he is locked (game started), per-game value, and the rest-of-season VOFA and CWA. Call it before any proposal.',
   input: DateInput,
   risk: 'read',
   execute: (input, ctx) => {
     const date = input.date ?? ctx.view.snap.date;
     const problem = dateProblem(ctx.view, date);
     if (problem !== undefined) return Promise.resolve(fail(problem));
+    const now = valueNowFor(ctx)?.players;
     const rows = ctx.view.roster().entries.map(({ player, slot }) => {
+      const v = now?.get(player.playerKey);
       const day = dayStatus(ctx.view, player, date, ctx.now);
       const a = availabilityOf(ctx.view, player);
       return {
@@ -44,13 +50,15 @@ export const getRoster = defineTool({
         game: day.opponent === undefined ? null : `vs ${day.opponent} ${day.startTimeUtc ?? ''}`,
         locked: day.locked,
         perGameValue: ctx.view.valuation(player.playerKey)?.perGameValue,
+        vofa: v?.vofa,
+        cwa: v?.cwa,
         label: label(player),
       };
     });
     const summary =
       `Our roster on ${date}:\n` +
       table(
-        ['playerKey', 'player', 'slot', 'status', 'availability', 'game', 'locked', 'perGame'],
+        ['playerKey', 'player', 'slot', 'status', 'availability', 'game', 'locked', 'perGame', 'VOFA', 'CWA'],
         rows.map((r) => [
           r.playerKey,
           r.label,
@@ -60,6 +68,8 @@ export const getRoster = defineTool({
           r.game ?? 'no game',
           r.locked ? 'LOCKED' : 'no',
           fmt(r.perGameValue, 3),
+          fmt(r.vofa),
+          fmt(r.cwa, 3),
         ]),
       );
     return Promise.resolve(ok({ date, players: rows }, summary));
@@ -76,17 +86,27 @@ export const getLineupSuggestion = defineTool({
     const date = input.date ?? ctx.view.snap.date;
     const problem = dateProblem(ctx.view, date);
     if (problem !== undefined) return Promise.resolve(fail(problem));
-    const solved = solveOurLineup(ctx.view, date, ctx.now);
+    const solved = solveOurLineup(
+      lensesFor(ctx.view, ctx.store, ctx.permissions, 'lineup').active,
+      date,
+      ctx.now,
+      [],
+      { goalieStarts: goalieStartsFor(ctx.view, ctx.store, ctx.userId, date, ctx.now) },
+    );
     if (!solved.ok) return Promise.resolve(fail(solved.error));
     const { moves, warnings } = solved.result;
     const name = (k: string) => ctx.view.player(k)?.name ?? k;
+    // The roster read shows Yahoo, not plans still waiting on Ben: say when one covers this.
+    const filed = lineupCoveredBy(ctx.store, date, ctx.now, moves.map((m) => m.playerKey));
     const lines = [
       moves.length === 0
         ? `No moves: the current lineup for ${date} is already the solver's best.`
         : `Solver moves for ${date}: ${moves.map((m) => `${name(m.playerKey)} ${m.from}→${m.to}`).join(', ')}`,
+      ...(filed === undefined ? [] : [coveredText(ctx.view, ctx.store, filed)]),
       ...warnings.map((w) => `Warning: ${nameKeys(ctx.view, w)}`),
     ];
-    return Promise.resolve(ok({ date, moves, warnings }, lines.join('\n')));
+    const covered = filed === undefined ? {} : { coveredBy: filed.plan.planId };
+    return Promise.resolve(ok({ date, moves, warnings, ...covered }, lines.join('\n')));
   },
 });
 

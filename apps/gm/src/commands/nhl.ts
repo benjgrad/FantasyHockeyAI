@@ -1,5 +1,7 @@
 import type { Command } from 'commander';
-import { pullSeason, readSeason, recentSeasons, writeSeason } from '@fha/nhl';
+import { pullGames, pullSeason, readSeason, recentSeasons, writeSeason } from '@fha/nhl';
+import { openStore } from '@fha/store';
+import { ingestSeason, seasonOf } from '@fha/tools';
 
 const DATA_DIR = 'data';
 
@@ -39,5 +41,36 @@ export function registerNhlCommands(program: Command): void {
         );
       }
       console.log('\ndone.');
+    });
+
+  nhl
+    .command('games')
+    .description('load game-by-game history into the database (D-025): one row per player per game')
+    .option('-s, --seasons <n>', 'seasons back, counting the current one', '4')
+    .option('--db <path>', 'SQLite database', 'data/fha.sqlite')
+    .action(async (opts: { seasons: string; db: string }) => {
+      const count = Number.parseInt(opts.seasons, 10);
+      if (!Number.isInteger(count) || count < 1 || count > 10) {
+        throw new Error(`--seasons must be an integer 1-10, got ${opts.seasons}`);
+      }
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const current = Number(seasonOf(today).slice(0, 4));
+      const store = openStore(opts.db);
+      try {
+        const deps = {
+          store,
+          pull: (q: Parameters<typeof pullGames>[0]) => pullGames(q),
+          log: console.log,
+        };
+        for (const season of recentSeasons(current, count).reverse()) {
+          const r = await ingestSeason(deps, season, { to: today });
+          console.log(
+            `  ${season}: ${r.skaters} skater, ${r.goalies} goalie rows in ${r.windows} months`,
+          );
+        }
+        console.log('\nrows per season:', JSON.stringify(store.nhlGames.counts()));
+      } finally {
+        store.close();
+      }
     });
 }

@@ -86,8 +86,7 @@ function DevicePush() {
       {!pushSupported() && isIos() ? (
         <p className="text-sm text-soft">
           On iPhone and iPad, push only works in the installed app: tap{' '}
-          <b>Share → Add to Home Screen</b>, open FantasyHockeyAI from the Home Screen, then enable
-          here.
+          <b>Share → Add to Home Screen</b>, open Hockey GM from the Home Screen, then enable here.
         </p>
       ) : null}
       {state === 'denied' ? (

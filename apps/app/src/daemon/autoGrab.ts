@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Plan, playersTouched, type PlanPayload } from '@fha/core';
+import { Plan, playersTouched, type PlanPayload, type Permissions } from '@fha/core';
 import { evaluateOpportunity, type Opportunity, type OpportunityCandidate } from '@fha/model';
 import {
   DryRunAdapter,
@@ -8,7 +8,15 @@ import {
   submitPlan,
   type PipelineDeps,
 } from '@fha/pipeline';
-import { EVENT_KINDS, weekBounds, type AutoGrabPayload } from '@fha/tools';
+import {
+  EVENT_KINDS,
+  lensesFor,
+  recordShadow,
+  type AutoGrabPayload,
+  type DecisionLenses,
+  type LeagueView,
+} from '@fha/tools';
+import { recordReply, recordTrigger } from '../activity.js';
 import { pipelineFor } from '../decisions.js';
 import type { LeagueState } from '../league.js';
 import { userPermissions } from '../permissions.js';
@@ -85,6 +93,20 @@ function record(
     subject: req.playerKey,
     payload,
   });
+  // The Background activity chat (D-027): what was checked and what came of it.
+  recordTrigger(
+    s.store,
+    req.userId,
+    `📣 ${req.name} ${req.trigger === 'back' ? 'is back from out' : 'was dropped'} → auto-grab check`,
+  );
+  const gain =
+    f.gain === undefined || f.gain === null
+      ? ''
+      : ` (gain ${f.gain.toFixed(2)} vs ${f.required?.toFixed(2) ?? '?'} needed)`;
+  recordReply(s.store, req.userId, {
+    text: `Auto-grab ${outcome}: ${reason}${gain}${f.dropName ? `; drop ${f.dropName}` : ''}.`,
+    ...(f.planId === undefined || f.planId === null ? {} : { planIds: [f.planId] }),
+  });
   s.log(`autoGrab: ${req.name} (${req.trigger}) → ${outcome}: ${reason}`);
   return { outcome, reason, ...(f.planId == null ? {} : { planId: f.planId }) };
 }
@@ -141,16 +163,20 @@ export async function runAutoGrab(s: Services, req: AutoGrabRequest): Promise<Au
       owner === undefined ? 'not in the league view' : `owned by ${owner}`,
     );
   }
-  const since = `${weekBounds(view.snap.date).start}T00:00:00.000Z`;
+  const since = `${view.weekOf().start}T00:00:00.000Z`;
   const dup = alreadyInPlay(s, req.playerKey, since);
   if (dup !== undefined) return record(s, req, 'skipped', `already proposed (${dup})`);
   const cap = perms.autoGrab.maxPerWeek;
   if (cap !== undefined && grabsThisWeek(s, req.userId, since) >= cap) {
     return record(s, req, 'skipped', `auto-grab weekly cap reached (${cap})`);
   }
-  const candidate = candidateFor(view, req.playerKey, await ownershipOf(s, req));
+  // Valued on the lens Ben chose for auto-grab (D-026); the other lens runs in shadow.
+  const lenses = lensesFor(view, s.store, perms, 'autoGrab');
+  const ownership = await ownershipOf(s, req);
+  const candidate = candidateFor(lenses.active, req.playerKey, ownership);
   if (candidate === undefined) return record(s, req, 'skipped', 'no valuation for him');
-  const opp = evaluateOpportunity({ ...grabBase(view, s.store, perms), candidate });
+  const opp = evaluateOpportunity({ ...grabBase(view, s.store, perms, lenses.active), candidate });
+  shadowGrab(s, view, perms, lenses, req, ownership, opp);
   const name = (k: string) => view.player(k)?.name ?? k;
   const fields: Fields = {
     kind: opp.kind,
@@ -161,6 +187,38 @@ export async function runAutoGrab(s: Services, req: AutoGrabRequest): Promise<Au
   };
   if (!opp.grab) return record(s, req, 'skipped', opp.skip ?? 'not worth it', fields);
   return act(s, req, league, opp, candidate, fields);
+}
+
+/** Record when the other lens would grab differently (never acted on). */
+function shadowGrab(
+  s: Services,
+  view: LeagueView,
+  perms: Permissions,
+  lenses: DecisionLenses,
+  req: AutoGrabRequest,
+  ownership: Pick<OpportunityCandidate, 'ownership' | 'waiverDate'>,
+  opp: Opportunity,
+): void {
+  if (lenses.other === undefined) return;
+  const c = candidateFor(lenses.other, req.playerKey, ownership);
+  if (c === undefined) return;
+  const other = evaluateOpportunity({
+    ...grabBase(view, s.store, perms, lenses.other),
+    candidate: c,
+  });
+  if (other.grab === opp.grab && other.drop === opp.drop) return;
+  const name = (k: string | null) => (k === null ? 'nobody' : (view.player(k)?.name ?? k));
+  const text = (o: Opportunity) =>
+    o.grab
+      ? `grab ${req.name}, dropping ${name(o.drop)} (gain ${o.gain.toFixed(2)})`
+      : `skip (${o.skip ?? 'not worth it'})`;
+  recordShadow(s.store, view, lenses, {
+    decision: 'autoGrab',
+    subject: req.playerKey,
+    chosen: { grab: opp.grab, drop: opp.drop, gain: opp.gain },
+    other: { grab: other.grab, drop: other.drop, gain: other.gain },
+    summary: `Auto-grab ${req.name}: ${lenses.lens} would ${text(opp)}; ${lenses.otherLens} would ${text(other)}.`,
+  });
 }
 
 function planFor(s: Services, req: AutoGrabRequest, opp: Opportunity, runId: string): Plan {

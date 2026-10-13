@@ -1,4 +1,5 @@
 import { YahooAuthError, YahooHttpError, YahooThrottledError } from './errors.js';
+import { absorbSetCookies } from './cookieJar.js';
 import { cookieHeaderFor, type StoredSession } from './session.js';
 
 /**
@@ -26,7 +27,11 @@ export interface CookieTransportOptions {
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
   now?: () => number;
+  /** Yahoo set cookies (names only to log); `session` is the whole jar now, to persist (D-033). */
+  onCookies?: OnCookies;
 }
+
+export type OnCookies = (names: string[], session: StoredSession) => void;
 
 export function readUrl(path: string): string {
   return `${READ_HOST}/fantasy/v2${path}${path.includes('?') ? '&' : '?'}format=json_f`;
@@ -40,8 +45,11 @@ export class CookieTransport implements YahooTransport {
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
+  /** A copy: the cookies Yahoo sets are kept here, never in the caller's object. */
+  private readonly session: StoredSession;
 
   constructor(private readonly opts: CookieTransportOptions) {
+    this.session = copySession(opts.session);
     this.minIntervalMs = opts.minIntervalMs ?? 1000;
     this.timeoutMs = opts.timeoutMs ?? 15_000;
     this.fetchImpl = opts.fetchImpl ?? fetch;
@@ -63,13 +71,14 @@ export class CookieTransport implements YahooTransport {
       method: 'GET',
       headers: {
         accept: 'application/json',
-        cookie: cookieHeaderFor(this.opts.session, url),
+        cookie: cookieHeaderFor(this.session, url, this.now() / 1000),
         origin: SITE_ORIGIN,
         referer: `${SITE_ORIGIN}/`,
         'user-agent': UA,
       },
       signal: AbortSignal.timeout(this.timeoutMs),
     });
+    keepCookies(this.session, res, url, this.now() / 1000, this.opts.onCookies);
     const text = await res.text();
     return interpret(res.status, res.ok, text, path);
   }
@@ -100,4 +109,22 @@ export class FixtureTransport implements YahooTransport {
     if (hit === undefined) return Promise.reject(new Error(`No fixture for ${path}`));
     return Promise.resolve(hit);
   }
+}
+
+export function copySession(s: StoredSession): StoredSession {
+  return { savedAt: s.savedAt, cookies: s.cookies.map((c) => ({ ...c })) };
+}
+
+/** Keep what Yahoo set in `session` and tell `onCookies`; returns the names (never a value). */
+export function keepCookies(
+  session: StoredSession,
+  res: Response,
+  url: string,
+  nowSec: number,
+  onCookies?: OnCookies,
+): string[] {
+  const all = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+  const names = absorbSetCookies(session, all, url, nowSec);
+  if (names.length > 0) onCookies?.(names, session);
+  return names;
 }

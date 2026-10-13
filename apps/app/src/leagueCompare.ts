@@ -1,6 +1,8 @@
 import type { LeagueCompare } from '@fha/api';
 import {
+  IN_SEASON_LENS,
   TYPICAL_WEEK_GAMES,
+  competitionRanks,
   leagueStrength,
   opponentIsDerived,
   type Complementarity,
@@ -60,12 +62,13 @@ export function partnerReason(us: TeamStrength, them: TeamStrength, c: Complemen
   return parts.length === 0 ? 'Similar strengths: little to swap.' : `They're ${parts.join('; ')}.`;
 }
 
-function teamRow(t: TeamStrength, ls: LeagueStrength) {
+function teamRow(t: TeamStrength, ls: LeagueStrength, live: Map<string, LiveRow>) {
   const vs = ls.versus.find((v) => v.teamKey === t.teamKey);
   return {
     teamKey: t.teamKey,
     name: t.name,
     isUs: t.isUs,
+    live: live.get(t.teamKey) ?? null,
     categories: t.categories.map((c) => ({
       cat: c.cat,
       z: round(c.z),
@@ -110,16 +113,54 @@ async function build(view: LeagueView): Promise<LeagueCompare> {
     of,
     typicalWeekGames: TYPICAL_WEEK_GAMES,
     categories: categoryMeta(view, ls.categories),
-    teams: ls.teams.map((t) => teamRow(t, ls)),
+    teams: ls.teams.map((t) => teamRow(t, ls, liveRows(view, ls.categories))),
     profile: profileOf(view, us, of, ideas),
     partners,
+    lens: IN_SEASON_LENS,
     notes: notes(view),
   };
 }
 
+type LiveRow = NonNullable<LeagueCompare['teams'][number]['live']>;
+
+/**
+ * This week so far for every team, from the snapshot's league scoreboard: each category's total
+ * ranked across the league (lower is better for GAA; a team with no goalie minutes yet ranks
+ * last in the rate categories), and the categories it leads and trails its own opponent in.
+ */
+export function liveRows(view: LeagueView, cats: readonly string[]): Map<string, LiveRow> {
+  const out = new Map<string, LiveRow>();
+  const m = view.snap.matchup;
+  if (m?.league === undefined || m.week !== view.snap.week) return out;
+  const name = (k: string | undefined) =>
+    view.snap.teams.find((t) => t.teamKey === k)?.name ?? null;
+  const score = (stats: Record<string, number>, cat: string): number => {
+    const v = stats[cat] ?? 0;
+    if ((cat === 'GAA' || cat === 'SV%') && (stats['SA'] ?? 0) <= 0)
+      return Number.NEGATIVE_INFINITY;
+    return lowerIsBetter(cat) ? -v : v;
+  };
+  const ranks = new Map(
+    cats.map((c) => {
+      const scores = m.league?.map((t) => score(t.stats, c)) ?? [];
+      return [c, competitionRanks(scores)] as const;
+    }),
+  );
+  m.league.forEach((t, i) => {
+    out.set(t.teamKey, {
+      opponent: name(t.opponentKey),
+      leading: t.winning.length,
+      trailing: t.losing.length,
+      cells: cats.map((c) => ({ cat: c, value: t.stats[c] ?? 0, rank: ranks.get(c)?.[i] ?? 0 })),
+    });
+  });
+  return out;
+}
+
 export function notes(view: LeagueView): string[] {
   return [
-    `Strength is each roster's rest-of-season z, discounted for expected time out; rank 1 is the strongest (GAA already inverted).`,
+    `Strength is each roster's rest-of-season z on the in-season projection (this season weighted by games played, full weight at 20), discounted for expected time out; rank 1 is the strongest (GAA already inverted).`,
+    "“This week” is Yahoo's scoreboard so far: each category's total ranked across the league this week.",
     `Weekly numbers assume a typical ${String(TYPICAL_WEEK_GAMES)}-game week for every team; real weeks run 2–5 games.`,
     'Ranks measure the whole roster, bench included (it fills in on off days); weekly numbers count only the starting lineup, so the two can disagree.',
     opponentIsDerived(view)

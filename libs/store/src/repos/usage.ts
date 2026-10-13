@@ -30,6 +30,16 @@ export interface UsageTotals {
   outputTokens: number;
 }
 
+/** One agent on one model over a period: what it cost and how often it ran. */
+export interface AgentUsage {
+  agent: string;
+  model: string;
+  runs: number;
+  calls: number;
+  costUsd: number;
+  outputTokens: number;
+}
+
 export interface UsageRepo {
   /**
    * Fire-and-forget (§7.5): accounting must never take down an agent loop. Every failure —
@@ -37,6 +47,8 @@ export interface UsageRepo {
    */
   record(event: UsageEvent): boolean;
   totals(since: string): UsageTotals;
+  /** Per agent and model since `since`, most expensive first. */
+  byAgent(since: string): AgentUsage[];
 }
 
 export function usageRepo(db: Db, now: Clock): UsageRepo {
@@ -50,6 +62,13 @@ export function usageRepo(db: Db, now: Clock): UsageRepo {
     `SELECT COALESCE(SUM(cost_usd), 0) AS costUsd, COALESCE(SUM(input_tokens), 0) AS inputTokens,
        COALESCE(SUM(output_tokens), 0) AS outputTokens
      FROM llm_usage WHERE at >= ?`,
+  );
+
+  const byAgent = db.prepare(
+    `SELECT COALESCE(agent, '?') AS agent, model, COUNT(DISTINCT run_id) AS runs,
+       COUNT(*) AS calls, COALESCE(SUM(cost_usd), 0) AS costUsd,
+       COALESCE(SUM(output_tokens), 0) AS outputTokens
+     FROM llm_usage WHERE at >= ? GROUP BY agent, model ORDER BY costUsd DESC`,
   );
 
   let insert: Statement | undefined;
@@ -80,5 +99,6 @@ export function usageRepo(db: Db, now: Clock): UsageRepo {
       }
     },
     totals: (since) => totals.get(toIso(since)) as UsageTotals,
+    byAgent: (since) => byAgent.all(toIso(since)) as AgentUsage[],
   };
 }

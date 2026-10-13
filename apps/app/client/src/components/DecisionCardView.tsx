@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/endpoints';
+import { refreshLeagueQueries } from '../league/Freshness';
 import { ErrorNote } from './ErrorNote';
 import { LinkedSummary } from '../players/LinkedSummary';
 import {
@@ -78,8 +79,9 @@ export function DecisionCardView({
       setResult(r);
       setMode('idle');
       void queryClient.invalidateQueries({ queryKey: ['decisions'] });
-      if (r !== null && changesRoster(r))
-        void queryClient.invalidateQueries({ queryKey: ['team'] });
+      // A move changes more than the roster list: strength, league ranks, the free agents.
+      const executed = r !== null ? changesRoster(r) : (next as DecisionCard).status === 'executed';
+      if (executed) refreshLeagueQueries(queryClient);
     },
   });
 

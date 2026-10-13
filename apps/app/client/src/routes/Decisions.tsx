@@ -5,12 +5,14 @@ import { api } from '../api/endpoints';
 import { DecisionCardView } from '../components/DecisionCardView';
 import { needsYou } from '../components/decisionActions';
 import { ErrorNote } from '../components/ErrorNote';
+import { usePane } from '../components/pane';
 
 /**
  * What needs Ben first (proposals to do or dismiss, approvals, moves to confirm), then history. `/decisions/:planId` (what a push opens) highlights one; a
  * decision too old for the capped list is fetched by id and shown on top.
  */
 export function Decisions() {
+  const pane = usePane();
   const { planId } = useParams();
   const all = useQuery({ queryKey: ['decisions', 'all'], queryFn: () => api.decisions('all') });
   const decisions = all.data?.decisions ?? [];
@@ -30,8 +32,8 @@ export function Decisions() {
   }, [planId, all.data]);
 
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto p-3">
-      <h1 className="text-lg font-semibold">Decisions</h1>
+    <div ref={pane} className="pane flex flex-col gap-3 p-3">
+      <h1 className="display text-2xl leading-tight">Decisions</h1>
       {all.error ? <ErrorNote error={all.error} /> : null}
       {all.isPending ? <p className="text-mut">Loading…</p> : null}
       {one.data ? <DecisionCardView card={one.data} highlight /> : null}

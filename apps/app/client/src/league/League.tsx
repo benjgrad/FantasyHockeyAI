@@ -5,10 +5,13 @@ import { leagueApi } from './api';
 import { Heatmap } from './Heatmap';
 import { Partners } from './Partners';
 import { ProfileCard } from './ProfileCard';
+import { SeasonForecast } from './SeasonForecast';
 import { TeamSwitch } from './TeamSwitch';
+import { usePane } from '../components/pane';
 
 /** Team → League: how every team stacks up, our profile, and who to trade with. */
 export function League() {
+  const pane = usePane();
   const q = useQuery({
     queryKey: ['league-compare'],
     queryFn: leagueApi.compare,
@@ -16,10 +19,10 @@ export function League() {
   });
   const data = q.data;
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto p-3">
+    <div ref={pane} className="pane flex flex-col gap-3 p-3">
       <TeamSwitch />
       <div>
-        <h1 className="text-lg font-semibold">League</h1>
+        <h1 className="display text-2xl leading-tight">League</h1>
         {data ? (
           <div className="text-xs text-mut">
             Week {data.week} · {data.of} teams · as of {formatWhen(data.asOf)}
@@ -33,9 +36,10 @@ export function League() {
       {data ? (
         <>
           <Heatmap data={data} />
+          <SeasonForecast />
           <ProfileCard data={data} />
           <Partners data={data} />
-          <ul className="list-disc pl-5 text-[11px] text-mut">
+          <ul className="list-disc pl-5 text-2xs text-mut">
             {data.notes.map((n) => (
               <li key={n}>{n}</li>
             ))}

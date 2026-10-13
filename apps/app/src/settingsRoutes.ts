@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { recordReply } from './activity.js';
+import { activityView } from './activityView.js';
+import { shadowReport } from '@fha/tools';
 import {
   NotificationPrefs as PrefsContract,
   PermissionsUpdate,
@@ -12,7 +15,7 @@ import { HttpError, readJson, sendJson } from './http.js';
 import { permissionsView, updatePermissions } from './permissions.js';
 import type { Route } from './router.js';
 import { meView, type Services } from './services.js';
-import { connectYahoo, selectYahooTeam } from './yahoo.js';
+import { connectYahoo, pastedSession, selectYahooTeam, type TeamChoice } from './yahoo.js';
 
 /**
  * Settings: the Yahoo connection, permissions (with a safe player search for the locked and
@@ -30,10 +33,11 @@ export function settingsRoutes(s: Services): Route[] {
         const teams = await connectYahoo(
           { store: s.store, secretKey: s.config.secretKey, yahoo: s.yahoo, log: s.log },
           user.id,
-          { T: body.T.trim(), Y: body.Y.trim() },
+          pastedSession(body.T.trim(), body.Y.trim(), body.cookies, s.now()),
         );
+        const selected = keepOrOnlyTeam(s, user.id, teams);
         s.league.invalidate(user.id);
-        sendJson(res, 200, { teams });
+        sendJson(res, 200, selected === undefined ? { teams } : { teams, selected });
       },
     },
     {
@@ -98,6 +102,43 @@ export function settingsRoutes(s: Services): Route[] {
     },
     {
       method: 'GET',
+      path: '/api/activity',
+      auth: 'user',
+      handle: ({ res, user }) => {
+        sendJson(res, 200, activityView(s, user.id));
+        return Promise.resolve();
+      },
+    },
+    {
+      method: 'DELETE',
+      path: '/api/activity/watch/:playerKey',
+      auth: 'user',
+      handle: ({ res, params, user }) => {
+        const key = params['playerKey'] ?? '';
+        if (s.store.watchList.remove(user.id, key)) {
+          const name = s.league.peek(user.id)?.view.player(key)?.name ?? key;
+          recordReply(s.store, user.id, { text: `👁 You stopped following ${name}.` });
+        }
+        sendJson(res, 200, activityView(s, user.id));
+        return Promise.resolve();
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/settings/shadow',
+      auth: 'user',
+      handle: async ({ res, url, user }) => {
+        const days = Number(url.searchParams.get('days') ?? '14');
+        if (!Number.isInteger(days) || days < 1 || days > 60) {
+          throw new HttpError(400, 'invalid_request', 'days must be an integer from 1 to 60');
+        }
+        const { view } = await s.league.forDisplay(user.id);
+        const since = new Date(s.now().getTime() - days * 86_400_000).toISOString().slice(0, 10);
+        sendJson(res, 200, shadowReport(s.store, since, view));
+      },
+    },
+    {
+      method: 'GET',
       path: '/api/players/search',
       auth: 'user',
       handle: async ({ res, url, user }) => {
@@ -105,7 +146,7 @@ export function settingsRoutes(s: Services): Route[] {
         if (q.length < 2 || q.length > 80) {
           throw new HttpError(400, 'invalid_request', 'q must be 2 to 80 characters');
         }
-        const { view } = await s.league.get(user.id);
+        const { view } = await s.league.forDisplay(user.id);
         sendJson(res, 200, { players: searchPlayers(view.snap.players, q) });
       },
     },
@@ -212,4 +253,21 @@ export function searchPlayers(
             },
           ];
     });
+}
+
+/**
+ * After a connect, the team to manage without asking: the one already chosen if it is still on
+ * the account, else the account's only team. The list came from Yahoo for these cookies, so the
+ * choice is the account's own (P8). Ben reconnected after a Disconnect, skipped the picker, and
+ * every page answered 409 (2026-10-09).
+ */
+function keepOrOnlyTeam(s: Services, userId: string, teams: TeamChoice[]): TeamChoice | undefined {
+  const current = s.store.yahooConnections.get(userId)?.teamKey;
+  const kept = teams.find((t) => t.teamKey === current);
+  if (kept !== undefined || teams.length !== 1) return kept;
+  const only = teams[0];
+  if (only === undefined) return undefined;
+  s.store.yahooConnections.selectTeam(userId, only.leagueKey, only.teamKey);
+  s.store.events.record({ userId, kind: 'yahoo.team_selected', subject: only.teamKey });
+  return only;
 }

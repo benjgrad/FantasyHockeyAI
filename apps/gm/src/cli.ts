@@ -10,6 +10,8 @@ import { registerPermsCommands } from './commands/perms.js';
 import { registerRunCommands } from './commands/run.js';
 import { registerApprovalCommands } from './commands/approvals.js';
 import { registerSnapshotCommands } from './commands/snapshot.js';
+import { registerUsageCommands } from './commands/usage.js';
+import { registerShadowCommands } from './commands/shadow.js';
 
 const program = new Command();
 program.name('fha').description('FantasyHockeyAI — Yahoo NHL fantasy manager').version('0.0.0');
@@ -23,6 +25,8 @@ registerPermsCommands(program);
 registerRunCommands(program);
 registerApprovalCommands(program);
 registerSnapshotCommands(program);
+registerUsageCommands(program);
+registerShadowCommands(program);
 program.parseAsync().catch((err: unknown) => {
   console.error(`\nfailed: ${err instanceof Error ? err.message : String(err)}`);
   process.exitCode = 1;

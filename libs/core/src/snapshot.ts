@@ -48,6 +48,58 @@ export const LeagueSnapshot = z
      * snapshot, or the scoreboard was unavailable), consumers fall back to the league order.
      */
     opponentTeamKey: TeamKey.optional(),
+    /**
+     * This week's scoreboard as read with the snapshot: each side's totals so far by category
+     * abbreviation (display-only goalie volume such as GA, SA and SV included) and its games
+     * played, live and remaining. Absent when the scoreboard was not read.
+     */
+    matchup: z
+      .object({
+        week: z.number().int().positive(),
+        status: z.string(),
+        weekStart: z.string(),
+        weekEnd: z.string(),
+        sides: z.array(
+          z.object({
+            teamKey: TeamKey,
+            stats: z.record(z.string(), z.number()),
+            completedGames: z.number().optional(),
+            liveGames: z.number().optional(),
+            remainingGames: z.number().optional(),
+          }),
+        ),
+        /**
+         * Every team's totals this week (the whole league's scoreboard), with its opponent and
+         * the categories it leads and trails by abbreviation. Absent when only our matchup was read.
+         */
+        league: z
+          .array(
+            z.object({
+              teamKey: TeamKey,
+              opponentKey: TeamKey.optional(),
+              stats: z.record(z.string(), z.number()),
+              winning: z.array(z.string()),
+              losing: z.array(z.string()),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
+    /**
+     * The league's own rules from Yahoo's settings (D-029): read every refresh, so a change by
+     * the commissioner reaches the agents. Absent on snapshots recorded before 2026-10-03.
+     */
+    rules: z
+      .object({
+        minGoalieGames: z.number().optional(),
+        tradeEndDate: z.string().optional(),
+        playoffStartWeek: z.number().optional(),
+        waiverDays: z.number().optional(),
+        maxWeeklyAdds: z.number().optional(),
+        seasonStart: z.string().optional(),
+        seasonEnd: z.string().optional(),
+      })
+      .optional(),
     teams: z.array(
       z.object({ teamKey: TeamKey, name: z.string(), managerNickname: z.string().optional() }),
     ),

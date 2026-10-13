@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  PlayerFormView,
+  SeasonForecastView,
   CategoryStrength,
   CompareResponse,
   DecisionPlayers,
@@ -60,10 +62,10 @@ describe('free-agent browser', () => {
     expect(normalizeName('Tim Stützle')).toBe('tim stutzle');
   });
 
-  it('lists nobody on waivers, and says why', () => {
+  it('lists only players on waivers for W (none in the mock league), each marked as waivers', () => {
     const res = list('status=W');
     expect(res.players).toEqual([]);
-    expect(res.notes[0]).toMatch(/Waiver status/);
+    expect(res.notes).toEqual([]);
   });
 
   it('refuses a bad status, sort or limit rather than defaulting', () => {
@@ -97,6 +99,59 @@ describe('player routes over HTTP', () => {
     expect((await call(h, `/api/players/${jarvisKey}`)).status).toBe(401);
   });
 
+  it('serves form from stored games, forecasts, the season view, and list form flags', async () => {
+    h = await startHarness();
+    const cookie = await connected(h);
+    const p = view.player(jarvisKey);
+    h.store.nhlGames.upsert({
+      skaters: Array.from({ length: 30 }, (_, i) => ({
+        nhlId: p?.nhlId ?? 1,
+        gameId: 900 + i,
+        gameDate: `2026-0${i < 15 ? 3 : 4}-${String((i % 15) + 1).padStart(2, '0')}`,
+        season: '20252026',
+        name: 'Seth Jarvis',
+        position: 'C',
+        team: 'CAR',
+        opponent: 'BOS',
+        home: true,
+        g: 1,
+        a: 1,
+        pts: 2,
+        pm: 0,
+        pim: 0,
+        ppp: 0,
+        shp: 0,
+        gwg: 0,
+        sog: 3,
+        hit: 1,
+        blk: 0,
+        fow: 0,
+        toiS: 1100,
+      })),
+      goalies: [],
+    });
+    const form = PlayerFormView.parse(
+      await (
+        await call(h, `/api/players/${encodeURIComponent(jarvisKey)}/form`, { cookie })
+      ).json(),
+    );
+    expect(form.kind).toBe('skater');
+    expect(form.games).toHaveLength(20);
+    expect(form.series.find((x) => x.cat === 'G')?.points.length).toBeGreaterThan(0);
+    expect(form.forecast.map((x) => x.days)).toEqual([7, 14]);
+    const season = SeasonForecastView.parse(
+      await (await call(h, '/api/league/forecast', { cookie })).json(),
+    );
+    expect(season.teams.filter((t) => t.us)).toHaveLength(1);
+    const list = PlayerList.parse(
+      await (await call(h, '/api/players?status=all&sort=value&limit=200', { cookie })).json(),
+    );
+    expect(list.players.find((r) => r.playerKey === jarvisKey)?.form).toEqual({
+      hot: [],
+      cold: [],
+    });
+  });
+
   it('compares, and names the unknown keys in a 400', async () => {
     h = await startHarness();
     const cookie = await connected(h);
@@ -107,6 +162,62 @@ describe('player routes over HTTP', () => {
     expect(bad.status).toBe(400);
     const body = (await bad.json()) as { error: { message: string } };
     expect(body.error.message).toContain('477.p.1, bogus');
+  });
+
+  it('on a name search that misses the pool, finds the player on Yahoo and adds him (D-032)', async () => {
+    // 2026-10-06: Nils Hoglander, a low-ranked free agent, could not be found at all.
+    h = await startHarness();
+    const cookie = await connected(h);
+    const userId = h.store.yahooConnections.list()[0]?.userId ?? '';
+    const league = h.app.services.league;
+    const inPool = new Set((await league.get(userId)).view.snap.players.map((p) => p.playerKey));
+    const outside = view.snap.players.find((p) => !inPool.has(p.playerKey));
+    if (outside === undefined) throw new Error('fixture has no player outside the pool');
+    const surname = outside.name.split(' ').at(-1) ?? outside.name;
+    const miss = PlayerList.parse(
+      await (
+        await call(h, `/api/players?status=all&q=${encodeURIComponent(surname)}`, { cookie })
+      ).json(),
+    );
+    expect(miss.players).toHaveLength(0);
+    expect(miss.found?.map((f) => f.playerKey)).toContain(outside.playerKey);
+    expect(miss.notes.join(' ')).toMatch(/Found on Yahoo/);
+    const followed = h.store.watchList.active(userId, h.clock.now.toISOString());
+    expect(followed.map((e) => e.playerKey)).toContain(outside.playerKey);
+    expect(followed.find((e) => e.playerKey === outside.playerKey)?.addedBy).toBe('search');
+
+    await league.get(userId);
+    const hit = PlayerList.parse(
+      await (
+        await call(h, `/api/players?status=all&q=${encodeURIComponent(surname)}`, { cookie })
+      ).json(),
+    );
+    expect(hit.players.map((p) => p.playerKey)).toContain(outside.playerKey);
+    expect(hit.found).toBeUndefined();
+  });
+
+  it('a search with no match anywhere says nothing was found and pins nothing', async () => {
+    h = await startHarness();
+    const cookie = await connected(h);
+    const res = PlayerList.parse(await (await call(h, '/api/players?q=zzzqqq', { cookie })).json());
+    expect(res.players).toHaveLength(0);
+    expect(res.found).toBeUndefined();
+    expect(
+      h.store.watchList.active(
+        h.store.yahooConnections.list()[0]?.userId ?? '',
+        h.clock.now.toISOString(),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('when Yahoo cannot be searched, notes it rather than failing (P9)', async () => {
+    h = await startHarness();
+    const cookie = await connected(h);
+    await call(h, '/api/players?status=all', { cookie });
+    h.yahoo.down = true;
+    const res = await call(h, '/api/players?status=all&q=zzzqqq', { cookie });
+    expect(res.status).toBe(200);
+    expect(PlayerList.parse(await res.json()).notes.join(' ')).toMatch(/could not be searched/);
   });
 
   it('lists players and serves category strength with the week’s weights', async () => {

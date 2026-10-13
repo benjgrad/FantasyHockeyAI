@@ -4,7 +4,7 @@ import { useState, type CSSProperties, type FormEvent } from 'react';
 import { api, type YahooTeamChoiceT } from '../api/endpoints';
 import { formatWhen } from '../components/DecisionCardView';
 import { ErrorNote } from '../components/ErrorNote';
-import { extractYahooCookies } from './yahooPaste';
+import { extractOtherCookies, extractYahooCookies } from './yahooPaste';
 
 /**
  * Connecting Yahoo from a signed-in desktop browser's session (the same pasted-session pattern
@@ -40,7 +40,11 @@ export function YahooConnect({ me }: { me: Me }) {
           onPick={(t) => select.mutate(t)}
         />
       ) : (
-        <CookieForm reconnect={me.yahoo.status !== 'none'} onTeams={setTeams} />
+        <CookieForm
+          reconnect={me.yahoo.status !== 'none'}
+          onTeams={setTeams}
+          onSelected={() => void queryClient.invalidateQueries({ queryKey: ['me'] })}
+        />
       )}
       {me.yahoo.status !== 'none' ? (
         <div>
@@ -74,6 +78,18 @@ function StatusCard({ me }: { me: Me }) {
   return (
     <div className="card">
       <div className={`font-semibold ${s.tone}`}>● {s.label}</div>
+      {y.status === 'expired' && y.expiredBy === 'site' ? (
+        <div className="mt-1 text-sm text-warn">
+          Reads still work, but Yahoo&apos;s website refused the session, so lineups and adds
+          can&apos;t be sent. Reconnect below.
+        </div>
+      ) : null}
+      {y.siteOkAt ? (
+        <div className="text-xs text-mut">Website checked {formatWhen(y.siteOkAt)}</div>
+      ) : null}
+      {y.status === 'connected' && !y.teamKey ? (
+        <div className="mt-1 text-sm text-warn">No team chosen yet: reconnect and pick yours.</div>
+      ) : null}
       {y.teamName ? (
         <div className="mt-1 text-sm">
           {y.teamName} <span className="text-mut">({y.teamKey})</span>
@@ -90,25 +106,30 @@ function StatusCard({ me }: { me: Me }) {
 function CookieForm({
   reconnect,
   onTeams,
+  onSelected,
 }: {
   reconnect: boolean;
   onTeams: (t: YahooTeamChoiceT[]) => void;
+  /** The server kept the chosen team, or picked the account's only one: no picker. */
+  onSelected: () => void;
 }) {
   const [pasted, setPasted] = useState('');
   const [manualT, setManualT] = useState('');
   const [manualY, setManualY] = useState('');
-  // Extracted in the browser: only T and Y ever leave this page, never the rest of the paste.
+  // Extracted in the browser: only the cookies leave this page, never the URL or the headers.
   const found = extractYahooCookies(pasted);
+  const others = extractOtherCookies(pasted);
   const T = found.T ?? manualT.trim();
   const Y = found.Y ?? manualY.trim();
   const connect = useMutation({
-    mutationFn: () => api.connectYahoo(T, Y),
+    mutationFn: () => api.connectYahoo(T, Y, found.T === undefined ? {} : others),
     onSuccess: (res) => {
       // Cleared on success: a credential left in an input survives a screenshot.
       setPasted('');
       setManualT('');
       setManualY('');
-      onTeams(res.teams);
+      if (res.selected) onSelected();
+      else onTeams(res.teams);
     },
   });
   const ready = T.length >= 10 && Y.length >= 10;
@@ -205,15 +226,16 @@ function Instructions() {
         <li>Paste it below and press Connect.</li>
       </ol>
       <p className="text-xs text-mut">
-        Only the <code>T</code> and <code>Y</code> cookies are taken from what you paste; the rest
-        never leaves this page. (A console script can’t do this: Yahoo hides <code>T</code> from
-        page scripts.) Safari needs Settings → Advanced → “Show features for web developers” first.
+        Only the cookies are taken from what you paste (<code>T</code> and <code>Y</code> are
+        required); the URL and headers never leave this page. The other cookies keep Yahoo’s website
+        signed in, so lineups don’t stall when <code>T</code> ages. (A console script can’t do this:
+        Yahoo hides <code>T</code> from page scripts.) Safari needs Settings → Advanced → “Show
+        features for web developers” first.
       </p>
       <p className="rounded-lg border border-warn/50 bg-warn/10 p-2">
-        <b>What this grants:</b> the two cookies are a live session for your{' '}
-        <b>whole Yahoo account</b>. They’re checked against Yahoo, stored <b>encrypted</b>, and
-        never shown again or logged. To revoke access, <b>sign out of Yahoo</b> in that browser, or
-        press Disconnect here.
+        <b>What this grants:</b> the cookies are a live session for your <b>whole Yahoo account</b>.
+        They’re checked against Yahoo, stored <b>encrypted</b>, and never shown again or logged. To
+        revoke access, <b>sign out of Yahoo</b> in that browser, or press Disconnect here.
       </p>
     </div>
   );

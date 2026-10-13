@@ -15,7 +15,7 @@ export function PlayerLink({
   return (
     <button
       type="button"
-      className={`cursor-pointer text-left underline decoration-line decoration-dotted underline-offset-2 hover:text-acc ${className}`}
+      className={`cursor-pointer text-left underline decoration-line decoration-dotted underline-offset-2 hover:text-acc focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-brand ${className}`}
       onClick={(e) => {
         e.stopPropagation();
         open(playerKey);

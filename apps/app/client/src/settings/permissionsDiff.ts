@@ -92,7 +92,26 @@ export function diffPermissions(
     ...diffTools(before, after),
     ...diffProtected(before, after),
     ...diffAutoGrab(before.autoGrab, after.autoGrab),
+    ...diffValueLens(before, after),
   ];
+}
+
+/** Which value lens each decision uses (D-026): a choice of numbers, not of autonomy. */
+function diffValueLens(before: Permissions, after: Permissions): Change[] {
+  const label = (l: string) => (l === 'preseason' ? 'preseason' : 'rest of season');
+  return (Object.keys(after.valueLens) as (keyof Permissions['valueLens'])[]).flatMap((k) => {
+    const from = before.valueLens[k];
+    const to = after.valueLens[k];
+    return from === to
+      ? []
+      : [
+          {
+            path: `valueLens.${k}`,
+            label: `${k} values: ${label(from)} → ${label(to)}`,
+            widens: false,
+          },
+        ];
+  });
 }
 
 function diffSwitches(before: Permissions, after: Permissions): Change[] {

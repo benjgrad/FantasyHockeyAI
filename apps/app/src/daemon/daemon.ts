@@ -9,6 +9,7 @@ import { sweepAutoApprovals, type SweepResult } from './autoApprove.js';
 import { runAutoGrab } from './autoGrab.js';
 import { worthGrabbing } from './grabInputs.js';
 import { errText, executeJob, type JobOutcome } from './jobs.js';
+import { keepalive, keepaliveDue } from './keepalive.js';
 import { acquireLock, type Lock } from './lock.js';
 import { SerialQueue } from './queue.js';
 import { decideEvents, type RuleAction, type RuleDecision } from './rules.js';
@@ -22,7 +23,14 @@ import {
   type DaemonJob,
   type Slot,
 } from './schedule.js';
-import { WATCHERS, poll, type WatchEnv, type WatcherName, type WatcherSpec } from './watchers.js';
+import {
+  WATCHERS,
+  poll,
+  saveWatcherRun,
+  type WatchEnv,
+  type WatcherName,
+  type WatcherSpec,
+} from './watchers.js';
 
 /**
  * The daemon (§3.2, §14.2, plan Phase 6): the season schedule, the watchers and the event rules,
@@ -55,6 +63,7 @@ const RULE_KINDS = [
   EVENT_KINDS.news,
   EVENT_KINDS.transaction,
   EVENT_KINDS.tradeOffered,
+  EVENT_KINDS.goalieStarting,
 ];
 const MAX_BACKOFF_STEPS = 4;
 
@@ -92,6 +101,8 @@ export class Daemon {
   private lastActed: ReadonlyMap<string, number> = new Map();
   private readonly rosterStatuses = new Map<string, ReadonlyMap<string, string | undefined>>();
   private readonly failures = new Map<string, { count: number; until: number }>();
+  /** When each user's website keepalive last ran (D-033). */
+  private readonly keepaliveTries = new Map<string, number>();
   private loops: Promise<void>[] = [];
   private lock: Lock | undefined;
 
@@ -173,7 +184,7 @@ export class Daemon {
         this.s.log(`daemon: ${job} for ${userId} (${why})`);
         await this.afterJob(
           userId,
-          await executeJob({ s: this.s, now: this.now }, userId, job, signal),
+          await executeJob({ s: this.s, now: this.now }, userId, job, signal, why),
         );
       },
     });
@@ -191,11 +202,30 @@ export class Daemon {
     const conn = this.s.store.yahooConnections.get(userId);
     if (conn === undefined) return;
     if (conn.status !== 'expired') yahooFailure(this.s.store, userId, err);
-    // Keyed by the session's last success, so a new session that expires notifies again.
-    const key = `daemon.reconnect:${userId}`;
-    const session = conn.lastOkAt ?? conn.updatedAt;
-    if (this.s.store.kv.get(key) === session) return;
-    this.s.store.kv.set(key, session);
+    await this.notifyReconnect(userId);
+  }
+
+  /**
+   * Every session marked expired, wherever it was found (a job, a watcher, Ben's "Do it", a page
+   * load), gets its reconnect notice: on 2026-10-02 a "Do it" found the expiry, marked it, and
+   * no one was told, because only a failing daemon job sent the push. Run on every sweep.
+   */
+  async notifyExpiredSessions(): Promise<void> {
+    for (const c of this.s.store.yahooConnections.list()) {
+      if (c.status === 'expired') await this.notifyReconnect(c.userId);
+      // Recovered (a reconnect, or the keepalive revived it): the next expiry notifies again.
+      else this.s.store.kv.delete(reconnectKey(c.userId));
+    }
+  }
+
+  private async notifyReconnect(userId: string): Promise<void> {
+    const conn = this.s.store.yahooConnections.get(userId);
+    if (conn === undefined) return;
+    // Once per expiry. Not keyed by lastOkAt: API reads go on stamping it while the website
+    // stays expired (U-30), which would push on every read.
+    const key = reconnectKey(userId);
+    if (this.s.store.kv.get(key) !== undefined) return;
+    this.s.store.kv.set(key, this.now().toISOString());
     this.s.log(`daemon: Yahoo session expired for ${userId}; paused until reconnected`);
     await this.s.push.notify(userId, {
       kind: 'failed',
@@ -230,10 +260,17 @@ export class Daemon {
     };
     try {
       const n = await poll(env, name, userId);
+      saveWatcherRun(this.s, userId, name, { at: this.now().toISOString(), ok: true, events: n });
       this.failures.delete(key);
       await this.processEvents();
       return n;
     } catch (err) {
+      saveWatcherRun(this.s, userId, name, {
+        at: this.now().toISOString(),
+        ok: false,
+        events: 0,
+        error: isAuthFailure(err) ? 'Yahoo session expired' : errText(err).slice(0, 200),
+      });
       if (isAuthFailure(err)) {
         await this.onAuthFailure(userId, err);
         return 0;
@@ -329,6 +366,12 @@ export class Daemon {
 
   /** One sweep: run every ask with timeout that came due, for connected users (D-018). */
   async sweepOnce(): Promise<SweepResult[]> {
+    this.queueKeepalives();
+    try {
+      await this.notifyExpiredSessions();
+    } catch (err) {
+      this.s.log(`daemon: reconnect notice failed (${errText(err)})`);
+    }
     try {
       return await sweepAutoApprovals(this.s, {
         userIds: this.users(),
@@ -341,6 +384,35 @@ export class Daemon {
     } catch (err) {
       this.s.log(`daemon: auto-approve sweep failed (${errText(err)})`);
       return [];
+    }
+  }
+
+  /**
+   * Queue the website keepalive (D-033) for every user with a team that is due, including a
+   * website-expired one (kept cookies can revive it). Through the job queue, so it never
+   * overlaps a job's Yahoo requests.
+   */
+  queueKeepalives(): void {
+    const now = this.now();
+    for (const c of this.s.store.yahooConnections.list()) {
+      if (c.leagueKey === undefined || c.teamKey === undefined) continue;
+      const today = nyDate(now);
+      const next = [
+        ...this.slotsFor(c.userId, today),
+        ...this.slotsFor(c.userId, addDays(today, 1)),
+      ]
+        .filter((sl) => sl.job === 'lineup' && sl.at > now)
+        .map((sl) => sl.at.getTime());
+      const nextLineup = next.length > 0 ? Math.min(...next) : undefined;
+      if (!keepaliveDue(this.keepaliveTries.get(c.userId), now.getTime(), nextLineup)) continue;
+      this.keepaliveTries.set(c.userId, now.getTime());
+      const userId = c.userId;
+      this.queue.enqueue({
+        key: `keepalive:${userId}`,
+        run: async () => {
+          if ((await keepalive(this.s, userId)) === 'expired') await this.notifyReconnect(userId);
+        },
+      });
     }
   }
 
@@ -390,4 +462,9 @@ export class Daemon {
       await this.sleep(w.intervalMs * (0.9 + 0.2 * this.random()), signal);
     }
   }
+}
+
+/** Set while a reconnect notice is out; cleared by a reconnect or a recovery. */
+export function reconnectKey(userId: string): string {
+  return `daemon.reconnect:${userId}`;
 }

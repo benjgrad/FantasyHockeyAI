@@ -1,5 +1,13 @@
 import { ChatRequest, type ChatEvent } from '@fha/api';
-import { runAssistantTurn, storedError, storedText, type AssistantDeps } from '@fha/agents';
+import { existingActivityConversation } from './activity.js';
+import {
+  runAssistantTurn,
+  storedError,
+  storedSource,
+  storedText,
+  storedTools,
+  type AssistantDeps,
+} from '@fha/agents';
 import { cardFor, type CardContext } from './decisionCard.js';
 import { HttpError, readJson, sendJson } from './http.js';
 import type { Route } from './router.js';
@@ -85,6 +93,11 @@ function turnRoutes(s: Services, heartbeatMs: number): Route[] {
         }
         const conversation =
           existing ?? s.store.conversations.create(user.id, body.text.slice(0, TITLE_CHARS));
+        // A reply in the Background activity chat answers the oldest open agent question (D-029).
+        if (conversation.id === existingActivityConversation(s.store, user.id)) {
+          const open = s.store.questions.unanswered()[0];
+          if (open !== undefined) s.store.questions.answer(open.id, body.text);
+        }
         const deps = assistantDeps(s, user.id, league, llmFor(s.store, s.createMessage));
         const cards = {
           ...cardContext(s, user.id),
@@ -159,11 +172,17 @@ function conversationRoutes(s: Services): Route[] {
       path: '/api/conversations',
       auth: 'user',
       handle: ({ res, user }) => {
-        const conversations = s.store.conversations.list(user.id, 50).map((c) => ({
-          id: c.id,
-          title: c.title ?? 'New chat',
-          updatedAt: c.updatedAt,
-        }));
+        // The Background activity chat is pinned by the client (D-027), not sorted with the rest.
+        const activity = existingActivityConversation(s.store, user.id);
+        const conversations = s.store.conversations
+          .list(user.id, 51)
+          .filter((c) => c.id !== activity)
+          .slice(0, 50)
+          .map((c) => ({
+            id: c.id,
+            title: c.title ?? 'New chat',
+            updatedAt: c.updatedAt,
+          }));
         sendJson(res, 200, { conversations });
         return Promise.resolve();
       },
@@ -179,6 +198,8 @@ function conversationRoutes(s: Services): Route[] {
         const messages = s.store.conversations.messages(c.id).flatMap((m) => {
           if (m.role !== 'user' && m.role !== 'assistant') return [];
           const error = storedError(m);
+          const tools = storedTools(m);
+          const source = storedSource(m);
           return [
             {
               id: m.id,
@@ -186,6 +207,8 @@ function conversationRoutes(s: Services): Route[] {
               text: storedText(m),
               decisions: m.planIds.flatMap((id) => cardFor(s.store, id, cards) ?? []),
               ...(error === undefined ? {} : { error }),
+              ...(tools.length === 0 ? {} : { tools }),
+              ...(source === undefined ? {} : { source }),
               createdAt: m.createdAt,
             },
           ];

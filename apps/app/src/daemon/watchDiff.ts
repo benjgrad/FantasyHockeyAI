@@ -181,9 +181,14 @@ export function transactionEvents(
 export function goalieEvents(
   userId: string,
   date: string,
-  goalies: readonly { player: Player; detail: PlayerDetail | undefined }[],
+  goalies: readonly {
+    player: Player;
+    detail: PlayerDetail | undefined;
+    ours?: boolean;
+    slot?: string | null;
+  }[],
 ): NewEvent[] {
-  return goalies.flatMap(({ player, detail }) => {
+  return goalies.flatMap(({ player, detail, ours, slot }) => {
     const isStarting = detail?.isStartingGoalie;
     if (isStarting === undefined) return [];
     const payload: GoalieStartingPayload = {
@@ -191,6 +196,8 @@ export function goalieEvents(
       name: player.name,
       date,
       isStarting,
+      ...(ours === undefined ? {} : { ours }),
+      ...(slot === undefined ? {} : { slot }),
     };
     return [
       {

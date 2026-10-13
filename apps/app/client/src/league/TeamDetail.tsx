@@ -7,12 +7,14 @@ import { CHAT_PREFILL } from '../players/sheet';
 import { leagueApi, type HeadToHeadT, type TradeIdeaT } from './api';
 import { fmtWeekly, ordinal, pairBars, pct, proposeText } from './helpers';
 import { TeamSwitch } from './TeamSwitch';
+import { usePane } from '../components/pane';
 
 /**
  * `/league/:teamKey`: one team head to head with us over a typical week. Swing categories
  * (35–65%) are outlined; the ones we trail in are listed cheapest to flip first.
  */
 export function TeamDetail() {
+  const pane = usePane();
   const { teamKey = '' } = useParams();
   const q = useQuery({
     queryKey: ['league-h2h', teamKey],
@@ -21,7 +23,7 @@ export function TeamDetail() {
   });
   const h = q.data;
   return (
-    <div className="flex flex-col gap-3 overflow-y-auto p-3">
+    <div ref={pane} className="pane flex flex-col gap-3 p-3">
       <TeamSwitch />
       <Link to="/league" className="text-xs text-mut hover:text-ink">
         ← League
@@ -38,7 +40,7 @@ function Body({ h }: { h: HeadToHeadT }) {
   return (
     <>
       <div>
-        <h1 className="text-lg font-semibold">Us vs {h.them.name}</h1>
+        <h1 className="display text-2xl leading-tight">Us vs {h.them.name}</h1>
         <div className="text-sm text-soft">
           We expect to win <b>{h.expectedWon.typical.toFixed(1)}</b> of {n} categories in a typical
           week
@@ -52,7 +54,7 @@ function Body({ h }: { h: HeadToHeadT }) {
         ) : null}
       </div>
       <section className="card p-0">
-        <div className="flex items-center gap-3 border-b border-line px-3 py-2 text-[11px] text-mut">
+        <div className="flex items-center gap-3 border-b border-line px-3 py-2 text-2xs text-mut">
           <span className="tag">Per week</span>
           <span className="flex items-center gap-1">
             <i className="inline-block h-2 w-3 rounded-sm bg-acc" /> us
@@ -67,7 +69,7 @@ function Body({ h }: { h: HeadToHeadT }) {
         ))}
       </section>
       <TradeIdeas h={h} />
-      <ul className="list-disc pl-5 text-[11px] text-mut">
+      <ul className="list-disc pl-5 text-2xs text-mut">
         {h.notes.map((x) => (
           <li key={x}>{x}</li>
         ))}
@@ -115,7 +117,7 @@ function Bar({ pct: w, cls, label }: { pct: number; cls: string; label: string }
       <div className="h-2 flex-1 rounded bg-well">
         <i className={`block h-2 rounded ${cls}`} style={{ width: `${w}%` }} />
       </div>
-      <span className="w-11 text-right text-[11px] tabular-nums text-soft">{label}</span>
+      <span className="w-11 text-right text-2xs tabular-nums text-soft">{label}</span>
     </div>
   );
 }
@@ -188,10 +190,10 @@ function Idea({
       </div>
       {t.reasons.length > 0 ? <p className="mt-1 text-xs text-mut">{t.reasons[0]}</p> : null}
       <div className="mt-1.5 flex flex-wrap gap-2">
-        <button className="btn py-1 text-xs" onClick={onCompare}>
+        <button className="btn btn-sm" onClick={onCompare}>
           Compare players
         </button>
-        <button className="btn py-1 text-xs" onClick={onAsk}>
+        <button className="btn btn-sm" onClick={onAsk}>
           Ask the GM to propose this
         </button>
       </div>

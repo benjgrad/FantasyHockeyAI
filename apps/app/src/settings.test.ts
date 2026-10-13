@@ -66,6 +66,19 @@ describe('Settings → Connect Yahoo Fantasy', () => {
     noCookieInLogs();
   });
 
+  it('picks the account’s only team on connect, even after a Disconnect (2026-10-09)', async () => {
+    const { cookie } = await signIn(h);
+    await call(h, '/api/settings/yahoo', { method: 'DELETE', cookie });
+    const res = await call(h, '/api/settings/yahoo', {
+      cookie,
+      body: { T: GOOD_COOKIE, Y: 'good-cookie-value-Y' },
+    });
+    const body = YahooConnectResponse.parse(await res.json());
+    expect(body.selected?.teamKey).toBe('477.l.48535.t.6');
+    const me = Me.parse(await (await call(h, '/api/me', { cookie })).json());
+    expect(me.yahoo).toMatchObject({ status: 'connected', teamKey: '477.l.48535.t.6' });
+  });
+
   it('team selection must be one of the account’s own teams (P8), then shows in /api/me', async () => {
     const { cookie } = await signIn(h);
     await call(h, '/api/settings/yahoo', {

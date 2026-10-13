@@ -1,11 +1,12 @@
 import type { Player } from '@fha/core';
+import type { Store } from '@fha/store';
+import { listNow } from './playerValueNow.js';
 import { categoryValue, rosterHealth } from '@fha/model';
 import {
   availabilityOf,
   currentMatchup,
   dayStatus,
   scoringCategories,
-  weekBounds,
   type LeagueView,
 } from '@fha/tools';
 import type { LeagueState } from './league.js';
@@ -34,7 +35,16 @@ export interface TeamView {
     value: number | null;
   }[];
   health: string[];
-  categories: { cat: string; us: number | null; them: number | null; winProb: number | null }[];
+  categories: {
+    cat: string;
+    us: number | null;
+    them: number | null;
+    winProb: number | null;
+    usNow?: number | null;
+    themNow?: number | null;
+    decided?: boolean;
+  }[];
+  liveAsOf?: string | null;
 }
 
 /** The newest note on a player: the status line if it names an injury, else the first note. */
@@ -54,11 +64,12 @@ function gameToday(view: LeagueView, p: Player, date: string, now: string): stri
   return `vs ${g.opponent} ${time} ET${g.locked ? ' (locked)' : ''}`;
 }
 
-export function teamView(league: LeagueState, now: Date): TeamView {
+export function teamView(league: LeagueState, now: Date, store?: Store): TeamView {
   const { view } = league;
+  const nowOf = listNow(view, store);
   const nowIso = now.toISOString();
   const today = view.snap.date > newYorkDate(now) ? view.snap.date : newYorkDate(now);
-  const games = view.gamesBetween(today, weekBounds(view.snap.date).end);
+  const games = view.gamesBetween(today, view.weekOf().end);
   const entries = view.roster().entries;
   const roster = entries.map(({ player: p, slot }) => {
     const a = availabilityOf(view, p);
@@ -77,6 +88,12 @@ export function teamView(league: LeagueState, now: Date): TeamView {
       gamesThisWeek: games.get(p.nhlTeam) ?? 0,
       gameToday: gameToday(view, p, today, nowIso),
       value: view.valuation(p.playerKey)?.value ?? null,
+      now: (() => {
+        const n = nowOf(p.playerKey);
+        return n === null || n === undefined
+          ? null
+          : { vofa: n.vofa, cwa: n.cwa, delta7d: n.delta7d };
+      })(),
     };
   });
   const health = rosterHealth({
@@ -106,7 +123,7 @@ export function teamView(league: LeagueState, now: Date): TeamView {
   };
 }
 
-function matchupPart(view: LeagueView): Pick<TeamView, 'opponent' | 'categories'> {
+function matchupPart(view: LeagueView): Pick<TeamView, 'opponent' | 'categories' | 'liveAsOf'> {
   const cats = scoringCategories(view.settings);
   let m: ReturnType<typeof currentMatchup>;
   try {
@@ -118,16 +135,29 @@ function matchupPart(view: LeagueView): Pick<TeamView, 'opponent' | 'categories'
     return {
       opponent: null,
       categories: cats.map((cat) => ({ cat, us: null, them: null, winProb: null })),
+      liveAsOf: null,
     };
   }
   const round = (n: number) => Math.round(n * 1000) / 1000;
+  const banked = m.banked;
   return {
     opponent: m.opponent.name,
-    categories: cats.map((cat) => ({
-      cat,
-      us: round(categoryValue(m.us, cat)),
-      them: round(categoryValue(m.them, cat)),
-      winProb: m.plan.probabilities[cat] ?? null,
-    })),
+    liveAsOf: banked?.asOf ?? null,
+    categories: cats.map((cat) => {
+      const p = m.plan.probabilities[cat];
+      return {
+        cat,
+        us: round(categoryValue(m.us, cat)),
+        them: round(categoryValue(m.them, cat)),
+        winProb: p ?? null,
+        ...(banked === undefined
+          ? {}
+          : {
+              usNow: round(categoryValue(banked.us, cat)),
+              themNow: round(categoryValue(banked.them, cat)),
+              decided: p !== undefined && (p >= 0.995 || p <= 0.005),
+            }),
+      };
+    }),
   };
 }

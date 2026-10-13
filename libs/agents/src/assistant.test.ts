@@ -10,6 +10,7 @@ import {
   type AssistantEvent,
 } from './assistant.js';
 import { replayHistory, storedError } from './assistantHistory.js';
+import { brief } from './toolNotes.js';
 import type { JobResult } from './gm.js';
 import { call, say, scriptedLlm, testPrompts, type Script } from './testing.js';
 
@@ -113,6 +114,36 @@ describe('runAssistantTurn', () => {
     expect(JSON.stringify(stored[1]?.content).length).toBeLessThan(1500);
   });
 
+  it('regression 2026-10-01: an open lineup plan is shown, never re-filed, and no card appears', async () => {
+    // The lineup job filed today's lineup earlier; it is still open (handed to Ben). Asked about
+    // strategy, the assistant once re-proposed it and Ben got an INVALID card and a push.
+    const h = harness([
+      call('proposeLineup', { date: DATE, reason: 'job' }),
+      say('Filed by the lineup job.'),
+      call('getLineupSuggestion', { date: DATE }),
+      call('proposeLineup', { date: DATE, reason: 'Solver swap adds a live body' }),
+      say('Today’s lineup change is already waiting on you in Decisions.'),
+    ]);
+    const first = await h.turn('set my lineup');
+    const open = first.planIds[0] ?? '';
+    expect(h.store.decisions.get(open)?.status).toBe('dry_run');
+    h.events.length = 0;
+
+    const r = await h.turn('Tell me about our strategy for the next few weeks');
+    expect(r.status).toBe('ok');
+    expect(r.planIds).toEqual([]);
+    expect(h.events.some((e) => e.type === 'plan')).toBe(false);
+    expect(h.store.decisions.listByStatus('dry_run', 'invalid').map((d) => d.plan.planId)).toEqual([
+      open,
+    ]);
+    // The model saw the open plan before deciding, and the tools said it was already filed.
+    const body = JSON.stringify(h.fake.bodies[2]?.messages);
+    expect(body).toContain('<decisions>');
+    expect(body).toContain(open.slice(0, 8));
+    const results = JSON.stringify(h.fake.bodies[4]?.messages);
+    expect(results).toContain(`Already filed: ${open.slice(0, 8)}`);
+  });
+
   it('replays the conversation with turn notes on the next turn', async () => {
     const h = harness([say('Your roster is fine.'), say('Still fine.')]);
     await h.turn('how is my roster?');
@@ -207,5 +238,26 @@ describe('storedError', () => {
     expect(storedError({ role: 'assistant', content: { text: '', error } })).toEqual(error);
     expect(storedError({ role: 'assistant', content: { text: 'ok' } })).toBeUndefined();
     expect(storedError({ role: 'user', content: { text: 'hi', error } })).toBeUndefined();
+  });
+});
+
+describe('stored tool results (brief)', () => {
+  it('keeps the first real row of a table or a headed list, and counts the rest', () => {
+    expect(brief('playerKey | player | value\n477.p.1 | Makar | 9.1\n477.p.2 | Hughes | 8.0')).toBe(
+      'playerKey | player | value 477.p.1 | Makar | 9.1 (+1 more)',
+    );
+    expect(brief('Our roster on 2026-10-01:\nC MacKinnon\nC Aho\nLW Forsberg')).toBe(
+      'Our roster on 2026-10-01: C MacKinnon (+2 more)',
+    );
+    expect(brief('No free agents match. Loosen the query or position.')).toBe(
+      'No free agents match. Loosen the query or position.',
+    );
+    expect(
+      brief(
+        'Searched free agents at D by value, top 2:\nplayerKey | player\n477.p.9 | Werenski\n477.p.8 | Hughes',
+      ),
+    ).toBe('Searched free agents at D by value, top 2: 477.p.9 | Werenski (+1 more)');
+    expect(brief('')).toBeUndefined();
+    expect(brief('x'.repeat(500))?.length).toBe(240);
   });
 });

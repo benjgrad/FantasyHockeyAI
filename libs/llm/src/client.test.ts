@@ -70,6 +70,26 @@ describe('request shape', () => {
     expect(haiku && effectiveMaxTokens(haiku, 1000)).toBe(1000);
   });
 
+  it('Haiku gets no thinking and no effort; Sonnet 5.5 keeps both', async () => {
+    const s = scriptedCreateMessage([{ text: 'ok' }, { text: 'ok' }]);
+    await createLlmClient({ createMessage: s.create, model: 'claude-haiku-4-5' }).request({
+      ...ask,
+      effort: 'low',
+    });
+    await createLlmClient({ createMessage: s.create, model: 'claude-sonnet-5-5' }).request({
+      ...ask,
+      effort: 'low',
+    });
+    expect(s.bodies[0]).toMatchObject({ model: 'claude-haiku-4-5', max_tokens: 1000 });
+    expect(s.bodies[0]?.thinking).toBeUndefined();
+    expect(s.bodies[0]?.output_config).toBeUndefined();
+    expect(s.bodies[1]).toMatchObject({
+      model: 'claude-sonnet-5-5',
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'low' },
+    });
+  });
+
   it('rejects an unknown model id instead of guessing its request shape', () => {
     expect(() => createLlmClient({ createMessage: vi.fn(), model: 'claude-nope' })).toThrow(
       /Unknown model/,

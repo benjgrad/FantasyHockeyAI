@@ -7,18 +7,35 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0f1720" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f7fa" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1520" />
     <meta name="description" content="Your Yahoo NHL fantasy team's assistant." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Opaque, not black-translucent: iOS 26 draws a frosted blur over the top of an installed
+         app that draws under the status bar, and no CSS turns it off. iOS reads this when the app
+         is added to the Home Screen: an existing icon must be removed and added again. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Hockey GM" />
     <meta name="application-name" content="Hockey GM" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="/icon-192.png" type="image/png" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icon-192.png" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-    <title>FantasyHockeyAI</title>
+    <title>Hockey GM</title>
+    <script>
+      // A pinned theme (src/theme/theme.ts) is applied before first paint: no flash.
+      try {
+        var t = localStorage.getItem('fha.theme');
+        if (t === 'light' || t === 'dark') {
+          document.documentElement.dataset.theme = t;
+          document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+            m.content = t === 'light' ? '#f3f7fa' : '#0a1520';
+          });
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

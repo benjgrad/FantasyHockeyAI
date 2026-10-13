@@ -78,9 +78,11 @@ function newestNote(view: LeagueView, p: Player): string | undefined {
 /** A player's availability as of the snapshot date (§12, draft-night flaw 4). */
 export function availabilityOf(view: LeagueView, p: Player): Availability {
   const detail = p as Player & InjuryDetail;
+  // Both: the Rotowire note says how long ("4-6 weeks"), Yahoo's note what ("Lower Body") (D-029).
+  const notes = [newestNote(view, p), p.injuryNote].filter((x): x is string => x !== undefined && x !== '');
   return availability({
     status: p.status,
-    injuryNote: detail.injuryNote ?? newestNote(view, p),
+    injuryNote: notes.length === 0 ? undefined : notes.join(' · '),
     returnDate: detail.returnDate,
     now: view.snap.date,
   });
@@ -107,10 +109,19 @@ export function dayStatus(view: LeagueView, p: Player, date: string, now: string
  * Our roster as the lineup solver's input for `date`. Value is the snapshot's perGameValue;
  * a player with no valuation is worth 0, so he is never started over one we can value.
  */
-export function lineupEntries(view: LeagueView, date: string, now: string): LineupPlayer[] {
+export function lineupEntries(
+  view: LeagueView,
+  date: string,
+  now: string,
+  /** Goalies' probability of starting (D-029, `goalieStarts.ts`); absent → 1 (a certain start). */
+  pStartOf: (playerKey: string) => number | undefined = () => undefined,
+): LineupPlayer[] {
   return view.roster().entries.map(({ player, slot }) => {
     const day = dayStatus(view, player, date, now);
+    const pStart = player.positionType === 'G' ? pStartOf(player.playerKey) : undefined;
     return {
+      ...(pStart === undefined ? {} : { pStart }),
+      ...(player.reserveEligible === undefined ? {} : { reserveSlots: player.reserveEligible }),
       playerKey: player.playerKey,
       eligible: player.eligible,
       status: player.status,

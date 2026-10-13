@@ -1,6 +1,7 @@
 import type { Fetch } from '@fha/auth';
 import type { CreateMessage } from '@fha/llm';
 import type { ScheduleDay } from '@fha/nhl';
+import type { PullGames } from '@fha/tools';
 import type { PromptCatalog } from '@fha/prompts';
 import type { Store, User } from '@fha/store';
 import type { ChatTurns } from './chatTurns.js';
@@ -28,6 +29,8 @@ export interface AppDeps {
   fetch: Fetch;
   yahoo: YahooAccess;
   schedule: (date: string) => Promise<ScheduleDay[]>;
+  /** Game-level NHL stats for a date window (D-025). Absent: the daily stats job is skipped. */
+  pullGames?: PullGames;
   /** Valuations for a league; default: the newest recorded snapshot (see valuations.ts). */
   valuate?: (leagueKey: string) => Valuate;
   /** Absent: chat answers `llm_not_configured` instead of calling a model. */
@@ -52,6 +55,7 @@ export interface Services {
   yahoo: YahooAccess;
   createMessage: CreateMessage | undefined;
   prompts: PromptCatalog;
+  pullGames: PullGames | undefined;
   /** Sign-in states already redeemed, until they expire: a replayed callback is refused. */
   usedStates: Map<string, number>;
   /** Durable chat turns: they outlive the HTTP request that started them. */
@@ -69,6 +73,8 @@ export interface MeView {
     teamName: string | null;
     lastOkAt: string | null;
     error: string | null;
+    siteOkAt: string | null;
+    expiredBy: 'api' | 'site' | null;
   };
   dryRun: boolean;
   paused: boolean;
@@ -89,6 +95,8 @@ export function meView(s: Services, user: User): MeView {
       teamName: conn === undefined ? null : (s.league.peek(user.id)?.teamName ?? null),
       lastOkAt: conn?.lastOkAt ?? null,
       error: conn?.lastError ?? null,
+      siteOkAt: conn?.siteOkAt ?? null,
+      expiredBy: conn?.expiredBy ?? null,
     },
     dryRun: perms.dryRun,
     paused: perms.paused,

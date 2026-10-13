@@ -15,6 +15,7 @@
     "@fha/core": "*",
     "@fha/llm": "*",
     "@fha/model": "*",
+    "@fha/nhl": "*",
     "@fha/pipeline": "*",
     "@fha/store": "*",
     "zod": "*"

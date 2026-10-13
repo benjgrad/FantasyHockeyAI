@@ -37,6 +37,11 @@ export interface PipelineWiring {
   notify: (userId: string, text: string) => void;
   /** The live write adapter for a user, used only when dry run is off. Absent → Manual. */
   liveAdapter?: LiveAdapterFor;
+  /**
+   * Called after every live Yahoo write, whatever its outcome: the roster may have changed, so
+   * the league snapshot is stale (wired to `LeagueService.invalidate`).
+   */
+  afterWrite?: (userId: string) => void;
   /** When a push at `at` would be held by the user's quiet hours, their end (D-018). */
   quietUntil?: (userId: string, at: Date) => Date | undefined;
 }
@@ -57,7 +62,10 @@ export function pipelineFor(
   // Yahoo writer at all.
   const live = dryRun
     ? undefined
-    : w.liveAdapter?.(userId, league, { describe: (p) => describePlan(p, name), notify });
+    : afterEachWrite(
+        w.liveAdapter?.(userId, league, { describe: (p) => describePlan(p, name), notify }),
+        () => w.afterWrite?.(userId),
+      );
   const adapter: ExecutionAdapter = dryRun
     ? new DryRunAdapter()
     : (live ?? new ManualAdapter(notify));
@@ -87,6 +95,25 @@ const DECIDE_ERRORS = {
   not_pending: new HttpError(409, 'not_pending', 'That plan was already decided.'),
   past_deadline: new HttpError(409, 'expired', 'That plan expired before it was approved.'),
 } as const;
+
+/** The live adapter, calling `done` after each write attempt (the roster may have changed). */
+function afterEachWrite(
+  live: ReturnType<LiveAdapterFor>,
+  done: () => void,
+): ReturnType<LiveAdapterFor> {
+  if (live === undefined) return undefined;
+  return {
+    name: live.name,
+    verify: (plan) => live.verify(plan),
+    execute: async (plan) => {
+      try {
+        return await live.execute(plan);
+      } finally {
+        done();
+      }
+    },
+  };
+}
 
 /**
  * Approve, then execute. The pipeline is built *before* the approval is recorded, so a plan is

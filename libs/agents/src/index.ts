@@ -7,3 +7,4 @@ export * from './gm.js';
 export * from './testing.js';
 export * from './assistantHistory.js';
 export * from './assistant.js';
+export * from './toolNotes.js';

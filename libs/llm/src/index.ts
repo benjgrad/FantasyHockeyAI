@@ -23,3 +23,4 @@ export {
   type LlmClient,
 } from './client.js';
 export * from './testing.js';
+export * from './routing.js';

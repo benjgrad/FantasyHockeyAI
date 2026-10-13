@@ -37,17 +37,58 @@ describe('actionsFor', () => {
     expect(acts(addDrop, 'approved')).toEqual(['execute', 'openInYahoo']);
   });
 
+  it('a trade proposal the app can send (U-23, observed 2026-10-01): Do it; an answer is by hand', () => {
+    const offer = plan({
+      kind: 'tradePropose',
+      partnerTeamKey: THEM,
+      give: [MARCHAND],
+      get: [TROCHECK],
+      expectedGain: 0.3,
+    });
+    expect(acts(offer, 'pending')).toEqual(['execute', 'reject', 'openInYahoo']);
+    const answer = plan({
+      kind: 'tradeRespond',
+      transactionKey: 'tx',
+      action: 'accept',
+      give: [MARCHAND],
+      get: [TROCHECK],
+    });
+    expect(acts(answer, 'pending')).toEqual(['openInYahoo', 'done', 'reject']);
+  });
+
+  it('a lineup the app can set (U-12, observed 2026-10-01): Do it as well', () => {
+    expect(acts(lineup, 'dry_run')).toEqual(['execute', 'dismiss', 'openInYahoo']);
+    expect(acts(lineup, 'pending')).toEqual(['execute', 'reject', 'openInYahoo']);
+    expect(acts(lineup, 'approved')).toEqual(['execute', 'openInYahoo']);
+  });
+
   it('without a live Yahoo connection, or for a kind Yahoo writes are unobserved for: by hand', () => {
     const offline = { live: false, now: NOW };
     expect(acts(addDrop, 'dry_run', [], offline)).toEqual(['openInYahoo', 'done', 'dismiss']);
-    expect(acts(lineup, 'dry_run')).toEqual(['openInYahoo', 'done', 'dismiss']);
-    expect(acts(lineup, 'pending')).toEqual(['openInYahoo', 'done', 'reject']);
+    expect(acts(lineup, 'dry_run', [], offline)).toEqual(['openInYahoo', 'done', 'dismiss']);
+    expect(acts(lineup, 'pending', [], offline)).toEqual(['openInYahoo', 'done', 'reject']);
+    const waiver = plan({ kind: 'waiverClaim', add: TROCHECK });
+    expect(acts(waiver, 'dry_run')).toEqual(['openInYahoo', 'done', 'dismiss']);
     const drop = plan({ kind: 'addDrop', drop: MARCHAND });
     expect(acts(drop, 'dry_run')).toEqual(['openInYahoo', 'done', 'dismiss']);
   });
 
   it('a plan handed to Ben can be confirmed or dropped; one sent can only be confirmed', () => {
-    expect(acts(lineup, 'approved', ['needsHuman'])).toEqual(['openInYahoo', 'done', 'dismiss']);
+    const offline = { live: false, now: NOW };
+    expect(acts(lineup, 'approved', ['needsHuman'], offline)).toEqual([
+      'openInYahoo',
+      'done',
+      'dismiss',
+    ]);
+    // Nothing was sent, and the app can now set lineups: Do it is offered too.
+    expect(acts(lineup, 'approved', ['needsHuman'])).toEqual([
+      'execute',
+      'openInYahoo',
+      'done',
+      'dismiss',
+    ]);
+    const drop = plan({ kind: 'addDrop', drop: MARCHAND });
+    expect(acts(drop, 'approved', ['needsHuman'])).toEqual(['openInYahoo', 'done', 'dismiss']);
     expect(acts(addDrop, 'approved', ['started'])).toEqual(['openInYahoo', 'done']);
     expect(acts(addDrop, 'unverified', ['submitted'])).toEqual(['openInYahoo', 'done']);
   });
@@ -73,6 +114,17 @@ describe('actionsFor', () => {
     expect(acts(old, 'pending')).toEqual(['reject']);
     const due = plan({ kind: 'addDrop', add: TROCHECK }, { deadline: '2026-10-13T12:00:00Z' });
     expect(acts(due, 'dry_run')).toEqual(['dismiss']);
+  });
+
+  it('a lineup that failed before reaching Yahoo (expired session) can be sent again', () => {
+    expect(acts(lineup, 'failed', ['failed'])).toEqual(['execute', 'openInYahoo']);
+    // Not without a live connection, not once lapsed, and never an add/drop.
+    expect(acts(lineup, 'failed', ['failed'], { live: false, now: NOW })).toEqual([]);
+    const old = plan({ kind: 'lineup', date: '2026-10-12', moves: [] });
+    expect(acts(old, 'failed', ['failed'])).toEqual([]);
+    expect(acts(addDrop, 'failed', ['failed'])).toEqual([]);
+    // Something may have landed: never offered again.
+    expect(acts(lineup, 'failed', ['submitted'])).toEqual([]);
   });
 
   it('needsBen: something to do, confirm or answer', () => {

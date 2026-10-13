@@ -42,7 +42,7 @@ export function isMissingKeyCode(code: string): boolean {
 
 /** 502/503/504: a proxy answered, the app did not. */
 const GATEWAY = new Set([502, 503, 504]);
-export const OFFLINE_MESSAGE = 'Can’t reach the FantasyHockeyAI server.';
+export const OFFLINE_MESSAGE = 'Can’t reach the Hockey GM server.';
 
 /** Maps a failed response to a RequestError. Pure, so the mapping is tested without a server. */
 export function errorFromResponse(status: number, bodyText: string): RequestError {

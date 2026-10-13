@@ -1,4 +1,6 @@
-import { createAgent, runJob, type JobName } from '@fha/agents';
+import { addsRemaining, createAgent, runJob, type JobName, type ToolNote } from '@fha/agents';
+import { activityConversationId, recordReply, recordTrigger, triggerText } from '../activity.js';
+import { ingestDaily, recordValuationDay } from '@fha/tools';
 import type { RunStatus } from '@fha/store';
 import { agentDepsFor, llmFor } from '../chatRuntime.js';
 import type { Services } from '../services.js';
@@ -64,11 +66,26 @@ function refresh(env: JobEnv, userId: string): Body {
       const at = new Date(league.builtAt).toISOString();
       throw new Error(`Yahoo could not be read; keeping the snapshot from ${at}`);
     }
+    // The day's value family (D-026). A failure here is logged, not a failed refresh (P9).
+    let values = '';
+    try {
+      values = `; ${recordValuationDay(league.view, env.s.store)} value rows`;
+    } catch (err) {
+      values = `; value rows not recorded (${errText(err)})`;
+    }
     return {
       status: 'success',
-      summary: `snapshot ${league.view.snap.date} recorded; ${expired.length} approval(s) expired`,
+      summary: `snapshot ${league.view.snap.date} recorded; ${expired.length} approval(s) expired${values}`,
     };
   };
+}
+
+function activityUrl(s: Services, userId: string): string {
+  try {
+    return `/c/${encodeURIComponent(activityConversationId(s.store, userId))}`;
+  } catch {
+    return '/';
+  }
 }
 
 function digest(env: JobEnv, userId: string): Body {
@@ -87,8 +104,11 @@ async function agentJob(
   userId: string,
   job: JobName,
   signal: AbortSignal,
+  why: string,
 ): Promise<JobOutcome> {
   const { s } = env;
+  // The Background activity chat (D-027): why this run started, then what it did.
+  recordTrigger(s.store, userId, triggerText(job, why));
   if (s.createMessage === undefined) {
     return recorded(env, job, () =>
       Promise.resolve({ status: 'noop', summary: 'no model configured (ANTHROPIC_API_KEY unset)' }),
@@ -100,14 +120,60 @@ async function agentJob(
   } catch (err) {
     return recorded(env, job, () => Promise.reject(err));
   }
-  const deps = agentDepsFor(s, userId, league, llmFor(s.store, s.createMessage));
-  const r = await runJob(job, {
-    store: s.store,
-    agentFor: (name) => createAgent(name, deps),
-    context: { now: env.now().toISOString(), leagueKey: league.leagueKey, teamKey: league.teamKey },
-    signal,
-  });
+  const tools: ToolNote[] = [];
+  const deps = {
+    ...agentDepsFor(s, userId, league, llmFor(s.store, s.createMessage)),
+    onToolNote: (n: ToolNote) => tools.push(n),
+  };
+  // Nothing to decide: every waiver move is an add, and the week's adds are used. Say so
+  // without paying for a model run that can only conclude the same (it did, 2026-10-01).
+  const adds = job === 'waivers' ? addsRemaining(deps, deps.permissions()) : undefined;
+  if (adds?.left === 0) {
+    recordReply(s.store, userId, {
+      text: `Skipped without a model run: no adds left this week (${adds.cap} of ${adds.cap} used).`,
+    });
+    return recorded(env, job, () =>
+      Promise.resolve({
+        status: 'noop',
+        summary: `no adds left this week (${adds.cap} of ${adds.cap} used); waivers skipped without a model run`,
+      }),
+    );
+  }
+  // A triggered run is told why it runs (D-028); a schedule slot needs no explanation.
+  const scheduled = /^\w+@\d{4}-\d{2}-\d{2}#\w+$/.test(why) || why === job;
+  const r = await runJob(
+    job,
+    {
+      store: s.store,
+      agentFor: (name) => createAgent(name, deps),
+      context: {
+        now: env.now().toISOString(),
+        leagueKey: league.leagueKey,
+        teamKey: league.teamKey,
+      },
+      signal,
+    },
+    scheduled ? {} : { trigger: why },
+  );
   const failed = r.response.status === 'failed';
+  // A question the agent asked Ben (askBen) reaches his phone; he answers in the activity chat.
+  for (const q of s.store.questions.unanswered().filter((x) => x.runId === r.runId)) {
+    await s.push.notify(userId, {
+      kind: 'approval',
+      title: `The ${job} agent asks`,
+      body: q.question.slice(0, 200),
+      url: activityUrl(s, userId),
+    });
+  }
+  recordReply(s.store, userId, {
+    text:
+      r.response.message.trim() === '' ? `(${r.response.status}, no message)` : r.response.message,
+    tools,
+    planIds: r.response.plans.map((p) => p.planId),
+    ...(r.response.error === undefined
+      ? {}
+      : { error: { code: r.response.error.code, message: r.response.error.detail } }),
+  });
   if (job === 'leagueReview' && !failed && r.response.message.trim() !== '') {
     await s.push.notify(userId, {
       kind: 'league',
@@ -125,13 +191,37 @@ async function agentJob(
   };
 }
 
+/**
+ * Yesterday's NHL games into the history store (D-025). The data is league-wide, not per user:
+ * the first user's slot does the work and a `kv` mark makes the rest of the day's slots no-ops.
+ */
+function stats(env: JobEnv): Body {
+  return async () => {
+    const pull = env.s.pullGames;
+    if (pull === undefined) return { status: 'noop', summary: 'no NHL stats source configured' };
+    const today = env.now().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const mark = 'nhlGames:dailyDone';
+    if (env.s.store.kv.get(mark) === today) {
+      return { status: 'noop', summary: `NHL games already ingested today (${today})` };
+    }
+    const r = await ingestDaily({ store: env.s.store, pull, log: env.s.log }, today);
+    env.s.store.kv.set(mark, today);
+    return {
+      status: 'success',
+      summary: `NHL games ${r.season} ${r.from}..${r.to}: ${r.skaters} skater, ${r.goalies} goalie rows`,
+    };
+  };
+}
+
 export function executeJob(
   env: JobEnv,
   userId: string,
   job: DaemonJob,
   signal: AbortSignal,
+  why: string = job,
 ): Promise<JobOutcome> {
+  if (job === 'stats') return recorded(env, job, stats(env));
   if (job === 'refresh') return recorded(env, job, refresh(env, userId));
   if (job === 'digest') return recorded(env, job, digest(env, userId));
-  return agentJob(env, userId, job, signal);
+  return agentJob(env, userId, job, signal, why);
 }

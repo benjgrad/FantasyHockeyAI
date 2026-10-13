@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Agent, AgentResponse, TeamKey } from '@fha/core';
-import type { LlmClient } from '@fha/llm';
+import type { LlmClient, LlmRouter } from '@fha/llm';
 import { renderPrompt, type PromptCatalog } from '@fha/prompts';
 import type { RunStatus, Store } from '@fha/store';
 import type { SeasonAgentName } from './agents.js';
@@ -71,6 +71,8 @@ export type RouteDecision =
 
 export interface RouteDeps {
   llm: LlmClient;
+  /** When present, the router runs on its configured model (`router` in models.yaml). */
+  models?: LlmRouter;
   prompts: PromptCatalog;
   runId: string;
   signal?: AbortSignal;
@@ -82,7 +84,8 @@ const CHOICES = 'lineup, waivers, trades or matchup';
 export async function routeFreeText(text: string, deps: RouteDeps): Promise<RouteDecision> {
   if (text.trim() === '') return clarify('empty message');
   try {
-    const r = await deps.llm.requestStructured({
+    const llm = deps.models?.forAgent('router') ?? deps.llm;
+    const r = await llm.requestStructured({
       agent: 'gm',
       runId: deps.runId,
       system: [renderPrompt(deps.prompts, 'gm.router')],

@@ -6,7 +6,15 @@ import type { ChatEvent, DecisionCard } from '@fha/api';
  */
 export type Part =
   | { kind: 'text'; text: string }
-  | { kind: 'tool'; name: string; status: 'running' | 'ok' | 'error'; detail?: string }
+  | {
+      kind: 'tool';
+      name: string;
+      status: 'running' | 'ok' | 'error';
+      /** The result (or error). */
+      detail?: string;
+      /** What the model asked for, as `key: value` lines. */
+      input?: string;
+    }
   | { kind: 'decision'; card: DecisionCard }
   | { kind: 'error'; code: string; message: string };
 
@@ -16,6 +24,8 @@ export interface Turn {
   parts: Part[];
   /** An assistant turn still streaming. */
   pending: boolean;
+  /** Written by the daemon into the Background activity chat (D-027), with when. */
+  background?: { at: string };
 }
 
 export function userTurn(id: string, text: string): Turn {
@@ -61,7 +71,8 @@ function appendText(parts: Part[], delta: string): Part[] {
 function applyTool(parts: Part[], event: Extract<ChatEvent, { type: 'tool' }>): Part[] {
   const detail = event.detail === undefined ? {} : { detail: event.detail };
   if (event.status === 'start') {
-    return [...parts, { kind: 'tool', name: event.name, status: 'running', ...detail }];
+    const input = event.input === undefined ? {} : { input: event.input };
+    return [...parts, { kind: 'tool', name: event.name, status: 'running', ...detail, ...input }];
   }
   const status = event.status;
   // The most recent running call of this tool is the one that finished.
@@ -92,8 +103,7 @@ function settleTools(parts: Part[]): Part[] {
 }
 
 /**
- * A stored message as a turn (history carries text, decisions and why a turn failed, not tool
- * calls).
+ * A stored message as a turn: its tool calls (shortened), text, decisions and why it failed.
  */
 export function turnFromMessage(message: {
   id: number;
@@ -101,10 +111,52 @@ export function turnFromMessage(message: {
   text: string;
   decisions: DecisionCard[];
   error?: { code: string; message: string } | undefined;
+  tools?: { name: string; ok: boolean; detail?: string; input?: string }[] | undefined;
+  source?: 'background' | undefined;
+  createdAt?: string;
 }): Turn {
   const parts: Part[] = [];
+  // The tools ran before the answer was written, so their chips come first.
+  for (const t of message.tools ?? []) {
+    parts.push({
+      kind: 'tool',
+      name: t.name,
+      status: t.ok ? 'ok' : 'error',
+      ...(t.detail === undefined ? {} : { detail: t.detail }),
+      ...(t.input === undefined ? {} : { input: t.input }),
+    });
+  }
   if (message.text) parts.push({ kind: 'text', text: message.text });
   for (const card of message.decisions) parts.push({ kind: 'decision', card });
   if (message.error) parts.push({ kind: 'error', ...message.error });
-  return { id: `m${message.id}`, role: message.role, parts, pending: false };
+  const turn: Turn = { id: `m${message.id}`, role: message.role, parts, pending: false };
+  return message.source === 'background'
+    ? { ...turn, background: { at: message.createdAt ?? '' } }
+    : turn;
+}
+
+/**
+ * What "Retry" resends: the question behind the latest reply, once that reply has finished.
+ * Undefined while a reply is streaming, or when the thread does not end with a reply.
+ */
+export function retryText(turns: readonly Turn[]): string | undefined {
+  const last = turns[turns.length - 1];
+  // A background reply answered a trigger, not a question: nothing to resend.
+  if (last?.role !== 'assistant' || last.pending || last.background !== undefined) return undefined;
+  for (let i = turns.length - 2; i >= 0; i -= 1) {
+    const t = turns[i];
+    if (t?.role === 'user') {
+      const text = t.parts
+        .map((p) => (p.kind === 'text' ? p.text : ''))
+        .join('')
+        .trim();
+      return text === '' ? undefined : text;
+    }
+  }
+  return undefined;
+}
+
+/** True when the turn ended in an error (shown as a red note). */
+export function turnFailed(turn: Turn): boolean {
+  return turn.parts.some((p) => p.kind === 'error');
 }

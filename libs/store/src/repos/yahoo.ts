@@ -9,6 +9,8 @@ import type { Clock, Db } from '../db.js';
  * deliberately does not depend on the auth lib.
  */
 export type YahooStatus = 'connected' | 'expired' | 'error';
+/** Which side of Yahoo answered: the API (reads) or the website (writes, keepalive). */
+export type YahooSide = 'api' | 'site';
 
 export interface YahooConnection {
   userId: string;
@@ -19,6 +21,10 @@ export interface YahooConnection {
   status: YahooStatus;
   lastOkAt?: string;
   lastError?: string;
+  /** When the website last worked (a write's page or the keepalive). */
+  siteOkAt?: string;
+  /** Who set `expired`; an API success never clears a website expiry (U-30). */
+  expiredBy?: YahooSide;
   updatedAt: string;
 }
 
@@ -31,13 +37,20 @@ export interface YahooConnectionsRepo {
    * `whoami` check. A reconnect keeps the previous league/team selection.
    */
   saveCredentials(userId: string, cookiesEnc: string): void;
+  /**
+   * Replace the stored cookies with ones Yahoo rotated (D-033): the status, team and timestamps
+   * stay. Returns false when the user has no connection.
+   */
+  updateCookies(userId: string, cookiesEnc: string): boolean;
   /** Returns false when the user has no connection to select a team on. */
   selectTeam(userId: string, leagueKey: string, teamKey: string): boolean;
   /**
    * `connected` stamps `lastOkAt` and clears the error; `expired` (a `YahooAuthError`) and
-   * `error` record why. Returns false when the user has no connection.
+   * `error` record why. `side` defaults to the API. An API success leaves a website expiry in
+   * place; a website success also stamps `siteOkAt`. Returns false when the user has no
+   * connection.
    */
-  markStatus(userId: string, status: YahooStatus, error?: string): boolean;
+  markStatus(userId: string, status: YahooStatus, error?: string, side?: YahooSide): boolean;
   /** Disconnect: forgets the cookies and the selection. */
   remove(userId: string): boolean;
 }
@@ -50,6 +63,8 @@ interface YahooRow {
   status: YahooStatus;
   last_ok_at: string | null;
   last_error: string | null;
+  site_ok_at: string | null;
+  expired_by: YahooSide | null;
   updated_at: string;
 }
 
@@ -62,6 +77,8 @@ function toConnection(r: YahooRow): YahooConnection {
     status: r.status,
     ...(r.last_ok_at === null ? {} : { lastOkAt: r.last_ok_at }),
     ...(r.last_error === null ? {} : { lastError: r.last_error }),
+    ...(r.site_ok_at === null ? {} : { siteOkAt: r.site_ok_at }),
+    ...(r.expired_by === null ? {} : { expiredBy: r.expired_by }),
     updatedAt: r.updated_at,
   };
 }
@@ -73,17 +90,32 @@ export function yahooConnectionsRepo(db: Db, now: Clock): YahooConnectionsRepo {
      VALUES (?, ?, 'connected', ?, ?)
      ON CONFLICT (user_id) DO UPDATE SET cookies_enc = excluded.cookies_enc,
        status = 'connected', last_ok_at = excluded.last_ok_at, last_error = NULL,
-       updated_at = excluded.updated_at`,
+       expired_by = NULL, updated_at = excluded.updated_at`,
+  );
+  const cookies = db.prepare(
+    `UPDATE yahoo_connections SET cookies_enc = ?, updated_at = ? WHERE user_id = ?`,
   );
   const setTeam = db.prepare(
     `UPDATE yahoo_connections SET league_key = ?, team_key = ?, updated_at = ? WHERE user_id = ?`,
   );
-  const ok = db.prepare(
-    `UPDATE yahoo_connections SET status = 'connected', last_ok_at = ?, last_error = NULL,
-       updated_at = ? WHERE user_id = ?`,
+  // An API success clears anything but a website expiry; it still stamps lastOkAt.
+  const apiOk = db.prepare(
+    `UPDATE yahoo_connections SET last_ok_at = ?, updated_at = ?,
+       status = CASE WHEN expired_by = 'site' THEN status ELSE 'connected' END,
+       last_error = CASE WHEN expired_by = 'site' THEN last_error ELSE NULL END
+     WHERE user_id = ?`,
+  );
+  const siteOk = db.prepare(
+    `UPDATE yahoo_connections SET status = 'connected', last_ok_at = ?, site_ok_at = ?,
+       last_error = NULL, expired_by = NULL, updated_at = ? WHERE user_id = ?`,
   );
   const fail = db.prepare(
-    `UPDATE yahoo_connections SET status = ?, last_error = ?, updated_at = ? WHERE user_id = ?`,
+    // A network error never hides a website expiry: the status stays `expired` until fixed.
+    `UPDATE yahoo_connections SET updated_at = ?,
+       status = CASE WHEN expired_by = 'site' AND ? = 'error' THEN status ELSE ? END,
+       last_error = CASE WHEN expired_by = 'site' AND ? = 'error' THEN last_error ELSE ? END,
+       expired_by = CASE WHEN ? = 'expired' THEN ? ELSE expired_by END
+     WHERE user_id = ?`,
   );
   const remove = db.prepare('DELETE FROM yahoo_connections WHERE user_id = ?');
   const all = db.prepare('SELECT * FROM yahoo_connections ORDER BY rowid');
@@ -99,12 +131,16 @@ export function yahooConnectionsRepo(db: Db, now: Clock): YahooConnectionsRepo {
     },
     selectTeam: (userId, leagueKey, teamKey) =>
       setTeam.run(leagueKey, teamKey, now().toISOString(), userId).changes === 1,
-    markStatus(userId, status, error) {
+    updateCookies: (userId, cookiesEnc) =>
+      cookies.run(cookiesEnc, now().toISOString(), userId).changes === 1,
+    markStatus(userId, status, error, side = 'api') {
       const at = now().toISOString();
-      const info =
-        status === 'connected'
-          ? ok.run(at, at, userId)
-          : fail.run(status, error ?? null, at, userId);
+      let info;
+      if (status !== 'connected') {
+        const e = error ?? null;
+        info = fail.run(at, status, status, status, e, status, side, userId);
+      } else if (side === 'site') info = siteOk.run(at, at, at, userId);
+      else info = apiOk.run(at, at, userId);
       return info.changes === 1;
     },
     remove: (userId) => remove.run(userId).changes === 1,

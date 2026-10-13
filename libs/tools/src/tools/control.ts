@@ -26,7 +26,7 @@ export const abstain = defineTool({
 export const askBen = defineTool({
   name: 'askBen',
   description:
-    'Queue a short question for Ben when a decision genuinely needs him, with options if they help. His answer arrives in a later run, not this one, so end your turn after calling it.',
+    "Queue a short question for Ben when a decision genuinely needs him, with options if they help. It is pushed to his phone and shown in his Background activity chat; his reply there reaches your next run (as \"Ben's answers\" in the job message), not this one, so end your turn after calling it.",
   input: z.object({
     question: z.string().min(1).max(500),
     options: z.array(z.string().min(1)).max(6).optional(),
@@ -35,6 +35,9 @@ export const askBen = defineTool({
   execute: (input, ctx) => {
     const id = ctx.store.questions.ask(ctx.runId, ctx.agent, input.question, input.options ?? []);
     ctx.state.finished = { kind: 'askBen', reason: input.question };
+    // Where Ben sees it and answers it (D-029): the Background activity chat.
+    const opts = input.options === undefined || input.options.length === 0 ? '' : ` Options: ${input.options.join(' / ')}.`;
+    ctx.activity?.(`❓ The ${ctx.agent} agent asks: ${input.question}${opts} Reply here to answer.`);
     return Promise.resolve(
       ok(
         { queued: true, questionId: id },

@@ -209,7 +209,7 @@ const server = createServer((req, res) => {
           return;
         }
         const payload = JSON.stringify({
-          title: 'FantasyHockeyAI',
+          title: 'Hockey GM · Draft',
           body: 'Notifications are working.',
           url: '/',
         });

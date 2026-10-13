@@ -34,7 +34,7 @@ describe('migration 004 (auto_approve)', () => {
     v3.close();
 
     const after = openStore(path, { now });
-    expect(after.migrationsApplied).toEqual([4]);
+    expect(after.migrationsApplied).toEqual([4, 5, 6, 7, 8, 9, 10]);
     const row = after.approvals.get(p.planId);
     expect(row).toMatchObject({ status: 'pending', deadline: '2026-10-06T22:00:00.000Z' });
     expect(row?.autoApproveAt).toBeUndefined();

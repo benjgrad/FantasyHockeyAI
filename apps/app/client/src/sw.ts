@@ -88,7 +88,7 @@ interface PushPayload {
 
 self.addEventListener('push', (event) => {
   // A push must always show something: a handler that shows nothing costs the permission.
-  let data: PushPayload = { title: 'FantasyHockeyAI', body: '', url: '/', tag: 'fha' };
+  let data: PushPayload = { title: 'Hockey GM', body: '', url: '/', tag: 'fha' };
   try {
     if (event.data) data = { ...data, ...(event.data.json() as Partial<PushPayload>) };
   } catch {

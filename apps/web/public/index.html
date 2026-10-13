@@ -3,22 +3,23 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f1720" />
+    <meta name="theme-color" content="#0a1520" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <title>FHA Draft</title>
+    <title>Hockey GM · Draft</title>
     <style>
+      /* The Rink palette, dark theme (D-019). Source of truth: apps/app/client/src/styles.css. */
       :root {
         color-scheme: dark;
-        --bg: #0f1720;
-        --card: #17212b;
-        --line: #243140;
-        --ink: #e6edf3;
+        --bg: #0a1520;
+        --card: #102030;
+        --line: #22384c;
+        --ink: #eaf2f8;
         --dim: #8b9aa108;
-        --mut: #93a1ad;
-        --good: #3fb950;
-        --warn: #d29922;
-        --bad: #f85149;
-        --acc: #58a6ff;
+        --mut: #8ea4b6;
+        --good: #4ccf7a;
+        --warn: #f0b429;
+        --bad: #ff8a4c;
+        --acc: #7cc8ff;
       }
       * {
         box-sizing: border-box;
@@ -82,7 +83,7 @@
         margin: 8px 0;
       }
       .n {
-        background: #0d141b;
+        background: #07111a;
         border: 1px solid var(--line);
         border-radius: 6px;
         padding: 2px 7px;
@@ -96,7 +97,7 @@
       ul.why {
         margin: 6px 0 0;
         padding-left: 18px;
-        color: #c7d3dd;
+        color: #c3d3e0;
         font-size: 13px;
       }
       ul.why li {
@@ -106,7 +107,7 @@
         font: inherit;
         border-radius: 8px;
         border: 1px solid var(--line);
-        background: #1d2a36;
+        background: #172a3c;
         color: var(--ink);
         padding: 9px 12px;
       }
@@ -130,7 +131,7 @@
         border-bottom: 0;
       }
       .alt button {
-        background: #1d2a36;
+        background: #172a3c;
         padding: 6px 10px;
         font-size: 13px;
         white-space: nowrap;
@@ -140,7 +141,7 @@
       }
       .bar {
         height: 6px;
-        background: #0d141b;
+        background: #07111a;
         border-radius: 3px;
         overflow: hidden;
         margin-top: 3px;
@@ -249,7 +250,7 @@
       .altbody button {
         width: 100%;
         margin-top: 8px;
-        background: #1d2a36;
+        background: #172a3c;
       }
       table.cmp {
         width: 100%;
@@ -305,18 +306,18 @@
       .d.own {
         color: var(--mut);
         border-color: var(--line);
-        background: #0d141b;
+        background: #07111a;
       }
 
       .narr {
         margin-top: 10px;
         padding: 10px 12px;
         border-left: 2px solid var(--acc);
-        background: #0d141b;
+        background: #07111a;
         border-radius: 0 8px 8px 0;
         font-size: 13.5px;
         line-height: 1.5;
-        color: #c7d3dd;
+        color: #c3d3e0;
       }
       .narr.gen {
         color: var(--mut);
@@ -325,7 +326,7 @@
     </style>
   </head>
   <body>
-    <h1>FantasyHockeyAI — draft board</h1>
+    <h1>Hockey GM — draft board</h1>
     <div class="sub" id="sub">loading…</div>
     <div id="app"></div>
     <div class="card">

@@ -111,7 +111,7 @@ describe('Markdown', () => {
 
   it('renders a GFM table with numeric columns right-aligned', () => {
     const html = render('| Player | G |\n|---|---|\n| McDavid | 12 |\n| Hyman | 7 |');
-    expect(html).toContain('overflow-x-auto');
+    expect(html).toContain('scroll-x');
     expect(html).toContain('<th>Player</th>');
     expect(html).toContain('<th data-num="">G</th>');
     expect(html).toContain('<td data-num="">12</td>');

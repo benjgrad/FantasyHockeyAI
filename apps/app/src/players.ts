@@ -11,13 +11,14 @@ import {
   availabilityOf,
   dayStatus,
   scoringCategories,
-  weekBounds,
   weeksRemaining,
   SEASON_WEEKS,
   type LeagueView,
 } from '@fha/tools';
 import { newYorkDate } from './league.js';
 import { reasonsFor } from './playersReasons.js';
+import { valueNowView } from './playerValueNow.js';
+import type { Store } from '@fha/store';
 import {
   categoryStrength,
   restOfSeasonGames,
@@ -41,16 +42,19 @@ export interface CardContext {
   today: string;
   nowIso: string;
   gamesThisWeek: Map<string, number>;
+  /** Game history and the stored value days; without it the card has no rest-of-season part. */
+  store?: Store;
 }
 
-export function cardContext(view: LeagueView, now: Date): CardContext {
+export function cardContext(view: LeagueView, now: Date, store?: Store): CardContext {
   const today = view.snap.date > newYorkDate(now) ? view.snap.date : newYorkDate(now);
   return {
     view,
     strength: categoryStrength(view),
     today,
     nowIso: now.toISOString(),
-    gamesThisWeek: view.gamesBetween(today, weekBounds(view.snap.date).end),
+    gamesThisWeek: view.gamesBetween(today, view.weekOf().end),
+    ...(store === undefined ? {} : { store }),
   };
 }
 
@@ -80,7 +84,16 @@ export function restOfSeasonGp(view: LeagueView, p: Player, a: Availability): nu
 
 export function ownerOf(view: LeagueView, key: string): PlayerCard['owner'] {
   const teamKey = view.ownerOf(key);
-  if (teamKey === undefined) return { kind: 'freeAgent', teamKey: null, name: 'free agent' };
+  if (teamKey === undefined) {
+    const p = view.player(key);
+    return p?.onWaivers === true
+      ? {
+          kind: 'waivers',
+          teamKey: null,
+          name: `waivers${p.waiverDate === undefined ? '' : ` until ${p.waiverDate}`}`,
+        }
+      : { kind: 'freeAgent', teamKey: null, name: 'free agent' };
+  }
   if (teamKey === view.teamKey) return { kind: 'us', teamKey, name: 'us' };
   const name = view.snap.teams.find((t) => t.teamKey === teamKey)?.name ?? teamKey;
   return { kind: 'team', teamKey, name };
@@ -168,6 +181,7 @@ export function buildCard(c: CardContext, p: Player): PlayerCard {
     availability: availabilityPart(c, p, a),
     value: valueOf(c, p, gp),
     fit: fitOf(c, p),
+    now: valueNowView(c.view, c.store, p.playerKey),
     market: { adp: p.adp ?? null, percentOwned: p.percentOwned ?? null },
     lowConfidence: c.view.valuation(p.playerKey)?.lowConfidence ?? true,
     categories: categoriesOf(c, p, gp),

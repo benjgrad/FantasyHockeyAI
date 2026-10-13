@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { mockView } from '@fha/tools';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LeagueSnapshot } from '@fha/core';
@@ -12,7 +13,9 @@ import {
   startHarness,
   type Harness,
 } from '../testing.js';
+import { userPermissions } from '../permissions.js';
 import { Daemon } from './daemon.js';
+import { keepaliveDue } from './keepalive.js';
 import { LockHeldError } from './lock.js';
 import { firstGameFor, PREGAME_LEAD_MS } from './schedule.js';
 
@@ -119,6 +122,39 @@ describe('daemon: jobs', () => {
     expect(digest[0]?.body).toContain('Yesterday: no moves.');
   });
 
+  it('stats ingests yesterday’s NHL games once a day, whatever the number of users', async () => {
+    const asked: string[] = [];
+    h.app.services.pullGames = (q) => {
+      asked.push(`${q.from}..${q.to}`);
+      return Promise.resolve({ skaters: [], goalies: [] });
+    };
+    d.enqueue(userId, 'stats', 'test');
+    await d.queue.idle();
+    d.enqueue(userId, 'stats', 'again');
+    await d.queue.idle();
+    expect(asked.length).toBeGreaterThan(0);
+    const firstRun = asked.length;
+    expect(h.logs.join('\n')).toMatch(/stats for \S+ → success: NHL games/);
+    expect(h.logs.join('\n')).toMatch(/stats for \S+ → noop: NHL games already ingested today/);
+    expect(asked).toHaveLength(firstRun);
+  });
+
+  it('waivers with no adds left this week is a noop without a model run', async () => {
+    const perms = userPermissions(h.store, h.app.services.config.permissionsFile, userId);
+    const capped = { mode: 'allow' as const, limits: { maxPerWeek: 0 } };
+    h.store.permissions.set(
+      userId,
+      { ...perms, plans: { ...perms.plans, addDrop: capped } },
+      'test',
+    );
+    d.enqueue(userId, 'waivers', 'test');
+    await d.queue.idle();
+    expect(h.llm.fake?.bodies ?? []).toHaveLength(0);
+    expect(h.logs.join('\n')).toMatch(
+      /waivers for \S+ → noop: no adds left this week \(0 of 0 used\)/,
+    );
+  });
+
   it('the league review runs its agent with a scripted model and pushes its digest', async () => {
     h.llm.script.push(
       { toolUses: [{ name: 'getLeagueEvents', input: { sinceDays: 7 } }] },
@@ -218,6 +254,138 @@ describe('daemon: watchers and rules', () => {
     h.yahoo.expired = true;
     await d.pollOnce('players', userId);
     expect(notices('failed')).toHaveLength(2);
+  });
+});
+
+describe('daemon: what is watched, visibly (D-027)', () => {
+  it("the Activity API lists the players followed with why, and each watcher's last run", async () => {
+    await d.pollOnce('players', userId);
+    const res = await call(h, '/api/activity', { cookie });
+    expect(res.status).toBe(200);
+    const v = (await res.json()) as {
+      players: { reasons: string[] }[];
+      watchers: { name: string; last: { ok: boolean } | null }[];
+      rules: unknown[];
+    };
+    expect(v.players.some((p) => p.reasons.includes('our roster'))).toBe(true);
+    expect(v.watchers.find((w) => w.name === 'players')?.last?.ok).toBe(true);
+    expect(v.watchers.find((w) => w.name === 'goalies')?.last).toBeNull();
+    expect(v.rules.length).toBeGreaterThan(5);
+  });
+
+  it('lists every agent with its schedule, triggers, tools and permissions (D-028)', async () => {
+    const v = (await (await call(h, '/api/activity', { cookie })).json()) as {
+      agents: {
+        name: string;
+        schedule: string[];
+        triggers: string[];
+        tools: string[];
+        may: string[];
+      }[];
+    };
+    const names = v.agents.map((a) => a.name);
+    expect(names).toEqual(['lineup', 'waivers', 'trades', 'matchup', 'leagueReview', 'assistant']);
+    const lineup = v.agents.find((a) => a.name === 'lineup');
+    expect(lineup?.schedule.some((x) => x.includes('10:00'))).toBe(true);
+    expect(lineup?.triggers.some((x) => x.includes('IR-eligible'))).toBe(true);
+    expect(lineup?.tools).toContain('proposeLineup');
+    expect(lineup?.may.some((x) => x.startsWith('lineup: '))).toBe(true);
+    expect(v.agents.find((a) => a.name === 'leagueReview')?.may).toEqual([
+      'read only: proposes nothing',
+    ]);
+  });
+
+  it('shows players an agent follows, polls them, and lets Ben stop one', async () => {
+    const mock = mockView();
+    const key = mock.snap.players.find((p) => mock.isFreeAgent(p.playerKey))?.playerKey;
+    expect(key).toBeDefined();
+    h.store.watchList.add({
+      userId,
+      playerKey: key ?? '',
+      reason: 'trade target',
+      addedBy: 'trades',
+      expiresAt: new Date(h.clock.now.getTime() + 86_400_000).toISOString(),
+    });
+    await d.pollOnce('players', userId);
+    const v = (await (await call(h, '/api/activity', { cookie })).json()) as {
+      followed: { playerKey: string }[];
+      players: { playerKey: string; reasons: string[] }[];
+    };
+    expect(v.followed.map((f) => f.playerKey)).toEqual([key]);
+    expect(v.players.find((p) => p.playerKey === key)?.reasons).toContain(
+      'followed by trades: trade target',
+    );
+    const del = await call(h, `/api/activity/watch/${encodeURIComponent(key ?? '')}`, {
+      cookie,
+      method: 'DELETE',
+    });
+    expect(del.status).toBe(200);
+    expect(h.store.watchList.active(userId, h.clock.now.toISOString())).toEqual([]);
+  });
+});
+
+describe('daemon: an expiry found outside a job', () => {
+  it('is announced by the sweeper once per session (a "Do it" found it on 2026-10-02)', async () => {
+    h.store.yahooConnections.markStatus(userId, 'expired', 'Yahoo session expired or signed out');
+    await d.sweepOnce();
+    await d.sweepOnce();
+    expect(notices('failed').map((n) => n.title)).toEqual(['Reconnect Yahoo']);
+  });
+});
+
+describe('daemon: website keepalive (D-033)', () => {
+  it('checks the site when due, not again within six hours, and again before a lineup', async () => {
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.yahoo.siteChecks).toBe(1);
+    expect(h.store.yahooConnections.get(userId)?.siteOkAt).toBe(START.toISOString());
+    h.clock.now = new Date(START.getTime() + 30 * 60_000);
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.yahoo.siteChecks).toBe(1);
+    h.clock.now = new Date(START.getTime() + 6 * 3_600_000);
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.yahoo.siteChecks).toBe(2);
+    expect(keepaliveDue(0, 50 * 60_000, 100 * 60_000)).toBe(true); // a lineup within the hour
+    expect(keepaliveDue(0, 50 * 60_000, 200 * 60_000)).toBe(false);
+  });
+
+  it('a refused site: expired by the website, one push, and API reads do not clear it', async () => {
+    h.yahoo.siteDead = true;
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.store.yahooConnections.get(userId)).toMatchObject({
+      status: 'expired',
+      expiredBy: 'site',
+    });
+    expect(notices('failed').map((n) => n.title)).toEqual(['Reconnect Yahoo']);
+    await h.app.services.league.get(userId, { refresh: true }).catch(() => undefined);
+    h.store.yahooConnections.markStatus(userId, 'connected');
+    expect(h.store.yahooConnections.get(userId)?.status).toBe('expired');
+    await d.sweepOnce();
+    expect(notices('failed')).toHaveLength(1);
+
+    // The keepalive revives it once Yahoo takes the session again, and a later expiry notifies.
+    h.yahoo.siteDead = false;
+    h.clock.now = new Date(START.getTime() + 6 * 3_600_000);
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.store.yahooConnections.get(userId)?.status).toBe('connected');
+    await d.sweepOnce();
+    h.yahoo.siteDead = true;
+    h.clock.now = new Date(START.getTime() + 12 * 3_600_000);
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(notices('failed')).toHaveLength(2);
+  });
+
+  it('Yahoo down: no expiry and no push (P9)', async () => {
+    h.yahoo.down = true;
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.store.yahooConnections.get(userId)?.status).toBe('connected');
+    expect(notices('failed')).toEqual([]);
   });
 });
 

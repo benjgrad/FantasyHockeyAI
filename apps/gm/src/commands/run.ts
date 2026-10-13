@@ -14,6 +14,7 @@ import {
   DEFAULT_DB,
   DEFAULT_SNAPSHOT,
   createLlm,
+  createModels,
   jobDeps,
   openRuntime,
   type Runtime,
@@ -40,9 +41,10 @@ export async function runJobCommand(
   const rt = openRuntime({ ...opts, print });
   try {
     const llm = createLlm(opts, rt.store);
+    const models = createModels(opts, rt.store);
     header(rt, opts, print);
     const input = opts.note === undefined ? {} : { note: opts.note };
-    const result = await runJob(job, jobDeps(rt, llm), input);
+    const result = await runJob(job, jobDeps(rt, llm, models), input);
     printResult(rt, result, print);
     return result;
   } finally {
@@ -63,8 +65,9 @@ export async function askCommand(
   const rt = openRuntime({ ...opts, print });
   try {
     const llm = createLlm(opts, rt.store);
+    const models = createModels(opts, rt.store);
     const runId = rt.store.runs.start('ask');
-    const decision = await routeFreeText(text, { llm, prompts: loadPrompts(), runId });
+    const decision = await routeFreeText(text, { llm, models, prompts: loadPrompts(), runId });
     const routed = decision.kind === 'job' ? `routed to ${decision.job}` : decision.kind;
     rt.store.runs.finish(runId, decision.kind === 'job' ? 'success' : 'noop', routed);
     if (decision.kind === 'clarify') {
@@ -80,7 +83,7 @@ export async function askCommand(
     }
     header(rt, opts, print);
     print(`routed to ${decision.job} (${Math.round(decision.confidence * 100)}% sure)`);
-    const result = await runJob(decision.job, jobDeps(rt, llm), { note: text });
+    const result = await runJob(decision.job, jobDeps(rt, llm, models), { note: text });
     printResult(rt, result, print);
     return { decision, job: result };
   } finally {

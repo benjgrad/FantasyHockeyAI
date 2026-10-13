@@ -57,6 +57,19 @@ export interface TradeInput {
   /** Unrostered players who can fill a spot the trade frees. */
   freeAgents?: readonly number[];
   weeksRemaining: number;
+  /**
+   * The weeks a projection's games are spread over: the whole season (25) for a full-season
+   * projection, which every snapshot projection is. Defaults to `weeksRemaining`, right only for
+   * a projection of the games left; dividing a full-season projection by the weeks left made
+   * every weekly line grow as the season went on.
+   */
+  projectionWeeks?: number;
+  /**
+   * Team games left in the season, the horizon availability shares are taken over. Defaults to
+   * `weeksRemaining` weeks of the NHL's average games a day; the app passes its one horizon
+   * (`seasonHorizonGames`) so a trade, a player card and the league page agree.
+   */
+  horizonGames?: number;
   matchup?: MatchupOptions;
   /**
    * Availability by nhlId, for every roster in the field. An injured player's weekly line is
@@ -95,14 +108,18 @@ export interface TradeEvaluation {
 }
 
 /** `share`: of the remaining season, the part he is expected to be available for. */
-type Entry = { p: Projection; v: Valuation; share: number };
-type Index = ReadonlyMap<number, Entry>;
+export type Entry = { p: Projection; v: Valuation; share: number };
+export type Index = ReadonlyMap<number, Entry>;
 
-function buildIndex(
-  input: Pick<TradeInput, 'projections' | 'valuations' | 'availability' | 'weeksRemaining'>,
+/** @internal Shared with {@link categoryWinsAdded}. */
+export function buildIndex(
+  input: Pick<
+    TradeInput,
+    'projections' | 'valuations' | 'availability' | 'weeksRemaining' | 'horizonGames'
+  >,
 ): Index {
   const byId = new Map<number, Projection>(input.projections.map((p) => [p.nhlId, p]));
-  const horizon = input.weeksRemaining * 7 * NHL_GAMES_PER_DAY;
+  const horizon = input.horizonGames ?? input.weeksRemaining * 7 * NHL_GAMES_PER_DAY;
   const out = new Map<number, Entry>();
   for (const v of input.valuations) {
     const p = byId.get(v.nhlId);
@@ -123,35 +140,40 @@ function buildIndex(
   return out;
 }
 
-function weeklyLine(
+/** @internal */
+export function weeklyLine(
   ids: readonly number[],
   index: Index,
-  input: Pick<TradeInput, 'settings' | 'categories' | 'weeksRemaining'>,
+  input: Pick<TradeInput, 'settings' | 'categories' | 'weeksRemaining' | 'projectionWeeks'>,
 ): CategoryLine {
   const roster = ids.map((id) => entry(index, id).v);
   const starters = seasonStarters(roster, input.settings);
   return sumLines(
     starters.map((v) => {
       const { p, share } = entry(index, v.nhlId);
-      return playerLine(p, (share * p.gp) / input.weeksRemaining, input.categories);
+      return playerLine(
+        p,
+        (share * p.gp) / (input.projectionWeeks ?? input.weeksRemaining),
+        input.categories,
+      );
     }),
   );
 }
 
-function entry(index: Index, id: number): Entry {
+export function entry(index: Index, id: number): Entry {
   const e = index.get(id);
   if (!e) throw new TradeInputError(`player ${String(id)} has no projection and valuation`);
   return e;
 }
 
-type Settled = { roster: number[]; signed: number[]; released: number[] };
+export type Settled = { roster: number[]; signed: number[]; released: number[] };
 
 /**
  * Bring a post-trade roster back to a legal, full size. A team over capacity releases its
  * lowest-value player who did not just arrive; a team with a freed spot signs the best
  * remaining free agent, up to its pre-trade size. `pool` is consumed, best first.
  */
-function settle(
+export function settle(
   roster: number[],
   originalSize: number,
   incoming: ReadonlySet<number>,
@@ -178,7 +200,7 @@ function settle(
 }
 
 /** Average weekly P(win) per category of `team` against each line in `field`. */
-function fieldProbabilities(
+export function fieldProbabilities(
   team: CategoryLine,
   field: readonly CategoryLine[],
   categories: readonly string[],
@@ -195,7 +217,7 @@ function fieldProbabilities(
   return out;
 }
 
-const total = (r: Readonly<Record<string, number>>): number =>
+export const total = (r: Readonly<Record<string, number>>): number =>
   Object.values(r).reduce((a, b) => a + b, 0);
 
 /** P3: every id must resolve against the index before anything is computed from it. */

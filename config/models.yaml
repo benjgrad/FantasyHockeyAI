@@ -1,0 +1,17 @@
+# Which Claude model each agent runs on (D-023, 2026-10-01). Ben's tiering: the strongest model
+# for irreversible moves (waivers, trades), Sonnet for routine judgement (lineups, the weekly
+# category weights, chat), Haiku for summarising and routing. Revert any agent by editing its
+# line; `fha usage` shows each agent's model, cost and invalid attempts to judge by.
+# Every id must exist in libs/llm/src/models.ts, or the app refuses to start.
+default: claude-opus-5
+agents:
+  assistant: claude-sonnet-5-5
+  lineup: claude-sonnet-5-5
+  matchup: claude-sonnet-5-5
+  leagueReview: claude-haiku-4-5
+  router: claude-haiku-4-5
+  waivers: claude-opus-5
+  trades: claude-opus-5
+# Thinking depth per agent. Haiku takes no effort (ignored there).
+effort:
+  lineup: low

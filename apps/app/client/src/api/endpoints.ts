@@ -7,10 +7,13 @@ import {
   DecisionActionResult,
   DecisionCard,
   DecisionList,
+  LeagueStatus,
   Me,
   NotificationList,
   NotificationPrefs,
   PermissionsView,
+  ShadowReportView,
+  ActivityView,
   PlayerRef,
   PushOk,
   PushTestResult,
@@ -45,10 +48,10 @@ export const api = {
   logout: () => send(f, '/auth/logout', { method: 'POST' }),
   logoutEverywhere: () => send(f, '/auth/logout-everywhere', { method: 'POST' }),
 
-  connectYahoo: (T: string, Y: string) =>
+  connectYahoo: (T: string, Y: string, cookies: Record<string, string> = {}) =>
     requestJson(f, '/api/settings/yahoo', YahooConnectResponse, {
       method: 'POST',
-      body: { T, Y },
+      body: Object.keys(cookies).length > 0 ? { T, Y, cookies } : { T, Y },
     }),
   selectTeam: (leagueKey: string, teamKey: string) =>
     requestJson(f, '/api/settings/yahoo/team', Me, {
@@ -58,6 +61,12 @@ export const api = {
   disconnectYahoo: () => requestJson(f, '/api/settings/yahoo', Me, { method: 'DELETE' }),
 
   permissions: () => requestJson(f, '/api/settings/permissions', PermissionsView),
+  activity: () => requestJson(f, '/api/activity', ActivityView),
+  stopFollowing: (playerKey: string) =>
+    requestJson(f, `/api/activity/watch/${encodeURIComponent(playerKey)}`, ActivityView, {
+      method: 'DELETE',
+    }),
+  shadow: (days = 14) => requestJson(f, `/api/settings/shadow?days=${days}`, ShadowReportView),
   savePermissions: (permissions: Record<string, unknown>) =>
     requestJson(f, '/api/settings/permissions', PermissionsView, {
       method: 'PUT',
@@ -67,6 +76,7 @@ export const api = {
     requestJson(f, `/api/players/search?q=${encodeURIComponent(q)}`, PlayerSearch),
 
   team: () => requestJson(f, '/api/team', TeamView),
+  leagueStatus: () => requestJson(f, '/api/league/status', LeagueStatus),
   refreshTeam: () => requestJson(f, '/api/team/refresh', TeamView, { method: 'POST' }),
 
   decisions: (status: 'pending' | 'all') =>

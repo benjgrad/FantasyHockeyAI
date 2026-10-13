@@ -21,7 +21,19 @@ export function teamRoutes(s: Services): Route[] {
       path: '/api/team',
       auth: 'user',
       handle: async ({ res, user }) => {
-        sendJson(res, 200, teamView(await s.league.get(user.id), s.now()));
+        sendJson(res, 200, teamView(await s.league.forDisplay(user.id), s.now(), s.store));
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/league/status',
+      auth: 'user',
+      handle: ({ res, user }) => {
+        // A write made elsewhere (a daemon job, an approval timing out) is picked up here: the
+        // pages poll this, and a rebuild started now lands while they watch.
+        s.league.refreshIfChanged(user.id);
+        sendJson(res, 200, s.league.status(user.id));
+        return Promise.resolve();
       },
     },
     {
@@ -29,7 +41,11 @@ export function teamRoutes(s: Services): Route[] {
       path: '/api/team/refresh',
       auth: 'user',
       handle: async ({ res, user }) => {
-        sendJson(res, 200, teamView(await s.league.get(user.id, { refresh: true }), s.now()));
+        sendJson(
+          res,
+          200,
+          teamView(await s.league.get(user.id, { refresh: true }), s.now(), s.store),
+        );
       },
     },
     {
@@ -110,8 +126,10 @@ function actionRoutes(s: Services): Route[] {
           planId,
           cardContext(s, user.id),
         );
-        // The roster may have changed: the next team read rebuilds from Yahoo.
+        // The roster may have changed: rebuild from Yahoo now, so the pages' status poll sees it
+        // refreshing and refetches when it lands. (The pipeline has also marked it stale.)
         s.league.invalidate(user.id);
+        s.league.refreshIfChanged(user.id);
         s.log(`decision ${planId} executed by user ${user.id} → ${result.outcome}`);
         sendJson(res, 200, result);
       },

@@ -1,17 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { Plan, TOOL_FOR_KIND, type PlanPayload } from '@fha/core';
 import type { ToolResult } from '@fha/llm';
-import type { SubmitOutcome } from '@fha/pipeline';
+import { validatePlan, type SubmitOutcome } from '@fha/pipeline';
 import type { AttemptKind, Ctx } from './context.js';
+import { validationContextFor } from './validationContext.js';
 
 /**
  * The one path from a propose tool to the pipeline. It builds the `Plan` (identity and ids from
  * the context, never the model), submits it, records the outcome, and turns the outcome into
  * text the model can act on.
  *
- * §9.1 "one fix attempt" is enforced here, in code: the first invalid proposal of a kind comes
- * back as instructions; the second is a non-retryable `STOP`, which ends the loop.
+ * §9.1, enforced here in code: a proposal is validated *before* anything is recorded, so an
+ * invalid attempt never becomes a decision row, a card or a push. Its errors go back to the
+ * model as instructions, and it may fix and retry up to {@link MAX_FIX_ATTEMPTS} times per kind.
+ * A failure no edit can fix (a duplicate of an open plan, a passed deadline) is refused at once.
+ * Refusals are never `STOP`: the run (or chat turn) goes on and the model tells Ben what it
+ * found. Past the limit, further attempts of that kind are refused without being validated.
  */
+/** Retries after the first invalid attempt of a kind: four attempts in all. */
+export const MAX_FIX_ATTEMPTS = 3;
 export interface ProposalResult {
   status: SubmitOutcome['status'] | 'noChange';
   planId?: string;
@@ -27,23 +34,53 @@ export function rejectAttempt(
   ctx: Ctx,
   kind: AttemptKind,
   errors: readonly string[],
+  opts: { terminal?: boolean } = {},
 ): ToolResult<never> {
   const n = (ctx.state.invalidAttempts.get(kind) ?? 0) + 1;
   ctx.state.invalidAttempts.set(kind, n);
-  const tool = kind === 'strategy' ? 'setCategoryWeights' : TOOL_FOR_KIND[kind];
-  ctx.log?.({ tool, event: 'invalid', detail: { attempt: n, errors } });
-  if (n >= 2) {
+  const tool = toolFor(kind);
+  const limit = MAX_FIX_ATTEMPTS + 1;
+  ctx.log?.({ tool, event: 'invalid', detail: { attempt: n, errors, terminal: opts.terminal === true } });
+  // Durable (P10): an invalid attempt leaves no decision row, so this is its only record.
+  ctx.store.attempts.record({
+    runId: ctx.runId,
+    agent: ctx.agent,
+    kind,
+    attempt: n,
+    terminal: opts.terminal === true,
+    errors,
+  });
+  if (opts.terminal === true) {
     return {
       ok: false,
       retryable: false,
-      error: `STOP: the ${tool} proposal failed validation twice in this run (${errors.join(' ')}). It is rejected. Do not retry; tell Ben what you tried.`,
+      error: `Not accepted, and no edit can fix it: ${errors.join(' ')} Do not propose this ${tool} again in this run; tell Ben what you found.`,
     };
   }
+  if (n >= limit) return exhausted(tool, n, errors);
   return {
     ok: false,
     retryable: true,
-    error: `The proposal was not accepted: ${errors.join(' ')} Fix this and propose once more; a second failure ends the run.`,
+    error: `Not accepted (attempt ${n} of ${limit}): ${errors.join(' ')} Fix this and propose again, or explain to Ben why it can't be done.`,
   };
+}
+
+function toolFor(kind: AttemptKind): string {
+  return kind === 'strategy' ? 'setCategoryWeights' : TOOL_FOR_KIND[kind];
+}
+
+function exhausted(tool: string, n: number, errors: readonly string[]): ToolResult<never> {
+  const why = errors.length === 0 ? '' : ` (${errors.join(' ')})`;
+  return {
+    ok: false,
+    retryable: false,
+    error: `The ${tool} proposal failed validation ${n} times in this run${why}. It is rejected; do not retry it. Tell Ben what you tried and why it did not work.`,
+  };
+}
+
+/** True once a kind has used every attempt: further proposals are refused unvalidated. */
+export function attemptsExhausted(ctx: Ctx, kind: AttemptKind): boolean {
+  return (ctx.state.invalidAttempts.get(kind) ?? 0) >= MAX_FIX_ATTEMPTS + 1;
 }
 
 export async function submitProposal(
@@ -68,10 +105,19 @@ export async function submitProposal(
     return rejectAttempt(ctx, payload.kind, [`The plan is malformed (${why}).`]);
   }
   const plan = parsed.data;
+  if (attemptsExhausted(ctx, payload.kind)) {
+    return exhausted(sourceTool, ctx.state.invalidAttempts.get(payload.kind) ?? 0, []);
+  }
+  // Checked before the pipeline records anything: an invalid attempt leaves no trace Ben sees.
+  const checked = validatePlan(plan, validationContextFor(ctx.view, ctx.store, ctx.now));
+  if (!checked.ok) {
+    return rejectAttempt(ctx, payload.kind, checked.errors, { terminal: checked.terminal });
+  }
   const outcome = await ctx.submit(plan);
-  ctx.state.plans.push({ planId: plan.planId, kind: payload.kind, outcome });
   ctx.log?.({ tool: sourceTool, event: outcome.status, detail: { planId: plan.planId } });
+  // The pipeline's own validation is the backstop (state moved in between): still not a plan.
   if (outcome.status === 'invalid') return rejectAttempt(ctx, payload.kind, outcome.errors);
+  ctx.state.plans.push({ planId: plan.planId, kind: payload.kind, outcome });
   ctx.state.finished = { kind: 'proposed', reason: rationale };
   return { ok: true, data: { ...outcomeData(outcome), planId: plan.planId }, summary: outcomeText(outcome, plan.planId) };
 }

@@ -24,10 +24,13 @@ export interface ModelConfig {
    * would otherwise be silently consumed by reasoning and surface as a `max_tokens` failure.
    */
   thinkingReserveTokens: number;
+  /** Whether `output_config.effort` may be sent (Haiku 4.5 rejects it). */
+  supportsEffort: boolean;
 }
 
 /**
- * Ben chose Opus 5 for every agent.
+ * The default model. Agents choose their own in `config/models.yaml` (D-023); this is what an
+ * agent without an entry runs on.
  *
  * `toolChoiceForced: false` even though Opus 5 accepts forced tool_choice: adaptive thinking is on
  * by default on Opus 5, and forced tool_choice alongside thinking was rejected on earlier models
@@ -40,20 +43,27 @@ export const CLAUDE_OPUS_5: ModelConfig = {
   supportsAdaptiveThinking: true,
   maxOutput: 128_000,
   thinkingReserveTokens: 8_000,
+  supportsEffort: true,
 };
 
 export const MODELS: Readonly<Record<string, ModelConfig>> = {
   'claude-opus-5': CLAUDE_OPUS_5,
   // Rejects forced tool_choice (400).
   'claude-opus-5-5': { ...CLAUDE_OPUS_5, id: 'claude-opus-5-5' },
+  // Previous-generation Sonnet: adaptive thinking, 128K output, effort (claude-api ref 2026-09-25).
   'claude-sonnet-5': { ...CLAUDE_OPUS_5, id: 'claude-sonnet-5' },
-  // No adaptive thinking; forced tool_choice is safe because thinking is off.
+  // Current Sonnet: adaptive thinking (disabling it is a 400), forced tool_choice is a 400,
+  // effort supported with a `high` default, 128K output (claude-api ref 2026-09-25).
+  'claude-sonnet-5-5': { ...CLAUDE_OPUS_5, id: 'claude-sonnet-5-5' },
+  // No adaptive thinking and no effort (both are errors); forced tool_choice is safe because
+  // thinking is off. The alias is the ID: no date suffix.
   'claude-haiku-4-5': {
     id: 'claude-haiku-4-5',
     toolChoiceForced: true,
     supportsAdaptiveThinking: false,
     maxOutput: 64_000,
     thinkingReserveTokens: 0,
+    supportsEffort: false,
   },
 };
 

@@ -308,6 +308,22 @@ describe('executeByHuman (D-015)', () => {
     expect(adapter.calls).toBe(0);
   });
 
+  it('a lineup handed to Ben can be sent once the adapter can make it, and only once', async () => {
+    const lineupAllowed = { dryRun: false, plans: { lineup: { mode: 'allow' } } };
+    const l = plan({ kind: 'lineup', date: '2026-10-13', moves: [{ playerKey: A, slot: 'BN' }] });
+    await submitPlan(l, deps(lineupAllowed, { adapter: new ManualAdapter(() => undefined) }));
+    expect(store.decisions.get(l.planId)?.status).toBe('approved');
+    const adapter = new RecordingAdapter();
+    const d = deps(lineupAllowed, { adapter, verify: () => Promise.resolve(true) });
+    expect((await executeByHuman(l.planId, d)).status).toBe('executed');
+    expect(store.executions.forPlan(l.planId).map((e) => e.idempotencyKey)).toEqual([
+      `${l.planId}:0`,
+      `${l.planId}:1`,
+    ]);
+    expect((await executeByHuman(l.planId, d)).status).toBe('not_actionable');
+    expect(adapter.calls).toBe(1);
+  });
+
   it('never runs through the DryRun adapter', async () => {
     const p = await proposed();
     expect((await executeByHuman(p.planId, deps(dry))).status).toBe('not_actionable');

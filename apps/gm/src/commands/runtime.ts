@@ -6,9 +6,14 @@ import { createAgent } from '@fha/agents';
 import {
   anthropicCreateMessage,
   createLlmClient,
+  createLlmRouter,
+  DEFAULT_MODELS_PATH,
   fakeMessage,
+  loadModelsConfig,
+  type CreateLlmClientOptions,
   type CreateMessage,
   type LlmClient,
+  type LlmRouter,
 } from '@fha/llm';
 import {
   DEFAULT_PERMISSIONS_PATH,
@@ -43,6 +48,8 @@ export interface RuntimeOptions {
   fake?: boolean;
   league?: string;
   permissions?: string;
+  /** Per-agent models; default `config/models.yaml`. */
+  modelsPath?: string;
   env?: Readonly<Record<string, string | undefined>>;
   print?: (line: string) => void;
 }
@@ -120,27 +127,36 @@ function defaultNow(view: LeagueView): string {
  * a run that silently fell back to a fake would look like a real decision.
  */
 export function createLlm(opts: RuntimeOptions, store: Store): LlmClient {
-  const env = opts.env ?? process.env;
-  let createMessage: CreateMessage;
-  if (opts.fake === true) {
-    createMessage = fakeAbstain;
-  } else {
-    if ((env['ANTHROPIC_API_KEY'] ?? '') === '') {
-      throw new Error('ANTHROPIC_API_KEY is not set. Set it, or pass --fake to test the wiring.');
-    }
-    createMessage = anthropicCreateMessage();
-  }
-  return createLlmClient({
-    createMessage,
-    onUsage: (e) => {
-      store.usage.record({ ...e, stopReason: e.stopReason ?? undefined });
-    },
-  });
+  return createLlmClient({ createMessage: createMessageFor(opts), onUsage: recordUsage(store) });
 }
 
-export function agentDeps(rt: Runtime, llm: LlmClient): AgentDeps {
+/** Each agent on its model from `config/models.yaml` (D-023); same key check as `createLlm`. */
+export function createModels(opts: RuntimeOptions, store: Store): LlmRouter {
+  return createLlmRouter(
+    { createMessage: createMessageFor(opts), onUsage: recordUsage(store) },
+    loadModelsConfig(opts.modelsPath ?? DEFAULT_MODELS_PATH),
+  );
+}
+
+function createMessageFor(opts: RuntimeOptions): CreateMessage {
+  const env = opts.env ?? process.env;
+  if (opts.fake === true) return fakeAbstain;
+  if ((env['ANTHROPIC_API_KEY'] ?? '') === '') {
+    throw new Error('ANTHROPIC_API_KEY is not set. Set it, or pass --fake to test the wiring.');
+  }
+  return anthropicCreateMessage();
+}
+
+const recordUsage =
+  (store: Store): CreateLlmClientOptions['onUsage'] =>
+  (e) => {
+    store.usage.record({ ...e, stopReason: e.stopReason ?? undefined });
+  };
+
+export function agentDeps(rt: Runtime, llm: LlmClient, models?: LlmRouter): AgentDeps {
   return {
     llm,
+    ...(models === undefined ? {} : { models }),
     prompts: loadPrompts(),
     settings: rt.settings,
     view: rt.view,
@@ -150,8 +166,8 @@ export function agentDeps(rt: Runtime, llm: LlmClient): AgentDeps {
   };
 }
 
-export function jobDeps(rt: Runtime, llm: LlmClient): JobDeps {
-  const deps = agentDeps(rt, llm);
+export function jobDeps(rt: Runtime, llm: LlmClient, models?: LlmRouter): JobDeps {
+  const deps = agentDeps(rt, llm, models);
   return { store: rt.store, agentFor: (name) => createAgent(name, deps), context: rt.context };
 }
 

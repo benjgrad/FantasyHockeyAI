@@ -23,6 +23,10 @@ const RESULT = JSON.parse(
     'utf8',
   ),
 ) as { location: string };
+const LINEUP_FORM = readFileSync(
+  new URL('../../../libs/yahoo/fixtures/web/editroster-form.html', import.meta.url),
+  'utf8',
+);
 
 const KUEMPER = '477.p.5336';
 const GUSTAVSSON = '477.p.7163';
@@ -53,7 +57,11 @@ function kuemper(): YahooPlayer {
 }
 
 /** Connected, dry run on, with (or without) a fake Yahoo website adapter. */
-async function setup(o: { writer: boolean; rosterAfter?: string[] }) {
+async function setup(o: {
+  writer: boolean;
+  rosterAfter?: string[];
+  slotsAfter?: Record<string, string>;
+}) {
   h = await startHarness({ chat: false });
   const cookie = await connected(h);
   const userId = h.store.users.bySub('ben-sub')?.id ?? '';
@@ -61,7 +69,14 @@ async function setup(o: { writer: boolean; rosterAfter?: string[] }) {
   h.store.permissions.set(userId, { ...perms, dryRun: true }, 'test');
   const posts: string[] = [];
   if (o.writer) {
-    const fetchImpl = ((_url: string, init: RequestInit) => {
+    const fetchImpl = ((url: string, init: RequestInit) => {
+      const lineup = url.includes('?date=') || url.endsWith('/editroster');
+      if (init.method === 'POST' && lineup) {
+        posts.push(String(init.body));
+        const headers = { 'content-type': 'application/json' };
+        return Promise.resolve(new Response('{"errors":[]}', { status: 200, headers }));
+      }
+      if (lineup) return Promise.resolve(new Response(LINEUP_FORM, { status: 200 }));
       if (init.method === 'POST') {
         posts.push(String(init.body));
         const headers = { location: RESULT.location };
@@ -84,10 +99,11 @@ async function setup(o: { writer: boolean; rosterAfter?: string[] }) {
             teamKey: tk,
             date,
             entries: keys.map((k) => ({
-              slot: 'BN',
+              slot: o.slotsAfter?.[k] ?? 'BN',
               player: { playerKey: k, name: k, nhlTeam: 'X', eligible: ['G'], positionType: 'G' },
             })),
           }),
+        transactions: () => Promise.resolve([]),
       };
       return new YahooWebAdapter({ ...hooks, writer, reader, teamKey, today: () => '2026-09-29' });
     };
@@ -164,6 +180,32 @@ describe('a dry-run proposal is actionable', () => {
     expect(perms.dryRun).toBe(true);
   });
 
+  it('Do it on a lineup saves it in Yahoo once and confirms it from the roster', async () => {
+    const { cookie, posts, propose } = await setup({
+      writer: true,
+      rosterAfter: [MACKINNON],
+      slotsAfter: { [MACKINNON]: 'C' },
+    });
+    const planId = await propose({
+      kind: 'lineup',
+      date: '2026-10-01',
+      moves: [{ playerKey: MACKINNON, slot: 'C' }],
+    });
+    expect((await card(cookie, planId)).actions).toEqual(['execute', 'dismiss', 'openInYahoo']);
+    const result = DecisionActionResult.parse(
+      await (await act(cookie, planId, 'execute', { confirm: true })).json(),
+    );
+    expect(result).toMatchObject({ outcome: 'executed', card: { status: 'executed' } });
+    expect(posts).toHaveLength(1);
+    const body = Object.fromEntries(new URLSearchParams(posts[0]));
+    // The harness's league fills BN, so MacKinnon goes to C; everyone else is posted where
+    // Yahoo's form has him (which slots change is covered in libs/yahoo).
+    expect(body).toMatchObject({ '5980': 'C', '6777': 'C', '9118': 'G', date: '2026-10-01' });
+    expect(Object.keys(body)).toHaveLength(24);
+    expect((await act(cookie, planId, 'execute', { confirm: true })).status).toBe(409);
+    expect(posts).toHaveLength(1);
+  });
+
   it('a write Yahoo accepted but the roster does not show is reported unverified', async () => {
     const { cookie, propose } = await setup({ writer: true, rosterAfter: [GUSTAVSSON] });
     const planId = await propose({ kind: 'addDrop', add: KUEMPER, drop: GUSTAVSSON });
@@ -218,7 +260,7 @@ describe('a move Ben makes by hand', () => {
   });
 
   it('a lineup Ben set is marked executed only once a fresh roster read shows it', async () => {
-    const { cookie, propose } = await setup({ writer: true });
+    const { cookie, propose } = await setup({ writer: false });
     // MacKinnon is at C in the recorded roster, so a fresh read confirms this lineup.
     const planId = await propose({
       kind: 'lineup',

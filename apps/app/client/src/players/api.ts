@@ -3,6 +3,7 @@ import {
   CompareResponse,
   DecisionPlayers,
   PlayerCard,
+  PlayerFormView,
   PlayerList,
 } from '@fha/api';
 import { requestJson, type FetchLike } from '../api/client';
@@ -13,6 +14,7 @@ const f: FetchLike = (input, init) => fetch(input, init);
 export type PlayerCardT = PlayerCard;
 export type CompareT = CompareResponse;
 export type PlayerListT = PlayerList;
+export type PlayerFormT = PlayerFormView;
 export type StrengthT = CategoryStrength;
 export type CategoryT = PlayerCard['categories'][number];
 
@@ -34,6 +36,8 @@ export function listQuery(p: ListParams): string {
 
 export const playersApi = {
   card: (key: string) => requestJson(f, `/api/players/${encodeURIComponent(key)}`, PlayerCard),
+  form: (key: string) =>
+    requestJson(f, `/api/players/${encodeURIComponent(key)}/form`, PlayerFormView),
   compare: (keys: readonly string[], base?: string) =>
     requestJson(
       f,

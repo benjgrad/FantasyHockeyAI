@@ -1,9 +1,10 @@
 import type { NewEvent } from '@fha/store';
+import { readWatchedSet, watchingKey, type WatchedSet } from '@fha/tools';
 import type { YahooPlayer } from '@fha/yahoo';
 import { HttpError } from '../http.js';
 import { userPermissions } from '../permissions.js';
 import type { Services } from '../services.js';
-import { storedCredentials, type LiveLeagueSource } from '../yahoo.js';
+import { rotationSaver, storedCredentials, type LiveLeagueSource } from '../yahoo.js';
 import { injuredTargets } from './grabInputs.js';
 import { nyDate, nyHour } from './schedule.js';
 import {
@@ -35,7 +36,8 @@ const MIN = 60_000;
 export const WATCHERS: readonly WatcherSpec[] = [
   { name: 'players', intervalMs: 20 * MIN, activeAt: (at) => nyHour(at) >= 6 },
   { name: 'transactions', intervalMs: 30 * MIN, activeAt: () => true },
-  { name: 'goalies', intervalMs: 60 * MIN, activeAt: (at) => nyHour(at) >= 8 },
+  // Starters are named from late morning to an hour before puck drop (D-029).
+  { name: 'goalies', intervalMs: 30 * MIN, activeAt: (at) => nyHour(at) >= 10 },
   { name: 'scoreboard', intervalMs: 60 * MIN, activeAt: () => true },
 ];
 
@@ -60,9 +62,14 @@ export function readerFor(s: Services, userId: string): UserReader {
   if (conn?.leagueKey === undefined || conn.teamKey === undefined) {
     throw new HttpError(409, 'yahoo_not_connected', 'No league and team chosen.');
   }
-  const credentials = storedCredentials({ store: s.store, secretKey: s.config.secretKey }, userId);
+  const deps = { store: s.store, secretKey: s.config.secretKey, log: s.log };
   return {
-    reader: s.yahoo.reader(credentials, conn.leagueKey, conn.teamKey),
+    reader: s.yahoo.reader(
+      storedCredentials(deps, userId),
+      conn.leagueKey,
+      conn.teamKey,
+      rotationSaver(deps, userId),
+    ),
     teamKey: conn.teamKey,
   };
 }
@@ -72,6 +79,60 @@ function record(s: Services, events: readonly NewEvent[]): number {
 }
 
 const seenKey = (userId: string) => `daemon.players:${userId}`;
+
+/** Why a player is followed (D-027); agent-added ones read "followed by <agent>: <reason>". */
+export type WatchReason =
+  | 'our roster'
+  | 'ask first'
+  | 'locked'
+  | 'injured free agent worth an auto-grab'
+  | 'rising free agent'
+  | `followed by ${string}`;
+
+function saveWatching(s: Services, userId: string, w: WatchedSet): void {
+  s.store.kv.set(watchingKey(userId), JSON.stringify(w));
+}
+
+/** The players the last poll followed, with why; undefined before the first poll. */
+export function loadWatching(s: Pick<Services, 'store'>, userId: string): WatchedSet | undefined {
+  return readWatchedSet(s, userId);
+}
+
+/** Each watcher's last run for a user (D-027). */
+export interface WatcherRun {
+  at: string;
+  ok: boolean;
+  events: number;
+  error?: string;
+}
+
+const runsKey = (userId: string) => `daemon.watchers:${userId}`;
+
+export function loadWatcherRuns(
+  s: Pick<Services, 'store'>,
+  userId: string,
+): Partial<Record<WatcherName, WatcherRun>> {
+  const raw = s.store.kv.get(runsKey(userId));
+  if (raw === undefined) return {};
+  try {
+    return JSON.parse(raw) as Partial<Record<WatcherName, WatcherRun>>;
+  } catch {
+    return {};
+  }
+}
+
+export function saveWatcherRun(
+  s: Pick<Services, 'store'>,
+  userId: string,
+  name: WatcherName,
+  run: WatcherRun,
+): void {
+  try {
+    s.store.kv.set(runsKey(userId), JSON.stringify({ ...loadWatcherRuns(s, userId), [name]: run }));
+  } catch {
+    // P9: bookkeeping only.
+  }
+}
 
 function loadSeen(s: Services, userId: string): SeenPlayers | undefined {
   const raw = s.store.kv.get(seenKey(userId));
@@ -106,9 +167,18 @@ async function pollPlayers(env: WatchEnv, userId: string): Promise<number> {
   const ours = new Set(roster.roster.entries.map((e) => e.player.playerKey));
   const perms = userPermissions(s.store, s.config.permissionsFile, userId);
   const targets = view === undefined ? [] : injuredTargets(view, s.store, perms);
-  const extra = [...new Set([...perms.players.ask, ...perms.players.locked, ...targets])].filter(
-    (k) => !ours.has(k),
-  );
+  // Players an agent chose to follow (D-028); expired ones are dropped first.
+  const nowIso = env.now().toISOString();
+  s.store.watchList.prune(nowIso);
+  const followed = s.store.watchList.active(userId, nowIso);
+  const extra = [
+    ...new Set([
+      ...perms.players.ask,
+      ...perms.players.locked,
+      ...targets,
+      ...followed.map((f) => f.playerKey),
+    ]),
+  ].filter((k) => !ours.has(k));
   const others = extra.length === 0 ? [] : await reader.playersByKey(extra);
   const fas = risingFreeAgents(
     await reader.playersDetailed({ status: 'FA', sort: 'OR', limit: FREE_AGENT_POOL }),
@@ -134,6 +204,25 @@ async function pollPlayers(env: WatchEnv, userId: string): Promise<number> {
       })),
   ];
   const unique = [...new Map(watched.map((w) => [w.player.playerKey, w])).values()];
+  // What is followed and why, for Ben to see (D-027).
+  const why = new Map<string, Set<WatchReason>>();
+  const add = (k: string, r: WatchReason) => why.set(k, (why.get(k) ?? new Set()).add(r));
+  for (const k of ours) add(k, 'our roster');
+  for (const k of perms.players.ask) add(k, 'ask first');
+  for (const k of perms.players.locked) add(k, 'locked');
+  for (const k of targets) add(k, 'injured free agent worth an auto-grab');
+  for (const y of fas) add(y.player.playerKey, 'rising free agent');
+  for (const f of followed) add(f.playerKey, `followed by ${f.addedBy}: ${f.reason}`);
+  saveWatching(s, userId, {
+    at: env.now().toISOString(),
+    players: unique.map((w) => ({
+      playerKey: w.player.playerKey,
+      name: w.player.name,
+      nhlTeam: w.player.nhlTeam,
+      status: w.player.status ?? null,
+      reasons: [...(why.get(w.player.playerKey) ?? [])],
+    })),
+  });
   const diff = playerEvents(userId, today, loadSeen(s, userId), unique);
   const n = record(s, diff.events);
   s.store.kv.set(seenKey(userId), JSON.stringify(diff.state));
@@ -169,9 +258,23 @@ async function pollGoalies(env: WatchEnv, userId: string): Promise<number> {
   if (playing !== true) return 0;
   const { reader, teamKey } = readerFor(s, userId);
   const roster = await reader.rosterDetailed(teamKey, today);
-  const goalies = roster.roster.entries
-    .filter((e) => e.player.positionType === 'G')
-    .map((e) => ({ player: e.player, detail: roster.details.get(e.player.playerKey) }));
+  const ours = roster.roster.entries.filter((e) => e.player.positionType === 'G');
+  // Their NHL teammates too (D-029): a teammate flagged as the starter makes ours the backup.
+  const teams = new Set(ours.map((e) => e.player.nhlTeam));
+  const oursKeys = new Set(ours.map((e) => e.player.playerKey));
+  const mates = (view?.snap.players ?? [])
+    .filter((p) => p.positionType === 'G' && teams.has(p.nhlTeam) && !oursKeys.has(p.playerKey))
+    .map((p) => p.playerKey);
+  const mateReads = mates.length === 0 ? [] : await reader.playersByKey(mates);
+  const goalies = [
+    ...ours.map((e) => ({
+      player: e.player,
+      detail: roster.details.get(e.player.playerKey),
+      ours: true,
+      slot: e.slot,
+    })),
+    ...mateReads.map((y) => ({ player: y.player, detail: y.detail, ours: false, slot: null })),
+  ];
   return record(s, goalieEvents(userId, today, goalies));
 }
 

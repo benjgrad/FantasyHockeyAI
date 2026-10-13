@@ -14,6 +14,11 @@ import {
 } from './repos/misc.js';
 import { runsRepo, type RunsRepo } from './repos/runs.js';
 import { usageRepo, type UsageRepo } from './repos/usage.js';
+import { attemptsRepo, type AttemptsRepo } from './repos/attempts.js';
+import { nhlGamesRepo, type NhlGamesRepo } from './repos/nhlGames.js';
+import { valuationHistoryRepo, type ValuationHistoryRepo } from './repos/valuationHistory.js';
+import { lensShadowRepo, type LensShadowRepo } from './repos/lensShadow.js';
+import { watchListRepo, type WatchListRepo } from './repos/watchList.js';
 import { chatTurnsRepo, type ChatTurnsRepo } from './repos/chatTurns.js';
 import { conversationsRepo, type ConversationsRepo } from './repos/conversations.js';
 import { eventsRepo, type EventsRepo } from './repos/events.js';
@@ -55,6 +60,16 @@ export interface Store {
   notificationPrefs: NotificationPrefsRepo;
   // Durable chat turns (migration 003).
   chatTurns: ChatTurnsRepo;
+  // Proposals refused before they were recorded (migration 005).
+  attempts: AttemptsRepo;
+  // Game-level NHL history (migration 006).
+  nhlGames: NhlGamesRepo;
+  // The mid-season value family by day (migration 007).
+  valuations: ValuationHistoryRepo;
+  // Decisions the other value lens would have made differently (migration 008).
+  lensShadow: LensShadowRepo;
+  // Players the agents follow (migration 009).
+  watchList: WatchListRepo;
   /** Migration versions this open applied; empty when the file was already current. */
   readonly migrationsApplied: readonly number[];
   /**
@@ -89,6 +104,11 @@ export function openStore(path: string, opts: StoreOptions = {}): Store {
     snapshots: snapshotsRepo(db, now),
     questions: questionsRepo(db, now),
     usage: usageRepo(db, now),
+    attempts: attemptsRepo(db, now),
+    nhlGames: nhlGamesRepo(db, now),
+    valuations: valuationHistoryRepo(db, now),
+    lensShadow: lensShadowRepo(db, now),
+    watchList: watchListRepo(db, now),
     strategy: strategyRepo(db, now),
     kv: kvRepo(db, now),
     users: usersRepo(db, now),

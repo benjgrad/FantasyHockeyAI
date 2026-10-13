@@ -1,6 +1,14 @@
 import type { ChatEvent, DecisionCard } from '@fha/api';
 import { describe, expect, it } from 'vitest';
-import { applyEvent, assistantTurn, turnFromMessage, type Turn } from './thread';
+import {
+  applyEvent,
+  assistantTurn,
+  retryText,
+  turnFailed,
+  turnFromMessage,
+  userTurn,
+  type Turn,
+} from './thread';
 
 const card: DecisionCard = {
   planId: 'p1',
@@ -86,5 +94,83 @@ describe('turnFromMessage', () => {
       { kind: 'decision', card },
       { kind: 'error', code: 'interrupted', message: 'The server restarted.' },
     ]);
+  });
+});
+
+describe('retryText', () => {
+  const ask = userTurn('u1', ' How is my lineup? ');
+  const done = { ...assistantTurn('a1'), pending: false };
+  it('resends the question behind the latest finished reply', () => {
+    expect(retryText([ask, done])).toBe('How is my lineup?');
+    expect(retryText([ask, assistantTurn('a1')])).toBeUndefined();
+    expect(retryText([ask])).toBeUndefined();
+    expect(retryText([])).toBeUndefined();
+  });
+  it('flags a failed reply', () => {
+    const failed = applyEvent(assistantTurn('a1'), { type: 'error', code: 'x', message: 'boom' });
+    expect(turnFailed(failed)).toBe(true);
+    expect(turnFailed(done)).toBe(false);
+  });
+});
+
+describe('tool details', () => {
+  it('a running tool shows what it was asked; the finish adds the full result', () => {
+    let t = applyEvent(assistantTurn('a'), {
+      type: 'tool',
+      name: 'findTradeTargets',
+      status: 'start',
+      input: 'partnerTeamName: Mock Team 3',
+    });
+    t = applyEvent(t, {
+      type: 'tool',
+      name: 'findTradeTargets',
+      status: 'ok',
+      detail: 'Best trades found (2):\n1. …',
+    });
+    expect(t.parts).toEqual([
+      {
+        kind: 'tool',
+        name: 'findTradeTargets',
+        status: 'ok',
+        input: 'partnerTeamName: Mock Team 3',
+        detail: 'Best trades found (2):\n1. …',
+      },
+    ]);
+  });
+
+  it('a stored turn keeps its tool chips, before the answer', () => {
+    const turn = turnFromMessage({
+      id: 3,
+      role: 'assistant',
+      text: 'Done.',
+      decisions: [],
+      tools: [
+        { name: 'getRoster', ok: true, detail: 'Roster for 2026-10-01', input: 'date: 2026-10-01' },
+      ],
+    });
+    expect(turn.parts.map((p) => p.kind)).toEqual(['tool', 'text']);
+  });
+});
+
+describe('background activity (D-027)', () => {
+  it('marks daemon-written messages and never offers to resend a trigger', () => {
+    const trigger = turnFromMessage({
+      id: 10,
+      role: 'user',
+      text: '⏰ Scheduled: the morning lineup run',
+      decisions: [],
+      source: 'background',
+      createdAt: '2026-10-03T14:00:00Z',
+    });
+    const reply = turnFromMessage({
+      id: 11,
+      role: 'assistant',
+      text: 'No change needed.',
+      decisions: [],
+      source: 'background',
+      createdAt: '2026-10-03T14:00:30Z',
+    });
+    expect(trigger.background?.at).toBe('2026-10-03T14:00:00Z');
+    expect(retryText([trigger, reply])).toBeUndefined();
   });
 });

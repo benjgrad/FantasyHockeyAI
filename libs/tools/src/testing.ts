@@ -8,7 +8,8 @@ import {
 import { DryRunAdapter, submitPlan, type PipelineDeps } from '@fha/pipeline';
 import { openStore, type Store } from '@fha/store';
 import { newRunState, type Ctx } from './context.js';
-import { gateStateFor, validationContextFor } from './registry.js';
+import { gateStateFor } from './registry.js';
+import { validationContextFor } from './validationContext.js';
 import { LeagueView } from './view.js';
 
 /**

@@ -16,7 +16,8 @@ import {
   type Matchup,
   type MyTeam,
   type PlayerDetail,
-  type YahooCredentials,
+  type StoredSession,
+  sessionFromCredentials,
 } from '@fha/yahoo';
 import { createApp, type App } from './app.js';
 import type { AppConfig } from './config.js';
@@ -112,7 +113,11 @@ export interface FakeYahoo extends YahooAccess {
   expired: boolean;
   /** When true, every league read fails as a network error (Yahoo down, P9). */
   down: boolean;
-  seen: YahooCredentials[];
+  seen: StoredSession[];
+  /** When true, the website keepalive fails as an expired session (U-30). */
+  siteDead: boolean;
+  /** Keepalive checks made. */
+  siteChecks: number;
   /** Status overrides by playerKey (`undefined` = healthy), applied to every read. */
   status: Map<string, string | undefined>;
   /** Extra Yahoo detail (notes, goalie starting flag) by playerKey. */
@@ -153,6 +158,8 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
     expired: false,
     down: false,
     seen: [],
+    siteDead: false,
+    siteChecks: 0,
     status: new Map(),
     details: new Map(),
     txs: [],
@@ -160,9 +167,16 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
     reads: [],
     pool: { FA: [], W: [] },
     dropped: new Set(),
+    checkSite: () => {
+      fake.siteChecks += 1;
+      if (fake.down) return Promise.reject(new TypeError('fetch failed'));
+      if (fake.siteDead) return Promise.reject(new YahooAuthError('sent to sign-in'));
+      return Promise.resolve();
+    },
     myTeams: (c) => {
       fake.seen.push(c);
-      if (c.T === BAD_COOKIE) return Promise.reject(new YahooAuthError('401 from Yahoo'));
+      if (c.cookies.find((k) => k.name === 'T')?.value === BAD_COOKIE)
+        return Promise.reject(new YahooAuthError('401 from Yahoo'));
       const team: MyTeam = {
         gameKey: '477',
         season: '2026',
@@ -208,9 +222,15 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
           }),
         playersDetailed: (q) =>
           guard('players', () =>
-            q.position === undefined && (q.status === 'FA' || q.status === 'W')
-              ? detailed(fake.pool[q.status])
-              : [],
+            q.search !== undefined
+              ? detailed(
+                  snap.players
+                    .filter((p) => p.name.toLowerCase().includes(q.search?.toLowerCase() ?? ''))
+                    .map((p) => p.playerKey),
+                ).slice(0, q.limit ?? 25)
+              : q.position === undefined && (q.status === 'FA' || q.status === 'W')
+                ? detailed(fake.pool[q.status])
+                : [],
           ),
         playersByKey: (keys) => guard('playersByKey', () => detailed(keys)),
         transactions: (q) =>
@@ -395,7 +415,7 @@ export async function connected(h: Harness): Promise<string> {
     cookie,
     body: { T: GOOD_COOKIE, Y: 'good-cookie-value-Y' },
   });
-  const choice = (await h.yahoo.myTeams({ T: GOOD_COOKIE, Y: 'y' }))[0];
+  const choice = (await h.yahoo.myTeams(sessionFromCredentials({ T: GOOD_COOKIE, Y: 'y' })))[0];
   await call(h, '/api/settings/yahoo/team', {
     cookie,
     body: { leagueKey: choice?.leagueKey, teamKey: choice?.teamKey },

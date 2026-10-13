@@ -60,6 +60,56 @@ describe('yahooConnections', () => {
     expect(store.yahooConnections.markStatus('ghost', 'expired')).toBe(false);
   });
 
+  it('an API success never clears a website expiry; a website success or reconnect does (U-30)', () => {
+    const { store, clock } = memStore();
+    const u = store.users.upsertBySub('sub-1');
+    const yc = store.yahooConnections;
+    yc.saveCredentials(u.id, 'c');
+    yc.markStatus(u.id, 'expired', 'site refused', 'site');
+    clock.advance(1000);
+    expect(yc.markStatus(u.id, 'connected')).toBe(true);
+    expect(yc.get(u.id)).toMatchObject({
+      status: 'expired',
+      expiredBy: 'site',
+      lastError: 'site refused',
+      lastOkAt: '2026-10-06T12:00:01.000Z',
+    });
+    yc.markStatus(u.id, 'error', 'ECONNRESET');
+    expect(yc.get(u.id)).toMatchObject({ status: 'expired', lastError: 'site refused' });
+    yc.markStatus(u.id, 'connected', undefined, 'site');
+    const ok = yc.get(u.id);
+    expect(ok).toMatchObject({ status: 'connected', siteOkAt: '2026-10-06T12:00:01.000Z' });
+    expect(ok?.expiredBy).toBeUndefined();
+
+    yc.markStatus(u.id, 'expired', 'api refused');
+    expect(yc.get(u.id)?.expiredBy).toBe('api');
+    yc.markStatus(u.id, 'connected');
+    expect(yc.get(u.id)?.status).toBe('connected');
+
+    yc.markStatus(u.id, 'expired', 'site refused', 'site');
+    yc.saveCredentials(u.id, 'c2');
+    expect(yc.get(u.id)).toMatchObject({ status: 'connected', cookiesEnc: 'c2' });
+    expect(yc.get(u.id)?.expiredBy).toBeUndefined();
+  });
+
+  it('updates rotated cookies without touching status or team', () => {
+    const { store, clock } = memStore();
+    const u = store.users.upsertBySub('sub-1');
+    const yc = store.yahooConnections;
+    expect(yc.updateCookies(u.id, 'x')).toBe(false);
+    yc.saveCredentials(u.id, 'c1');
+    yc.selectTeam(u.id, '465.l.1', '465.l.1.t.3');
+    yc.markStatus(u.id, 'expired', 'site refused', 'site');
+    clock.advance(1000);
+    expect(yc.updateCookies(u.id, 'c2')).toBe(true);
+    expect(yc.get(u.id)).toMatchObject({
+      cookiesEnc: 'c2',
+      status: 'expired',
+      teamKey: '465.l.1.t.3',
+      lastOkAt: '2026-10-06T12:00:00.000Z',
+    });
+  });
+
   it('lists every connection, oldest first', () => {
     const { store } = memStore();
     expect(store.yahooConnections.list()).toEqual([]);

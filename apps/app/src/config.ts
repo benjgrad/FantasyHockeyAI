@@ -1,3 +1,4 @@
+import { loadModelsConfig, type ModelsConfig } from '@fha/llm';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +45,8 @@ export interface AppConfig {
   snapshotDir: string;
   /** The seeded permissions for a user with no row yet (D-008). */
   permissionsFile: string;
+  /** Per-agent models (`config/models.yaml`, D-023). Absent: every agent on the default. */
+  models?: ModelsConfig;
   /** A recorded `fha snapshot record` file whose valuations seed live snapshots. */
   valuationSnapshot: string | undefined;
   /** Run the scheduler and watchers in this process (`FHA_DAEMON=1`; off by default and in tests). */
@@ -76,6 +79,7 @@ const Env = z.object({
   FHA_CLIENT_DIR: z.string().default('apps/app/client/dist'),
   FHA_SNAPSHOT_DIR: z.string().default('data/snapshots'),
   FHA_PERMISSIONS_FILE: z.string().default('config/permissions.yaml'),
+  FHA_MODELS_FILE: z.string().default('config/models.yaml'),
   FHA_VALUATION_SNAPSHOT: z.string().optional(),
   FHA_DAEMON: z.enum(['0', '1', '']).default('0'),
   FHA_LOCK_FILE: z.string().default('data/fha.lock'),
@@ -108,6 +112,12 @@ export function loadConfig(
       .filter((s) => s !== ''),
   );
   if (allowedSubs.size === 0) throw new ConfigError('FHA_ALLOWED_SUBS lists no subjects');
+  let models: ModelsConfig;
+  try {
+    models = loadModelsConfig(at(e.FHA_MODELS_FILE));
+  } catch (err) {
+    throw new ConfigError(err instanceof Error ? err.message : String(err));
+  }
   return {
     publicUrl: e.FHA_PUBLIC_URL.replace(/\/+$/, ''),
     secretKey: e.FHA_SECRET_KEY,
@@ -120,6 +130,7 @@ export function loadConfig(
     clientDir: at(e.FHA_CLIENT_DIR),
     snapshotDir: at(e.FHA_SNAPSHOT_DIR),
     permissionsFile: at(e.FHA_PERMISSIONS_FILE),
+    models,
     valuationSnapshot:
       e.FHA_VALUATION_SNAPSHOT === undefined ? undefined : at(e.FHA_VALUATION_SNAPSHOT),
     daemon: e.FHA_DAEMON === '1',

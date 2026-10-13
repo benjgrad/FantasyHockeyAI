@@ -51,14 +51,17 @@ export function markOffline(response: Response): Response {
   return withHeaders(response, { [OFFLINE_HEADER]: '1' });
 }
 
-/** "Offline — showing data from 5 min ago". Relative, so it needs no locale or time zone. */
+/** "5 min ago", "3 h ago". Relative, so it needs no locale or time zone. */
+export function describeAge(at: Date, now: Date): string {
+  const minutes = Math.max(0, Math.round((now.getTime() - at.getTime()) / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 48 * 60) return `${Math.round(minutes / 60)} h ago`;
+  return `${Math.round(minutes / (24 * 60))} days ago`;
+}
+
+/** "Offline — showing data from 5 min ago". */
 export function describeStale(cachedAt: Date, now: Date): string {
   if (cachedAt.getTime() === 0) return 'Offline — showing saved data';
-  const minutes = Math.max(0, Math.round((now.getTime() - cachedAt.getTime()) / 60_000));
-  let age: string;
-  if (minutes < 1) age = 'just now';
-  else if (minutes < 60) age = `${minutes} min ago`;
-  else if (minutes < 48 * 60) age = `${Math.round(minutes / 60)} h ago`;
-  else age = `${Math.round(minutes / (24 * 60))} days ago`;
-  return `Offline — showing data from ${age}`;
+  return `Offline — showing data from ${describeAge(cachedAt, now)}`;
 }

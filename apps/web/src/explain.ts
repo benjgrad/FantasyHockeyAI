@@ -22,7 +22,10 @@ export interface Narrative {
   detail?: string;
 }
 
-const MODEL = process.env.FHA_EXPLAIN_MODEL ?? 'claude-opus-5';
+// Short prose about a pick the board already made: Haiku is enough (D-023). Override per run.
+const MODEL = process.env.FHA_EXPLAIN_MODEL ?? 'claude-haiku-4-5';
+/** Haiku 4.5 takes no effort setting (a 400); the 5.x models take it. */
+const takesEffort = (model: string) => !model.startsWith('claude-haiku');
 const TIMEOUT_MS = 25_000;
 
 /** The one call we make. Injectable so the request shape and response handling can be tested. */
@@ -120,9 +123,9 @@ export async function generate(
       model: MODEL,
       // Thinking counts against max_tokens on Opus 5; 400 truncated explanations on draft night.
       max_tokens: 2000,
-      // Low effort: this is a short piece of prose about a decision already made, not a
-      // problem to reason through, and it runs against a draft clock.
-      output_config: { effort: 'low' },
+      // Low effort where the model has it: a short piece of prose about a decision already
+      // made, not a problem to reason through, and it runs against a draft clock.
+      ...(takesEffort(MODEL) ? { output_config: { effort: 'low' as const } } : {}),
       system: SYSTEM,
       messages: [{ role: 'user', content: user }],
     },

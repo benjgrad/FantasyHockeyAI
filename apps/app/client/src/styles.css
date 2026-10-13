@@ -1,23 +1,80 @@
 @import 'tailwindcss';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-600.css';
+@import '@fontsource/barlow-condensed/latin-700.css';
 
-/* The draft board's dark hockey palette (apps/web/public/index.html), as Tailwind tokens. */
+/*
+ * The "Rink" brand (D-019): ice and steel neutrals, deep navy, and goal-light red as the one
+ * loud colour, which means "act". Every colour is a role, never a hue, and each one is
+ * `light-dark(<light>, <dark>)`: the root's `color-scheme` picks the theme, so
+ * System / Light / Dark (src/theme/theme.ts) is one attribute and no colour is written twice.
+ *
+ * Roles: bg → card → raised are the surfaces, well is an inset (inputs, code), line a border;
+ * ink → soft → mut is text by emphasis; brand / on-brand / brand-ink are primary actions, the
+ * active tab and the focus ring; acc is information and links (ice blue); good / warn / bad are
+ * status only, never decoration; heat-1 (strongest) … heat-7 (weakest) is the rank scale.
+ * The values are checked for contrast in src/theme/tokens.test.ts.
+ */
+/* `static`: always emitted. The heatmap names its steps at runtime (league/helpers.ts), so
+   Tailwind's scan never sees most of them and would drop them. */
+@theme static {
+  --color-heat-1: light-dark(#8dbbe9, #1d5aa0);
+  --color-heat-2: light-dark(#aacaea, #1f4d80);
+  --color-heat-3: light-dark(#c6d9eb, #223f60);
+  --color-heat-4: light-dark(#e3e8ec, #243240);
+  --color-heat-5: light-dark(#e7d7cb, #4d3a33);
+  --color-heat-6: light-dark(#ecc5ab, #754325);
+  --color-heat-7: light-dark(#f0b48a, #9e4b18);
+}
+
 @theme {
-  --color-bg: #0f1720;
-  --color-card: #17212b;
-  --color-raised: #1d2a36;
-  --color-well: #0d141b;
-  --color-line: #243140;
-  --color-ink: #e6edf3;
-  --color-soft: #c7d3dd;
-  --color-mut: #93a1ad;
-  --color-good: #3fb950;
-  --color-warn: #d29922;
-  --color-bad: #f85149;
-  --color-acc: #58a6ff;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --color-bg: light-dark(#f3f7fa, #0a1520);
+  --color-card: light-dark(#ffffff, #102030);
+  --color-raised: light-dark(#e7eef4, #172a3c);
+  --color-well: light-dark(#edf3f7, #07111a);
+  --color-line: light-dark(#d2dde6, #22384c);
+  --color-ink: light-dark(#0d1b2a, #eaf2f8);
+  --color-soft: light-dark(#2c3e50, #c3d3e0);
+  --color-mut: light-dark(#56697b, #8ea4b6);
+  --color-brand: light-dark(#c8102e, #ff4545);
+  --color-on-brand: light-dark(#ffffff, #1a0406);
+  --color-brand-ink: light-dark(#b30e29, #ff7373);
+  --color-acc: light-dark(#1461b8, #7cc8ff);
+  --color-good: light-dark(#1d7a3e, #4ccf7a);
+  --color-warn: light-dark(#8f5a00, #f0b429);
+  --color-bad: light-dark(#b8430e, #ff8a4c);
+  --color-knob: light-dark(#ffffff, #eaf2f8);
+  --color-scrim: light-dark(#0d1b2a61, #000000b8);
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.35;
+  --text-3xs: 10px;
+  --text-3xs--line-height: 1.3;
+  --animate-drawer-in: drawer-in 180ms ease-out;
+  --animate-sheet-in: sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
 }
 
 :root {
+  color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
   color-scheme: dark;
 }
 
@@ -26,6 +83,24 @@ body,
 #root {
   height: 100%;
 }
+/* Pinned to the screen: the layout viewport itself, which still shrinks for the keyboard where
+   interactive-widget=resizes-content applies. */
+#root {
+  position: fixed;
+  inset: 0;
+  /* Pages outside the app shell (sign-in) may be taller than a phone; the shell never is. */
+  overflow-y: auto;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+/* The installed iOS app under a translucent status bar: sized to the measured screen
+   (src/pwa/appHeight.ts), because iOS 26 reports its viewport short by the status-bar height. */
+#root {
+  height: var(--app-height, auto);
+}
+:root[style*='--app-height'] #root {
+  bottom: auto;
+}
 
 body {
   margin: 0;
@@ -33,10 +108,44 @@ body {
   color: var(--color-ink);
   font: 15px/1.45 var(--font-sans);
   -webkit-tap-highlight-color: transparent;
+  /* The app scrolls inside its panes (.pane), never the page: no rubber-banding the header
+     away, and pull-to-refresh can't fire mid-scroll. */
+  overscroll-behavior: none;
   /* viewport-fit=cover draws under the notch; the header and bottom nav pad top/bottom
-     themselves, and these keep content clear of a side notch or rounded corner. */
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+     themselves, and #root keeps content clear of a side notch or rounded corner. */
+}
+
+/* Thin, theme-coloured scrollbars wherever something scrolls; phones keep their overlay bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--color-line) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-mut);
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 @layer components {
@@ -44,26 +153,61 @@ body {
     @apply rounded-xl border border-line bg-card p-3;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-raised px-3 py-2 text-sm text-ink transition-colors hover:border-mut disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-line bg-raised px-3 py-2 text-sm text-ink transition hover:border-mut focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
   .btn-primary {
-    @apply border-good bg-good font-semibold text-[#06240e] hover:border-good hover:brightness-110;
+    @apply border-brand bg-brand font-semibold text-on-brand hover:border-brand hover:brightness-110 disabled:border-line disabled:bg-raised disabled:text-mut disabled:opacity-100 disabled:hover:brightness-100;
   }
   .btn-danger {
-    @apply border-bad/60 text-bad;
+    @apply border-bad/60 bg-transparent text-bad;
+  }
+  /* A compact button inside dense rows (cards, toolbars); still a 44px tap target. */
+  .btn-sm {
+    @apply min-h-9 px-2 py-1 text-xs;
+  }
+  /* An icon-only control: a 44px tap target, however small the glyph. */
+  .icon-btn {
+    @apply inline-grid size-11 shrink-0 place-items-center rounded-full text-soft transition hover:bg-raised focus-visible:outline-2 focus-visible:outline-brand active:scale-95;
   }
   .input {
-    @apply w-full rounded-lg border border-line bg-well px-3 py-2 text-ink placeholder:text-mut focus:border-acc focus:outline-none;
+    @apply w-full rounded-lg border border-line bg-well px-3 py-2 text-ink placeholder:text-mut focus:border-acc focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand;
+    /* iOS Safari zooms the page into any field under 16px on focus, leaving it off-centre. */
+    font-size: max(16px, 1em);
   }
   .tag {
-    @apply text-[11px] tracking-wider text-mut uppercase;
+    @apply text-2xs tracking-wider text-mut uppercase;
   }
   .pill {
     @apply inline-flex items-center gap-1 rounded-md border border-line bg-well px-1.5 py-0.5 text-xs tabular-nums;
   }
+  /* Display type: headings, the wordmark, a player's name. */
+  .display {
+    @apply font-display font-bold tracking-wide uppercase;
+  }
+  /* A route's one scroll area. Scroll is remembered per page (useScrollMemory). */
+  .pane {
+    @apply min-h-0 flex-1 overflow-y-auto overscroll-contain;
+    scrollbar-gutter: stable;
+  }
+  /* A sideways-scrolling table: soft shadows at an edge mean "more this way". */
+  .scroll-x {
+    @apply overflow-x-auto overscroll-x-contain;
+    background:
+      linear-gradient(to right, var(--color-card) 30%, transparent) left / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--color-card) 30%, transparent) right / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, var(--color-scrim), transparent) left / 10px 100%
+        no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, var(--color-scrim), transparent) right / 10px 100%
+        no-repeat scroll;
+    background-color: var(--color-card);
+  }
+  /* A wide table's label column stays put while its numbers scroll under it. */
+  .sticky-first :is(th, td):first-child {
+    @apply sticky left-0 z-10 bg-card;
+  }
 }
 
-/* Assistant Markdown (src/markdown/Markdown.tsx): chat-scale prose on the dark palette. */
+/* Assistant Markdown (src/markdown/Markdown.tsx): chat-scale prose. */
 @layer components {
   .md {
     @apply min-w-0 leading-relaxed break-words;
@@ -98,7 +242,7 @@ body {
     @apply whitespace-nowrap;
   }
   .md-table tbody tr:nth-child(even) {
-    @apply bg-white/[0.03];
+    @apply bg-ink/[0.03];
   }
   .md-table :is(th, td)[data-num] {
     @apply text-right;

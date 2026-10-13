@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Activity } from './routes/Activity';
 import { useEffect } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { RequestError, describeError } from './api/client';
@@ -6,6 +7,9 @@ import { api } from './api/endpoints';
 import { Layout } from './components/Layout';
 import { League } from './league/League';
 import { TeamDetail } from './league/TeamDetail';
+import { LeagueRefreshWatcher } from './league/Freshness';
+import { TeamSheetHost } from './league/TeamSheet';
+import { MentionsProvider } from './mentions/context';
 import { Compare } from './players/Compare';
 import { PlayerSheetHost } from './players/PlayerSheet';
 import { Players } from './players/Players';
@@ -38,21 +42,26 @@ export function App() {
   }
   return (
     <Layout me={me.data}>
-      <Routes>
-        <Route path="/" element={<Chat />} />
-        <Route path="/c/:conversationId" element={<Chat />} />
-        <Route path="/team" element={<Team />} />
-        <Route path="/league" element={<League />} />
-        <Route path="/league/:teamKey" element={<TeamDetail />} />
-        <Route path="/decisions" element={<Decisions />} />
-        <Route path="/decisions/:planId" element={<Decisions />} />
-        <Route path="/settings" element={<Settings me={me.data} />} />
-        <Route path="/players" element={<Players />} />
-        <Route path="/players/:playerKey" element={<Players />} />
-        <Route path="/compare" element={<Compare />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <PlayerSheetHost />
+      <MentionsProvider>
+        <Routes>
+          <Route path="/" element={<Chat />} />
+          <Route path="/c/:conversationId" element={<Chat />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/league" element={<League />} />
+          <Route path="/league/:teamKey" element={<TeamDetail />} />
+          <Route path="/decisions" element={<Decisions />} />
+          <Route path="/decisions/:planId" element={<Decisions />} />
+          <Route path="/settings" element={<Settings me={me.data} />} />
+          <Route path="/players" element={<Players />} />
+          <Route path="/activity" element={<Activity />} />
+          <Route path="/players/:playerKey" element={<Players />} />
+          <Route path="/compare" element={<Compare />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <LeagueRefreshWatcher />
+        <TeamSheetHost />
+        <PlayerSheetHost />
+      </MentionsProvider>
     </Layout>
   );
 }

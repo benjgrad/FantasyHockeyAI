@@ -1,20 +1,31 @@
 #!/usr/bin/env node
 /**
- * Generates the PWA icon variants in apps/app/client/public from icon-512.png, with Node
- * built-ins only (zlib for PNG's deflate, no image library):
+ * Generates the PWA icons in apps/app/client/public from the brand mark, with Node built-ins
+ * only (zlib for PNG's deflate, no image library) plus a local Chrome to rasterise the SVG:
  *
+ *   icon-512.png / icon-192.png — the mark (public/favicon.svg, D-019) rendered by headless
+ *     Chrome at 1024px and averaged down. Skipped with --no-render (then icon-512.png is the
+ *     source). Chrome is $CHROME, else `google-chrome`.
  *   icon-maskable-512.png / icon-maskable-192.png — the icon shrunk to 80% and centred on its
  *     own background colour. A maskable icon is cropped by the OS to any shape (circle, squircle)
  *     inside the central 80% "safe zone"; without padding the artwork's edges get cut off.
  *   apple-touch-icon.png — 180×180, the size iOS asks for; iOS rounds the corners itself.
  *
- * Re-run after changing icon-512.png:  node tools/make-pwa-icons.mjs
- * Handles 8-bit, non-interlaced RGB/RGBA PNGs (what icon-512.png is); anything else is refused.
+ * The draft board (apps/web/public) gets the same icon-192/512.
+ *
+ * Re-run after changing favicon.svg:  node tools/make-pwa-icons.mjs
+ * Handles 8-bit, non-interlaced RGB/RGBA PNGs (what Chrome writes); anything else is refused.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { deflateSync, inflateSync } from 'node:zlib';
 
 const PUBLIC = new URL('../apps/app/client/public/', import.meta.url);
+const DRAFT_PUBLIC = new URL('../apps/web/public/', import.meta.url);
+const RENDER_PX = 1024;
 const SAFE_ZONE = 0.8;
 
 function crc32(buf) {
@@ -158,6 +169,50 @@ function maskable(src, size) {
   return { width: size, height: size, rgba: out };
 }
 
+/** The top-left size×size of an image. */
+function crop(src, size) {
+  const out = Buffer.alloc(size * size * 4);
+  for (let y = 0; y < size; y += 1) {
+    src.rgba.copy(out, y * size * 4, y * src.width * 4, (y * src.width + size) * 4);
+  }
+  return { width: size, height: size, rgba: out };
+}
+
+/** Rasterises public/favicon.svg with headless Chrome (a page sized to it, then cropped). */
+function renderMark() {
+  const dir = mkdtempSync(join(tmpdir(), 'fha-icons-'));
+  try {
+    const svg = fileURLToPath(new URL('favicon.svg', PUBLIC));
+    const page = join(dir, 'mark.html');
+    const shot = join(dir, 'mark.png');
+    writeFileSync(
+      page,
+      `<!doctype html><body style="margin:0"><img src="file://${svg}" width="${RENDER_PX}" height="${RENDER_PX}" style="display:block"></body>`,
+    );
+    execFileSync(process.env.CHROME ?? 'google-chrome', [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox', // a local file we wrote; the sandbox fails in some containers
+      '--hide-scrollbars',
+      '--allow-file-access-from-files',
+      `--window-size=${RENDER_PX},${RENDER_PX + 200}`,
+      `--screenshot=${shot}`,
+      `file://${page}`,
+    ]);
+    return crop(decode(shot), RENDER_PX);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+if (!process.argv.includes('--no-render')) {
+  const mark = renderMark();
+  for (const size of [512, 192]) {
+    writeFileSync(new URL(`icon-${size}.png`, PUBLIC), encode(resize(mark, size)));
+    console.log(`wrote public/icon-${size}.png (${size}×${size})`);
+  }
+}
+
 const source = decode(new URL('icon-512.png', PUBLIC));
 const outputs = {
   'icon-maskable-512.png': maskable(source, 512),
@@ -167,4 +222,8 @@ const outputs = {
 for (const [name, img] of Object.entries(outputs)) {
   writeFileSync(new URL(name, PUBLIC), encode(img));
   console.log(`wrote public/${name} (${img.width}×${img.height})`);
+}
+for (const name of ['icon-192.png', 'icon-512.png']) {
+  copyFileSync(new URL(name, PUBLIC), new URL(name, DRAFT_PUBLIC));
+  console.log(`copied ${name} to apps/web/public`);
 }

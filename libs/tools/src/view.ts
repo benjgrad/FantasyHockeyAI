@@ -12,6 +12,7 @@ import {
   type TeamKey,
   type Transaction,
 } from '@fha/core';
+import { weekBounds } from './derive.js';
 
 /**
  * The league as tools see it: one immutable snapshot plus indexes over it.
@@ -59,8 +60,26 @@ export class LeagueView {
     return this.owner.get(key);
   }
 
+  /** Not on any roster: a free agent or a player on waivers (see {@link onWaivers}). */
   isFreeAgent(key: string): boolean {
     return this.byKey.has(key) && !this.owner.has(key);
+  }
+
+  /** On waivers: adding him is a claim, and he clears on `player.waiverDate` (D-029). */
+  onWaivers(key: string): boolean {
+    return this.isFreeAgent(key) && this.byKey.get(key)?.onWaivers === true;
+  }
+
+  /**
+   * The fantasy week around `date`: Yahoo's own dates when the snapshot's scoreboard covers it
+   * (week 1 ran Tue 9/29–Sun 10/4), else Monday–Sunday (D-029).
+   */
+  weekOf(date: string = this.snap.date): { start: string; end: string } {
+    const m = this.snap.matchup;
+    if (m !== undefined && m.weekStart <= date && date <= m.weekEnd) {
+      return { start: m.weekStart, end: m.weekEnd };
+    }
+    return weekBounds(date);
   }
 
   roster(teamKey: TeamKey = this.teamKey): Roster {
@@ -95,6 +114,23 @@ export class LeagueView {
     for (const d of this.snap.schedule) {
       if (d.date < from || d.date > to) continue;
       for (const g of d.games) {
+        counts.set(g.home, (counts.get(g.home) ?? 0) + 1);
+        counts.set(g.away, (counts.get(g.away) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }
+
+  /**
+   * Games per team through `to` that start after `instant`: what is still to be played. Games
+   * already started (finished or live) are in the scoreboard's banked totals instead.
+   */
+  gamesNotStarted(instant: string, to: string): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const d of this.snap.schedule) {
+      if (d.date > to) continue;
+      for (const g of d.games) {
+        if (g.startTimeUtc <= instant) continue;
         counts.set(g.home, (counts.get(g.home) ?? 0) + 1);
         counts.set(g.away, (counts.get(g.away) ?? 0) + 1);
       }

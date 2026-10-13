@@ -12,9 +12,11 @@ import { DEFAULT_RESERVE_STATUSES, reserveAllows } from '@fha/model';
 /**
  * Deterministic plan validation (§9.1), applied to every plan before the gate.
  *
- * Each error is written as an instruction to the agent that proposed the plan. The pipeline
- * sends the errors back once for a fix, and rejects the plan the second time (§9.1). So the
- * text says what is wrong *and what to do*, never just "invalid".
+ * Each error is written as an instruction to the agent that proposed the plan. The propose tools
+ * run this before anything is recorded and send the errors back for a fix, up to three retries
+ * (§9.1, `submitProposal`); the pipeline runs it again as the backstop. So the text says what is
+ * wrong *and what to do*, never just "invalid". `terminal` marks a failure no edit can fix (a
+ * duplicate of an open plan, a passed deadline): the agent is told not to retry at all.
  */
 export interface ValidationContext {
   now: string;
@@ -31,12 +33,21 @@ export interface ValidationContext {
   pendingTrade(transactionKey: string): Transaction | undefined;
   /**
    * planIds of plans pending or executed today that touch any of these players, other than
-   * `excludePlanId`. Re-validating an approved plan must not find the plan itself.
+   * `excludePlanId`. Re-validating an approved plan must not find the plan itself. `plan` lets
+   * the context ignore what cannot collide with it (a lineup for another date).
    */
-  conflicting(playerKeys: string[], excludePlanId?: string): string[];
+  conflicting(playerKeys: string[], excludePlanId?: string, plan?: Plan): string[];
+  /**
+   * Keys of trades *we* have pending in Yahoo that involve any of these players. A proposal
+   * re-offering them would be a second copy of an offer already sent (Ben's trade went out
+   * three times). An offer made to us does not count: countering it is a new trade.
+   */
+  pendingTradesTouching?(playerKeys: string[]): string[];
+  /** The league's trade deadline (YYYY-MM-DD, from Yahoo's settings, D-029); absent → none known. */
+  tradeDeadline?: string;
 }
 
-export type ValidationResult = { ok: true } | { ok: false; errors: string[] };
+export type ValidationResult = { ok: true } | { ok: false; errors: string[]; terminal: boolean };
 
 export function validatePlan(plan: Plan, ctx: ValidationContext): ValidationResult {
   const errors: string[] = [];
@@ -49,19 +60,44 @@ export function validatePlan(plan: Plan, ctx: ValidationContext): ValidationResu
     errors.push(
       `Unknown playerKey(s) ${unknown.join(', ')}. Use only playerKeys returned by getRoster, searchPlayers or getPlayers.`,
     );
-    return { ok: false, errors };
+    return { ok: false, errors, terminal: false };
   }
+  let terminal = p.kind === 'draftPick';
   if (plan.deadline !== undefined && plan.deadline <= ctx.now) {
     errors.push(`The plan's deadline ${plan.deadline} has passed. Do not re-propose it.`);
+    terminal = true;
   }
-  const conflicts = ctx.conflicting(all, plan.planId);
+  const conflicts = ctx.conflicting(all, plan.planId, plan);
   if (conflicts.length > 0) {
     errors.push(
-      `Plan(s) ${conflicts.join(', ')} already pending or executed today touch these players. Do not propose a duplicate.`,
+      `Plan(s) ${conflicts.join(', ')} already open or executed today touch these players: that move is already filed. Do not propose a duplicate; point Ben to the existing decision.`,
     );
+    terminal = true;
+  }
+  if ((p.kind === 'tradePropose' || p.kind === 'tradeRespond') && pastDeadline(ctx)) {
+    errors.push(
+      `The trade deadline (${ctx.tradeDeadline ?? ''}) has passed: Yahoo accepts no trades. Do not propose one.`,
+    );
+    terminal = true;
+  }
+  const undroppable = touched.outgoing.filter((k) => ctx.player(k)?.undroppable === true);
+  if (undroppable.length > 0 && p.kind !== 'lineup') {
+    errors.push(
+      `Yahoo marks ${undroppable.map((k) => ctx.player(k)?.name ?? k).join(', ')} undroppable: he cannot leave the roster.`,
+    );
+    terminal = true;
+  }
+  if (p.kind === 'tradePropose') {
+    const offered = ctx.pendingTradesTouching?.([...p.give, ...p.get]) ?? [];
+    if (offered.length > 0) {
+      errors.push(
+        `These players are already in a trade pending in Yahoo (${offered.join(', ')}). Do not offer them again; tell Ben the offer is out.`,
+      );
+      terminal = true;
+    }
   }
   errors.push(...kindErrors(p, ctx));
-  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+  return errors.length === 0 ? { ok: true } : { ok: false, errors, terminal };
 }
 
 function kindErrors(p: PlanPayload, ctx: ValidationContext): string[] {
@@ -69,6 +105,7 @@ function kindErrors(p: PlanPayload, ctx: ValidationContext): string[] {
     case 'lineup':
       return lineupErrors(p, ctx);
     case 'addDrop':
+      return [...addDropErrors(p.add, p.drop, ctx), ...waiverErrors(p.add, ctx)];
     case 'waiverClaim':
       return addDropErrors(p.add, p.drop, ctx);
     case 'tradePropose':
@@ -82,6 +119,10 @@ function kindErrors(p: PlanPayload, ctx: ValidationContext): string[] {
 
 export function slotAccepts(slot: string, player: Player): boolean {
   if (slot === 'BN') return true;
+  // Yahoo's own list of reserve seats for him, when the snapshot has it (U-10).
+  if (slot in DEFAULT_RESERVE_STATUSES && player.reserveEligible !== undefined) {
+    return player.reserveEligible.includes(slot);
+  }
   // One table for the solver and the validator, so they cannot disagree about who fits IR.
   if (slot in DEFAULT_RESERVE_STATUSES) {
     return reserveAllows(DEFAULT_RESERVE_STATUSES, slot, player.status);
@@ -128,6 +169,24 @@ function lineupErrors(
       errors.push(`The lineup puts ${used} players in ${s.position}, which holds ${s.count}.`);
   }
   return errors;
+}
+
+/** New York's calendar day of an instant (the league's day boundary). */
+function nyDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+}
+
+function pastDeadline(ctx: ValidationContext): boolean {
+  return ctx.tradeDeadline !== undefined && nyDay(ctx.now) > ctx.tradeDeadline;
+}
+
+/** A player on waivers is claimed, not added (D-029). */
+function waiverErrors(add: string | undefined, ctx: ValidationContext): string[] {
+  const p = add === undefined ? undefined : ctx.player(add);
+  if (p?.onWaivers !== true) return [];
+  return [
+    `${p.name} is on waivers${p.waiverDate === undefined ? '' : ` until ${p.waiverDate}`}: use proposeWaiverClaim, not proposeAddDrop.`,
+  ];
 }
 
 function addDropErrors(

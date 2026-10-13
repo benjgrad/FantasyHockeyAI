@@ -1,5 +1,14 @@
 import { createAgent, runJob, type AgentDeps, type AssistantDeps } from '@fha/agents';
-import { createLlmClient, type CreateMessage, type LlmClient } from '@fha/llm';
+import { recordReply } from './activity.js';
+import {
+  createLlmClient,
+  createLlmRouter,
+  DEFAULT_MODEL,
+  ModelsConfig,
+  type CreateMessage,
+  type LlmClient,
+  type LlmRouter,
+} from '@fha/llm';
 import { submitPlan } from '@fha/pipeline';
 import type { Store } from '@fha/store';
 import { pipelineFor } from './decisions.js';
@@ -21,6 +30,23 @@ export function llmFor(store: Store, createMessage: CreateMessage): LlmClient {
   });
 }
 
+/** Each agent on its configured model (D-023), sharing the usage recorder. */
+export function modelsFor(
+  store: Store,
+  createMessage: CreateMessage,
+  config: ModelsConfig | undefined,
+): LlmRouter {
+  return createLlmRouter(
+    {
+      createMessage,
+      onUsage: (e) => {
+        store.usage.record({ ...e, stopReason: e.stopReason ?? undefined });
+      },
+    },
+    config ?? ModelsConfig.parse({ default: DEFAULT_MODEL.id }),
+  );
+}
+
 /**
  * One user's agent dependencies: the same wiring for the chat's specialists and the daemon's
  * scheduled jobs, so both meet the same pipeline, gate and per-user permissions.
@@ -40,6 +66,9 @@ export function agentDepsFor(
   };
   return {
     llm,
+    ...(s.createMessage === undefined
+      ? {}
+      : { models: modelsFor(s.store, s.createMessage, s.config.models) }),
     prompts: s.prompts,
     settings: league.settings,
     view: league.view,
@@ -47,6 +76,9 @@ export function agentDepsFor(
     store: s.store,
     userId,
     submit: (plan) => submitPlan(plan, pipeline),
+    // What an agent changes in app state (e.g. a player it follows) is recorded where Ben reads
+    // the background activity (D-028).
+    activity: (text) => recordReply(s.store, userId, { text }),
   };
 }
 

@@ -321,14 +321,10 @@ function PlayerSearch({ onAdd }: { onAdd: (list: 'locked' | 'ask', p: PlayerRefT
                 {p.team} · {p.positions}
               </span>
             </span>
-            <button
-              type="button"
-              className="btn px-2 py-1 text-xs"
-              onClick={() => onAdd('locked', p)}
-            >
+            <button type="button" className="btn btn-sm" onClick={() => onAdd('locked', p)}>
               Lock
             </button>
-            <button type="button" className="btn px-2 py-1 text-xs" onClick={() => onAdd('ask', p)}>
+            <button type="button" className="btn btn-sm" onClick={() => onAdd('ask', p)}>
               Ask
             </button>
           </div>

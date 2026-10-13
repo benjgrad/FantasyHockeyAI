@@ -65,6 +65,15 @@ export const Player = z.object({
   status: z.string().optional(),
   percentOwned: z.number().optional(),
   adp: z.number().optional(),
+  /** On waivers (claim, not add), and the date he clears (D-029). Absent: not on waivers. */
+  onWaivers: z.boolean().optional(),
+  waiverDate: z.string().optional(),
+  /** Yahoo will not let him be dropped (D-029). */
+  undroppable: z.boolean().optional(),
+  /** Reserve seats Yahoo lists for him now (IR, IR+, NA), preferred over the status table (U-10). */
+  reserveEligible: z.array(z.string()).optional(),
+  /** Yahoo's injury note, e.g. "Lower Body" (D-029). */
+  injuryNote: z.string().optional(),
 });
 export type Player = z.infer<typeof Player>;
 

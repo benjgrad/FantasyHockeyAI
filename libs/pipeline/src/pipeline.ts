@@ -154,7 +154,13 @@ export async function executeApproved(planId: string, deps: PipelineDeps): Promi
 export type HumanOutcome = SubmitOutcome | { status: 'not_actionable'; detail: string };
 
 /** The statuses from which Ben can have a stored plan executed (D-015). */
-export const HUMAN_EXECUTABLE: readonly DecisionStatus[] = ['dry_run', 'pending', 'approved'];
+export const HUMAN_EXECUTABLE: readonly DecisionStatus[] = [
+  'dry_run',
+  'pending',
+  'approved',
+  // Only a lineup whose every attempt failed before reaching Yahoo (see `resendable`).
+  'failed',
+];
 
 /**
  * Execute a stored plan because Ben, looking at its card, chose to (D-015): "dry run" means
@@ -179,7 +185,8 @@ export async function executeByHuman(
   if (!HUMAN_EXECUTABLE.includes(rec.status)) {
     return refuse(`That plan is ${rec.status}; there is nothing left to execute.`);
   }
-  if (store.executions.forPlan(planId).length > 0) {
+  const prior = store.executions.forPlan(planId);
+  if ((prior.length > 0 || rec.status === 'failed') && !resendable(rec.plan, prior)) {
     return refuse(
       'That plan was already sent, or handed to you to do in Yahoo. It is never sent twice.',
     );
@@ -199,14 +206,33 @@ export async function executeByHuman(
   const recorded =
     rec.status === 'pending'
       ? store.approvals.decide(planId, 'approved', via) === 'ok'
-      : rec.status === 'dry_run'
-        ? store.approvals.settle(planId, 'approved', via, ['dry_run'])
+      : rec.status === 'dry_run' || rec.status === 'failed'
+        ? store.approvals.settle(planId, 'approved', via, [rec.status])
         : true;
   if (!recorded) return refuse('That plan was already decided.');
-  return execute(plan, { ...g, decision: 'allow', dryRun: false }, deps);
+  return execute(plan, { ...g, decision: 'allow', dryRun: false }, deps, prior.length);
 }
 
-async function execute(plan: Plan, g: GateResult, deps: PipelineDeps): Promise<SubmitOutcome> {
+/**
+ * A lineup handed to Ben (`needsHuman`) or refused by the adapter before it reached Yahoo
+ * (`failed`: an expired session, a changed page — the adapter returns `failed` only when nothing
+ * was sent; a throw mid-write is recorded as unverified instead) may be sent once the adapter can
+ * make it. Only a lineup: it sets every slot to a target state, so it is harmless even if Ben
+ * already did it by hand, whereas an add/drop he made himself must never be repeated (P7).
+ */
+export function resendable(plan: Plan, prior: readonly { status: string }[]): boolean {
+  return (
+    plan.payload.kind === 'lineup' &&
+    prior.every((e) => e.status === 'needsHuman' || e.status === 'failed')
+  );
+}
+
+async function execute(
+  plan: Plan,
+  g: GateResult,
+  deps: PipelineDeps,
+  attempt = 0,
+): Promise<SubmitOutcome> {
   const { store } = deps;
   const from: DecisionStatus[] = ['proposed', 'approved'];
   if (g.dryRun) {
@@ -219,7 +245,7 @@ async function execute(plan: Plan, g: GateResult, deps: PipelineDeps): Promise<S
     return { status: 'dry_run', detail };
   }
 
-  const key = `${plan.planId}:0`;
+  const key = `${plan.planId}:${attempt}`;
   const begun = store.executions.begin(key, plan.planId);
   if (begun !== 'started') {
     // Already done or in flight: never write twice. Reading Yahoo settles an in-flight one.

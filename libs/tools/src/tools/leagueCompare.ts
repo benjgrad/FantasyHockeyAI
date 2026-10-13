@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ToolResult } from '@fha/llm';
 import { categoryValue } from '@fha/model';
+import { inSeasonView } from '../forecast.js';
 import { defineTool, fail, ok } from '../context.js';
 import { fmt, table } from '../derive.js';
 import {
@@ -94,12 +95,34 @@ function summarise(
   );
 }
 
+/** Every team's live week from Yahoo's league scoreboard (D-029), when the snapshot read it. */
+function liveLeague(view: LeagueView): string {
+  const league = view.snap.matchup?.league;
+  if (league === undefined || league.length === 0) return '';
+  const name = (k: string | undefined) =>
+    k === undefined ? '-' : (view.snap.teams.find((t) => t.teamKey === k)?.name ?? k);
+  return `This week so far (Yahoo's scoreboard, week ${view.snap.matchup?.week ?? '?'}):\n${table(
+    ['team', 'vs', 'leading', 'trailing'],
+    league.map((t) => [
+      t.teamKey === view.teamKey ? `${name(t.teamKey)} (us)` : name(t.teamKey),
+      name(t.opponentKey),
+      `${t.winning.length} (${t.winning.join(' ')})`,
+      `${t.losing.length} (${t.losing.join(' ')})`,
+    ]),
+  )}`;
+}
+
 export const getLeagueComparison = defineTool({
   name: 'getLeagueComparison',
   description:
-    "How our team stacks up against the league. Without teamName: every team's rank (1 = best) in each category, the categories each expects to win against us in a typical week, and trade complementarity. With teamName (another team's display name): our head-to-head per category, projected weekly totals, win probabilities (typical week and rest of this week) and swing categories.",
+"How our team stacks up against the league, on the rest-of-season projection. Without teamName: this week's live scoreboard for every team (categories leading–trailing their own opponent) when Yahoo's was read, then every team's rank (1 = best) in each category, the categories each expects to win against us in a typical week, and trade complementarity. With teamName (another team's display name): our head-to-head per category, projected weekly totals, win probabilities (typical week and rest of this week) and swing categories.",
   input: z.object({ teamName: z.string().min(1).optional() }),
   risk: 'read',
-  execute: (input, ctx) =>
-    Promise.resolve(summarise(ctx.view, leagueStrength(ctx.view), input.teamName)),
+  execute: (input, ctx) => {
+    // Ranked on the in-season lens, like the League page (D-025).
+    const lens = inSeasonView(ctx.view, ctx.store);
+    const r = summarise(lens, leagueStrength(lens), input.teamName);
+    const live = input.teamName === undefined ? liveLeague(ctx.view) : '';
+    return Promise.resolve(r.ok && live !== '' ? { ...r, summary: `${live}\n\n${r.summary ?? ''}` } : r);
+  },
 });

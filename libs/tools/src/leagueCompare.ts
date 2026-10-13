@@ -1,6 +1,5 @@
 import type { Player, TeamKey, Valuation } from '@fha/core';
 import {
-  SEASON_TEAM_GAMES,
   WEEK_WEIGHTS,
   availabilityAdjustedVorp,
   availableShare,
@@ -15,14 +14,15 @@ import {
   type CategoryLine,
   type WeeklyPlan,
 } from '@fha/model';
-import { availabilityOf, scoringCategories, weekBounds } from './derive.js';
+import { availabilityOf, scoringCategories } from './derive.js';
 import {
-  SEASON_WEEKS,
   modelInputs,
   remainingWeekLine,
-  weeksRemaining,
+  seasonHorizonGames,
   type ModelInputs,
 } from './modelInputs.js';
+
+export { seasonHorizonGames };
 import type { LeagueView } from './view.js';
 
 /**
@@ -99,13 +99,6 @@ export interface LeagueStrength {
   versus: VersusUs[];
 }
 
-/** Team games left in the season: the horizon every availability share is taken over. */
-export function seasonHorizonGames(view: LeagueView): number {
-  return Math.max(
-    1,
-    Math.round((SEASON_TEAM_GAMES * weeksRemaining(view.snap.week)) / SEASON_WEEKS),
-  );
-}
 
 /** Share of the rest of the season a player is expected to be available for, 0..1. */
 export function playerSeasonShare(view: LeagueView, p: Player): number {
@@ -184,7 +177,7 @@ function teamTotals(
   view: LeagueView,
   week: ReturnType<typeof teamWeek>,
 ): Pick<TeamStrength, 'starterVorp' | 'injuredStarters' | 'gamesThisWeek'> {
-  const games = view.gamesBetween(view.snap.date, weekBounds(view.snap.date).end);
+  const games = view.gamesBetween(view.snap.date, view.weekOf().end);
   const healthBlind = seasonStarters(
     week.roster.map((s) => s.v),
     view.settings,

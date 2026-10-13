@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { dirname } from 'node:path';
 import webpush from 'web-push';
 import { anthropicCreateMessage } from '@fha/llm';
-import { scheduleWeek } from '@fha/nhl';
+import { pullGames, scheduleWeek } from '@fha/nhl';
 import { loadPrompts } from '@fha/prompts';
 import { openStore } from '@fha/store';
 import { createApp } from './app.js';
@@ -40,6 +40,7 @@ function main(): void {
     fetch,
     yahoo: liveYahooAccess,
     schedule: (date) => scheduleWeek(date),
+    pullGames: (q) => pullGames(q),
     ...(config.anthropicApiKey === undefined ? {} : { createMessage: anthropicCreateMessage() }),
     pushSend: (sub, payload) => webpush.sendNotification(sub, payload),
     prompts: loadPrompts(),

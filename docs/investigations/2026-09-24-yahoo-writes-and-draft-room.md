@@ -269,3 +269,33 @@ still override discovery, e.g. for mock rooms, which don't appear in the user's 
 | Q-007 | **Lineups:** Yahoo's "Start Active Players" = `POST …/fantasy/v3/set_optimal_roster?gameId&leagueId&teamId&lineupEditKey&lineupEditKeyEnd&format=json_f` (JSON, credentials included). This is **Yahoo's own optimiser**, not an arbitrary lineup | [OBS] static read of the public bundle `react_fantasy_startactive.*.js`; **not exercised** |
 | Q-007 | The same bundle's API client also defines `league/get_draft_settings` (GET) and `league/save_draft_settings` (POST, `crumb` query), both commissioner-level | [OBS] static |
 | Q-007 (open) | Custom lineup, add/drop, waiver and trade endpoints. There is no roster form before the draft, and the player-search bundle has no write calls. **Observe these after the draft** with a real roster | — |
+
+---
+
+## 11. Update 2026-10-01: the custom-lineup write (U-12)
+Source: Ben's HAR of one lineup save (Jet Greaves to G, Darcy Kuemper benched, for 2026-10-01).
+The HAR stayed outside the repo; the fixtures under `libs/yahoo/fixtures/web/editroster-*` are
+scrubbed (crumb replaced).
+
+| Item | Finding | Evidence |
+|---|---|---|
+| Request | XHR `POST https://hockey.fantasysports.yahoo.com/hockey/{leagueId}/{teamId}/editroster`, `content-type: application/x-www-form-urlencoded; charset=UTF-8`, `x-requested-with: XMLHttpRequest`, `ajax-request: true`, origin and referer the team page | [OBS] HAR |
+| Body | **Every** editable player as `{yahooPlayerId}={slot}` (C, LW, RW, D, Util, G, BN, IR), then `date=YYYY-MM-DD&stat1=S&stat2=D&crumb=…&jsubmit=Save%20Changes`: the whole `form#roster-edit-form`, not a diff | [OBS] HAR |
+| Form source | The team page carries the form: one `<select name="{playerId}">` per player, whose options are the slots Yahoo allows him, and hidden `date`, `stat1`, `stat2`, `crumb` (11 chars), `jsubmit` | [OBS] the re-rendered page in the answer; [EXEC] read-only `GET /hockey/48535/6?date=2026-10-02` returned the form with `date=2026-10-02` |
+| Answer | 200 `application/json` `{content: <roster HTML>, hash, js: "window.location.href=window.location.href", objects: [date nav], errors: []}` | [OBS] HAR |
+| Field order | The answer's re-rendered rows can differ from the order the browser posted; form field order carries no meaning | [OBS] |
+| Failure answers | A non-empty `errors` is assumed to mean "not saved" | [INF], unobserved |
+| Locked players | A player whose game has started is assumed to have no `<select>` | [INF], unobserved |
+
+---
+
+## 12. Update 2026-10-01: the trade-proposal send (U-23)
+Source: Ben's HAR of a real offer (Sergachev + Marchand to team 2 for Bouchard), 790 entries,
+sanitized (no cookies). Deleted after scrubbed fixtures were extracted
+(`libs/yahoo/fixtures/web/proposetrade-*`).
+
+| Step | Request | Answer | Evidence |
+|---|---|---|---|
+| Review | `POST /hockey/{league}/{team}/proposetrade`, form-encoded: `stage=3, mid2={partner team #}, trid=, onote=, note=, tpids2[]={their pid}…, tpids[]={our pid}…, evaluate=, jsubmit=continue`. **No crumb.** Referer: the stage-1 page | 200 HTML review page: `form#proposetradeform` (same action) with hidden `stage=5, mid2, trid, onote, crumb, tpids2[], tpids[]`, a `note` textarea, buttons "Evaluate Trade" / "Send Trade Proposal". Nothing reaches the other manager | [OBS] |
+| Send | Same URL: the review form's hidden fields in order, then `note`, `evaluate=`, `jsubmit=send trade proposal` (lower-case, `+` for spaces) | 302 → `/hockey/{league}/{team}`; that page then shows "You have proposed a trade to <team> … View Proposed Trade" | [OBS] |
+| Failure | — | Not seen: assumed a 200 page or a redirect elsewhere; the writer leaves those to verify (pending trades) | [INF] |

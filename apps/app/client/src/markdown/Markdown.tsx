@@ -1,6 +1,9 @@
 import { memo, useMemo } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, { type Components, type Options } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useMatcher } from '../mentions/context';
+import { MentionLink, parseMention } from '../mentions/Mention';
+import { rehypeMentions } from '../mentions/rehypeMentions';
 import { rehypeNumericCells } from './numericCells';
 import { safeUrl } from './safeUrl';
 import { closeOpenMarkers } from './streaming';
@@ -8,7 +11,8 @@ import { closeOpenMarkers } from './streaming';
 /**
  * Model-written Markdown, rendered inert: raw HTML is dropped (`skipHtml`, and no rehype-raw),
  * links are limited to http(s) and relative URLs and open in a new tab, and images render as
- * their alt text — nothing the model writes can run script or load external content.
+ * their alt text — nothing the model writes can run script or load external content. Player
+ * and team names that resolve to one key in the league index open that player's or team's sheet.
  */
 export const Markdown = memo(function Markdown({
   text,
@@ -19,11 +23,16 @@ export const Markdown = memo(function Markdown({
   streaming?: boolean;
 }) {
   const source = useMemo(() => (streaming ? closeOpenMarkers(text) : text), [text, streaming]);
+  const matcher = useMatcher();
+  const rehype = useMemo<Options['rehypePlugins']>(
+    () => [rehypeNumericCells, [rehypeMentions, { matcher }]],
+    [matcher],
+  );
   return (
     <div className="md">
       <ReactMarkdown
         remarkPlugins={REMARK}
-        rehypePlugins={REHYPE}
+        rehypePlugins={rehype}
         components={COMPONENTS}
         skipHtml
         urlTransform={transformUrl}
@@ -35,7 +44,6 @@ export const Markdown = memo(function Markdown({
 });
 
 const REMARK = [remarkGfm];
-const REHYPE = [rehypeNumericCells];
 
 function transformUrl(url: string, key: string): string | null {
   if (key === 'src') return null;
@@ -56,6 +64,14 @@ const COMPONENTS: Components = {
     ) : (
       <span>{children}</span>
     ),
+  span: ({ children, node }) => {
+    const mention = parseMention(node?.properties?.['dataMention']);
+    return mention ? (
+      <MentionLink mention={mention}>{children}</MentionLink>
+    ) : (
+      <span>{children}</span>
+    );
+  },
   img: ({ alt }) => (alt ? <span className="text-mut italic">[{alt}]</span> : null),
   p: ({ children }) => <p>{children}</p>,
   strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
@@ -70,7 +86,7 @@ const COMPONENTS: Components = {
   li: ({ children }) => <li className="pl-0.5">{children}</li>,
   h1: ({ children }) => <h3 className="text-base font-semibold">{children}</h3>,
   h2: ({ children }) => <h3 className="text-base font-semibold">{children}</h3>,
-  h3: ({ children }) => <h4 className="text-[15px] font-semibold">{children}</h4>,
+  h3: ({ children }) => <h4 className="text-base font-semibold">{children}</h4>,
   h4: ({ children }) => <h5 className="text-sm font-semibold text-soft">{children}</h5>,
   h5: ({ children }) => <h6 className="tag">{children}</h6>,
   h6: ({ children }) => <h6 className="tag">{children}</h6>,
@@ -79,7 +95,7 @@ const COMPONENTS: Components = {
   ),
   hr: () => <hr className="border-line" />,
   pre: ({ children }) => (
-    <pre className="overflow-x-auto rounded-lg border border-line bg-well p-2 text-[13px] leading-snug">
+    <pre className="overflow-x-auto rounded-lg border border-line bg-well p-2 text-xs leading-snug">
       {children}
     </pre>
   ),
@@ -87,8 +103,8 @@ const COMPONENTS: Components = {
     <code className={className ? `${className} font-mono` : 'md-code font-mono'}>{children}</code>
   ),
   table: ({ children }) => (
-    <div className="max-w-full overflow-x-auto rounded-lg border border-line">
-      <table className="md-table w-full border-collapse text-[13px] tabular-nums">{children}</table>
+    <div className="scroll-x max-w-full rounded-lg border border-line">
+      <table className="md-table w-full border-collapse text-xs tabular-nums">{children}</table>
     </div>
   ),
   th: ({ children, style, node }) => (

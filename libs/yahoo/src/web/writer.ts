@@ -3,10 +3,11 @@ import {
   WriteOutcomeUnknownError,
   YahooAuthError,
   YahooFormError,
-  YahooHttpError,
-  YahooThrottledError,
 } from '../errors.js';
 import { cookieHeaderFor, sessionFromCredentials, type StoredSession } from '../session.js';
+import { copySession, keepCookies, type OnCookies } from '../transport.js';
+import { checkPage, isSilentSignIn, type SiteClient } from './site.js';
+import { proposeTradeVia, type TradeRequest } from './trade.js';
 import type { YahooCredentials } from '../session.js';
 import {
   SITE_ORIGIN,
@@ -15,18 +16,27 @@ import {
   type AddDropForm,
   type LeagueTeamIds,
 } from './addDrop.js';
+import {
+  applyMoves,
+  interpretLineupPost,
+  lineupBody,
+  parseRosterEditForm,
+  type RosterEditForm,
+} from './lineup.js';
 
 /**
- * The first Yahoo *write* (U-12): add, or add and drop, through the website's own form.
+ * Yahoo *writes* through the website's own forms (U-12):
  *
- * Observed 2026-09-29 (Ben's HAR, add with no drop): GET the form page, then POST it with
- * `stage=3` and its hidden fields; Yahoo answers 302 with the outcome in the redirect. T + Y
- * cookies suffice. Add+drop is inferred ([U]: the same body plus `dpid`); a pure drop has never
- * been observed and is refused with `NotObservedError` rather than guessed (§24.11).
+ * - add, or add and drop (observed 2026-09-29, Ben's HAR, add with no drop): GET the form page,
+ *   then POST it with `stage=3` and its hidden fields; Yahoo answers 302 with the outcome in the
+ *   redirect. Add+drop is inferred ([U]: the same body plus `dpid`); a pure drop has never been
+ *   observed and is refused with `NotObservedError` rather than guessed (§24.11).
+ * - a lineup for one date (observed 2026-10-01, Ben's HAR): see `lineup.ts`.
  *
- * This class is deliberately separate from the read transport, which stays GET-only. It never
- * logs a cookie or the crumb, and never retries a POST (P7). It returns `submitted`, never
- * `done`: the pipeline decides success by re-reading the roster (§9.3).
+ * It starts from T + Y and keeps every cookie Yahoo sets (U-30): a page GET sent to Yahoo's silent
+ * sign-in with fresh cookies is asked once more with them. This class is deliberately separate from the read transport, which
+ * stays GET-only. It never logs a cookie or the crumb, and never retries a POST (P7). It returns
+ * `submitted`, never `done`: the pipeline decides success by re-reading the roster (§9.3).
  */
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36';
@@ -35,6 +45,12 @@ export const WRITE_TIMEOUT_MS = 20_000;
 export interface AddDropRequest {
   addPlayerKey?: string;
   dropPlayerKey?: string;
+}
+
+export interface LineupRequest {
+  /** The roster date, YYYY-MM-DD (New York). */
+  date: string;
+  moves: readonly { playerKey: string; slot: string }[];
 }
 
 export interface WriteResult {
@@ -54,6 +70,8 @@ export interface YahooWebWriterOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Structured, secret-free lines: never passed a cookie, the crumb or a request body. */
   log?: (line: string) => void;
+  /** Cookies Yahoo rotated, to persist (D-033). */
+  onCookies?: OnCookies;
 }
 
 /** "477.l.48535" + "477.l.48535.t.6" → the numeric ids and the game key, validated. */
@@ -86,13 +104,19 @@ export class YahooWebWriter {
   private readonly now: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly log: (line: string) => void;
+  private readonly onCookies: OnCookies | undefined;
   private last = -Infinity;
+  /** Cookie names the latest answer set. */
+  private lastKept: string[] = [];
   /** Serialises requests so the spacing holds even when callers overlap. */
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(o: YahooWebWriterOptions) {
-    this.session =
-      'cookies' in o.credentials ? o.credentials : sessionFromCredentials(o.credentials);
+    // A copy: the cookies Yahoo sets are kept here, never in the caller's object.
+    this.session = copySession(
+      'cookies' in o.credentials ? o.credentials : sessionFromCredentials(o.credentials),
+    );
+    this.onCookies = o.onCookies;
     this.ids = idsFor(o.leagueKey, o.teamKey);
     this.fetchImpl = o.fetchImpl ?? fetch;
     this.minIntervalMs = o.minIntervalMs ?? 2000;
@@ -111,6 +135,127 @@ export class YahooWebWriter {
     const run = this.queue.then(() => this.addDropNow(req, signal));
     this.queue = run.catch(() => undefined);
     return run;
+  }
+
+  /**
+   * Propose a trade (observed 2026-10-01, `trade.ts`): ask Yahoo for the review page, check it
+   * names exactly our partner and players, then send it with the note. Never retries the send.
+   */
+  proposeTrade(req: TradeRequest, signal?: AbortSignal): Promise<WriteResult> {
+    const run = this.queue.then(async () => {
+      const partner = idsFor(`${this.ids.gameKey}.l.${this.ids.leagueId}`, req.partnerTeamKey);
+      if (partner.teamId === this.ids.teamId) throw new Error('cannot trade with our own team');
+      const ids = (keys: readonly string[]) => keys.map((k) => playerIdFor(k, this.ids.gameKey));
+      const t = { partnerId: partner.teamId, give: ids(req.give), get: ids(req.get) };
+      // The review is a POST, never asked twice: load our team page first so the cookies are fresh.
+      const team = `/hockey/${this.ids.leagueId}/${this.ids.teamId}`;
+      await this.fetchPage(`${SITE_ORIGIN}${team}`, 'team page', team, signal);
+      return proposeTradeVia(this.site, this.ids, t, req.note ?? '', signal);
+    });
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  /**
+   * Keepalive (D-033): load our team page, read only, so Yahoo rolls the cookies and a dead
+   * website session shows before a write is due. Throws `YahooAuthError` when it is dead.
+   */
+  checkSite(signal?: AbortSignal): Promise<void> {
+    const run = this.queue.then(async () => {
+      const team = `/hockey/${this.ids.leagueId}/${this.ids.teamId}`;
+      await this.fetchPage(`${SITE_ORIGIN}${team}`, 'team page', team, signal);
+    });
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** The transport, for flows that live in their own module. */
+  private readonly site: SiteClient = {
+    request: (url, init, signal) => this.request(url, init, signal),
+    headers: (url) => this.headers(url),
+    log: (line) => this.log(line),
+  };
+
+  /**
+   * Set our lineup for one date (observed 2026-10-01): GET the team page for that date, change
+   * our players' selects on Yahoo's own form, POST it back. Everyone not moved stays where Yahoo
+   * has him. Refuses before sending when the page is not that date's form, a player is locked or
+   * not ours, or a slot is not offered. Never retries the POST (P7).
+   */
+  setLineup(req: LineupRequest, signal?: AbortSignal): Promise<WriteResult> {
+    const run = this.queue.then(() => this.setLineupNow(req, signal));
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async setLineupNow(req: LineupRequest, signal?: AbortSignal): Promise<WriteResult> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(req.date)) throw new Error(`not a date: ${req.date}`);
+    const moves = req.moves.map((m) => ({
+      playerId: playerIdFor(m.playerKey, this.ids.gameKey),
+      slot: m.slot,
+    }));
+    const pageUrl = `${SITE_ORIGIN}/hockey/${this.ids.leagueId}/${this.ids.teamId}?date=${req.date}`;
+    const html = await this.fetchPage(
+      pageUrl,
+      'team page',
+      `/hockey/${this.ids.leagueId}/${this.ids.teamId}`,
+      signal,
+    );
+    if (!html.includes('roster-edit-form') && /login\.yahoo\.com/i.test(html)) {
+      throw new YahooAuthError('Yahoo served a sign-in page; reconnect Yahoo.');
+    }
+    const form = parseRosterEditForm(html, this.ids);
+    if (form.date !== req.date) {
+      throw new YahooFormError(
+        `Yahoo served the lineup for ${form.date}, not ${req.date} (not editable?); nothing was sent.`,
+      );
+    }
+    const moved = applyMoves(form, moves);
+    if (!moved.ok) {
+      this.log(`yahooWeb lineup: refused before sending (${moved.why})`);
+      return { status: 'failed', detail: `Not sent to Yahoo: ${moved.why}.` };
+    }
+    return this.postLineup(pageUrl, moved.form, signal);
+  }
+
+  private async postLineup(
+    referer: string,
+    form: RosterEditForm,
+    signal?: AbortSignal,
+  ): Promise<WriteResult> {
+    const url = `${SITE_ORIGIN}${form.action}`;
+    const init: RequestInit = {
+      method: 'POST',
+      headers: {
+        ...this.headers(url),
+        accept: '*/*',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'x-requested-with': 'XMLHttpRequest',
+        'ajax-request': 'true',
+        origin: SITE_ORIGIN,
+        referer,
+      },
+      body: lineupBody(form),
+    };
+    let res: Response;
+    let text: string;
+    try {
+      res = await this.request(url, init, signal);
+      text = await res.text();
+    } catch (err) {
+      const why = err instanceof Error ? err.name : 'error';
+      this.log(`yahooWeb lineup: POST failed midway (${why}); outcome unknown`);
+      throw new WriteOutcomeUnknownError(
+        `The lineup POST failed midway (${why}); outcome unknown.`,
+      );
+    }
+    this.log(`yahooWeb lineup: POST ${form.action} for ${form.date} → ${res.status}`);
+    return interpretLineupPost(
+      res.status,
+      res.headers.get('content-type'),
+      text,
+      res.headers.get('location'),
+    );
   }
 
   private async addDropNow(req: AddDropRequest, signal?: AbortSignal): Promise<WriteResult> {
@@ -137,22 +282,12 @@ export class YahooWebWriter {
   }
 
   private async fetchForm(url: string, addId: string, signal?: AbortSignal): Promise<AddDropForm> {
-    const res = await this.request(url, { method: 'GET', headers: this.headers(url) }, signal);
-    this.log(`yahooWeb addDrop: GET add form for ${addId} → ${res.status}`);
-    if (isLoginRedirect(res) || res.status === 401 || res.status === 403) {
-      throw new YahooAuthError('Yahoo session expired or signed out; reconnect Yahoo.');
-    }
-    if (res.status >= 300 && res.status < 400) {
-      // Not the observed page (e.g. a player who cannot be added). Report the path only.
-      const to = (res.headers.get('location') ?? '').split('?')[0];
-      throw new YahooFormError(`Yahoo redirected the add form to ${to}; nothing was sent.`);
-    }
-    if (res.status === 429 || res.status === 999)
-      throw new YahooThrottledError('Throttled on add form');
-    if (res.status !== 200) {
-      throw new YahooHttpError(res.status, `/hockey/${this.ids.leagueId}/addplayer`, '');
-    }
-    const html = await res.text();
+    const html = await this.fetchPage(
+      url,
+      'add form',
+      `/hockey/${this.ids.leagueId}/addplayer`,
+      signal,
+    );
     if (!html.includes('add-drop-players-form') && /login\.yahoo\.com/i.test(html)) {
       throw new YahooAuthError('Yahoo served a sign-in page; reconnect Yahoo.');
     }
@@ -163,6 +298,27 @@ export class YahooWebWriter {
       );
     }
     return form;
+  }
+
+  /** GET a site page we will post from, mapping a dead session, redirect or throttle to errors. */
+  private async fetchPage(
+    url: string,
+    what: string,
+    path: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const get = async () => {
+      const res = await this.request(url, { method: 'GET', headers: this.headers(url) }, signal);
+      this.log(`yahooWeb: GET ${what} → ${res.status}`);
+      return res;
+    };
+    let res = await get();
+    // Yahoo's silent sign-in hands over the cookies the site wants; a GET is safe to ask again.
+    if (isSilentSignIn(res) && this.lastKept.length > 0) {
+      this.log(`yahooWeb: ${what} sent to silent sign-in with fresh cookies; asking once more`);
+      res = await get();
+    }
+    return checkPage(res, what, path);
   }
 
   private async post(
@@ -213,11 +369,20 @@ export class YahooWebWriter {
     signal?.throwIfAborted();
     this.last = this.now();
     const timeout = AbortSignal.timeout(this.timeoutMs);
-    return this.fetchImpl(url, {
+    const res = await this.fetchImpl(url, {
       ...init,
       redirect: 'manual',
       signal: signal === undefined ? timeout : AbortSignal.any([signal, timeout]),
     });
+    this.lastKept = this.keep(res, url);
+    return res;
+  }
+
+  /** Keep what Yahoo sets, logging the names only (never a value). Returns the names. */
+  private keep(res: Response, url: string): string[] {
+    const names = keepCookies(this.session, res, url, this.now() / 1000, this.onCookies);
+    if (names.length > 0) this.log(`yahooWeb: Yahoo set cookies ${names.join(', ')} (kept)`);
+    return names;
   }
 }
 
@@ -250,10 +415,4 @@ export function interpretPost(status: number, location: string | null): WriteRes
   }
   // Not a shape we have seen: it may have landed. Report it as sent and let verify decide.
   return { status: 'submitted', detail: `Yahoo answered ${status}; ${alert.message}` };
-}
-
-/** A redirect to Yahoo's sign-in (how a dead session answers a site page). */
-function isLoginRedirect(res: Response): boolean {
-  if (res.status < 300 || res.status >= 400) return false;
-  return /login\.yahoo\.com/i.test(res.headers.get('location') ?? '');
 }

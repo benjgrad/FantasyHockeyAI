@@ -340,15 +340,15 @@ type StopReason = 'end_turn' | 'max_tokens' | 'empty_response' | 'aborted'
 ```
 - Build it on **`@anthropic-ai/sdk` directly**. Don't use a framework that hides the loop: every tool call
   has to be visible and loggable, and propose-tools must feed the pipeline.
-- **Model tiers,** created by factory functions:
-
-  | Factory | Model ID |
-  |---|---|
-  | `fastClient()` | `claude-haiku-4-5-20251001` |
-  | `standardClient()` | `claude-sonnet-5` |
-  | `deepClient()` | `claude-opus-5-5` |
-
-  The model for each agent is set in config (§18.2).
+- **A model per agent** (D-023), set in `config/models.yaml` and loaded with `loadModelsConfig`
+  (`libs/llm/src/routing.ts`): `default`, `agents.<name>` and optional `effort.<name>`. Every id
+  must be described in `MODELS` (`libs/llm/src/models.ts`: thinking, forced `tool_choice`,
+  effort, max output) or startup fails. `createLlmRouter` builds one client per model id;
+  `AgentDeps.models` gives each tool agent, the chat assistant (`assistant`) and the router
+  (`router`) its own client, sharing the usage recorder. As of 2026-10-01: Opus 5 for waivers
+  and trades, Sonnet 5.5 for lineup, matchup and chat, Haiku 4.5 for the league review, the
+  router and the draft explainer (`FHA_EXPLAIN_MODEL`). `fha usage --since 7d` reports cost,
+  runs and invalid attempts per agent and model.
 
 ### 7.2 Tool loop algorithm
 ```
@@ -427,6 +427,10 @@ to `ctx.planSink`. They return `{ok:true, data:{planId}}`, and **nothing touches
 | `proposeTradeResponse` | propose | `{transactionKey, action, note?}` | planId | trades |
 | `proposeDraftPick` | propose | `{playerKey, reason}` (must be in the current `getDraftBoard` candidates) | planId | draft |
 | `askBen` | read | `{question, options?[]}` | queues a question, returns `{queued:true}`; the agent must then end its turn | all |
+| `getGoalieStarts` | read | `{date}` | per goalie of ours: confirmed / likely / notStarting / unknown / noGame / out, P(start) and evidence (Yahoo flag, starter note, teammate) (D-029) | lineup, matchup |
+| `getWatchList` | read | `{}` | who the watchers follow and why, incl. agent-followed players (D-028) | lineup, waivers, matchup, trades, leagueReview |
+| `watchPlayers` | propose (app state) | `{playerKeys, reason, days}` | follows players: status and news read every 20 min; ≤ 25 at once, ≤ 30 days; switchable (D-028) | waivers, trades, chat |
+| `stopWatching` | propose (app state) | `{playerKeys}` | stops following agent-added players (D-028) | waivers, trades, chat |
 
 Rules for the catalogue:
 - **Batch reads** (up to 25 keys), so the model doesn't loop one item at a time.
@@ -460,8 +464,19 @@ Checks by plan kind:
 | `tradeRespond` | The `transactionKey` is a pending trade in which we are the tradee. |
 | `draftPick` | `draft_status == 'drafting'`, the player is undrafted (fresh `draftresults`), and the key is in the last candidate list. |
 
-- **One fix attempt:** if validation fails, the errors (written as instructions) go back to the proposing agent once.
-- **A second failure** rejects the plan with status `invalid`. It is logged and Ben is notified if the job was important. Nothing is forced through.
+- **Checked before it is recorded** (D-022): the propose tool runs this validation itself
+  (`submitProposal`), with the same context as the pipeline. An invalid attempt never becomes a
+  decision row, a card or a push; it is logged in `proposal_attempts` (P10). The pipeline still
+  validates as the backstop.
+- **Up to three retries:** the errors (written as instructions) go back to the proposing agent,
+  which may fix and propose again — four attempts per plan kind per run. A failure no edit can
+  fix (a duplicate of an open plan, a passed deadline) is refused at once. A refusal is never
+  `STOP`: the run or chat turn continues and the agent tells Ben what it found. Nothing is
+  forced through.
+- **Open plans are visible to the model:** a `<decisions>` block (open decisions and those
+  settled in the last day, `decisionsBlock` in `libs/tools`) rides on each chat turn and in each
+  agent's league context, `getDecisions` reads one in full, and `getLineupSuggestion` /
+  `proposeLineup` report a lineup an open plan already covers instead of filing a duplicate.
 
 ### 9.2 Gate
 - The gate reads `config/permissions.yaml` (§18.3) and returns `allow | ask | deny` for the plan kind, plus the limits. A kind set to `askTimeout` comes out as `ask` with a timer (`autoApproveAfterMinutes`): the plan is queued and executes on its own at its auto-approve time unless Ben rejects it first (ROADMAP D-018).
@@ -490,6 +505,18 @@ undone once waivers process) and runs it through the normal pipeline.
 ## 10. Yahoo integration (`libs/yahoo`)
 
 ### 10.1 Access status [R], and the website-session route [V]
+
+> **Updated 2026-10-09 (D-033) [V].** The credential is the **whole browser cookie jar**, not just
+> `T` + `Y`. The API accepts `T` + `Y` alone, but once `T` ages the *website* (the lineup, add/drop and
+> trade forms) sends a page to Yahoo's silent sign-in, `login.yahoo.com/config/login?noPrompt…`. That
+> same answer sets `A1`, `A3` and `A1S` (one year). A client that keeps them and asks again gets the
+> page. So:
+> - Every reader and writer keeps every Set-Cookie and reports it, and the app merges it into the
+>   sealed jar (`persistRotated`).
+> - Website GETs retry once after a silent sign-in. POSTs never retry.
+> - A daemon keepalive loads our team page every 6 h, and before lineups.
+> - Health is tracked per side (`expired_by` = `api` | `site`), so an API success never masks a dead
+>   website session.
 
 > **Updated 2026-09-24.** A second route was found and verified, so developer-app
 > provisioning is **no longer the largest project risk for reads**. See
@@ -686,6 +713,7 @@ type ExecResult = { status: 'done' | 'submitted' | 'needsHuman' | 'failed'; deta
 | `YahooApiReader` / `YahooApiExecutor` | ✔ | ✔ if write scope granted | §10.3–10.4. Start here if Yahoo grants access. |
 | `WebSessionReader` | ✔ | ✘ by construction | §10.1. Reads `pub-api-ro` with the user's session cookies; no developer app. Verified 2026-09-24 and implemented in `prototypes/yahoo-web`. **Read-only: it has no write methods.** Writes through `pub-api-rw` are unverified. |
 | `BrowserReader` / `BrowserExecutor` | ✔ | ✔ | Playwright against Ben's logged-in session. The session state is stored in `data/browser-state.json`, **encrypted**. Rules: act on the **row just read** (select by the element containing the player's Yahoo ID or link, **never by visible name text**), take a screenshot before and after each action and save it to `data/artifacts/`, and have a kill switch (`fha stop`). The terms of service are unconfirmed: this is Ben's decision (§25). |
+| `YahooWebAdapter` (`libs/yahoo/src/web/`) | via `WebSessionReader` | add / add+drop, **lineup** (U-12), **trade proposal** (U-23) | Replays the website's own forms with the session cookies: GET the page for its per-page crumb, POST the form. Lineup: team page `?date=` → `form#roster-edit-form` → `POST …/editroster` with only our players' selects changed. Never retries a POST; `verify` re-reads the roster. Every other kind → `needsHuman`. What `apps/app` uses when the Yahoo connection is live. |
 | `ManualExecutor` | n/a | prints the exact action, then waits for `fha confirm <planId>` | The draft-night fallback [T]. It returns `needsHuman`. |
 | `DryRunExecutor` | n/a | logs only | Used in tests, evals and the first days in season. |
 
@@ -711,6 +739,17 @@ Base URL: `https://api.nhle.com/stats/rest/en`. Common query parameters:
 | `/goalie/summary` | playerId, goalieFullName, gamesPlayed, gamesStarted, wins, goalsAgainstAverage, savePct, shutouts, saves, shotsAgainst, goalsAgainst, timeOnIce | [V] W/GAA/SV%/SO present; 98 rows. Other field names [U]: log one row and confirm. |
 
 Prior seasons use the same query with `seasonId=20242025` or `20232024` [V: 2023-24 returned 924 skaters].
+
+### 11.1a Per-game reports [V 2026-10-02] (D-025)
+The same reports with `isGame=true` return one row per player per game, carrying `gameId`,
+`gameDate`, `teamAbbrev`, `opponentTeamAbbrev` and `homeRoad`: `skater/summary` (G, A, P, +/-,
+PIM, PPP, SHP, GWG, SOG, TOI), `skater/realtime` (hits, blocks), `skater/faceoffwins`,
+`goalie/summary` (GS, W, L, OTL, GA, SA, SV, SO, TOI). Filter by
+`seasonId=… and gameTypeId=2 and gameDate>="…" and gameDate<="…"`. **`limit=-1` returns the whole
+window** (a month ≈ 8,100 skater rows in ~0.5 s); an explicit `limit` is capped at 100 rows. Bursts
+get 429; pull one report at a time and honour `Retry-After`. Python's default user agent gets 403.
+Stored in migration 006 (§16); `/v1/player/{id}/game-log` is not used (no hits, blocks or
+faceoffs, one request per player).
 
 ### 11.2 Web API [V schedule; others R]
 - `https://api-web.nhle.com/v1/schedule/{YYYY-MM-DD}` [V: 200]. It returns a week of games (`gameWeek[].games[]`
@@ -756,6 +795,17 @@ There's no official source. The `GoalieStartProvider` works through these in ord
 ## 12. Model core (`libs/model`): pure functions, heavily tested [D]
 
 ### 12.1 Projections (rest of season)
+*The recipe below built the **preseason** projection (the draft seed). In season (D-026) the
+projection is a lens, not an overwrite, and is a **Bayesian update** of that preseason projection
+rather than the blend below: `rosSkaterRates` / `rosGoalieRates` (`libs/model/src/ros.ts`),
+applied by `rosLensView` (`libs/tools/src/valuationLens.ts`). Per category,
+`rate = (Σ this season + K·prior rate) / (GP this season + K)`; the prior is the preseason
+per-game rate, so past seasons enter only through it (the D-025 blend counted them twice and
+shrank toward the projection, not the positional mean this section describes). K: skaters 40
+games; goalie W/SHO/SA/TOI 20 starts; SV% and GAA 50 starts' worth of shots and minutes; goalie
+start share 10 team games (all [U], ROADMAP U-26). A call-up without a preseason projection uses
+his past seasons as the prior. A skater keeps his projected games; a goalie's starts follow the
+updated start share. Low confidence: under 10 GP (skaters) or 5 starts (goalies) this season.*
 For each player and each counting stat `c`, over the seasons `s ∈ {current-to-date, last, last-1}`:
 - Recency weights `w = {cur: 0.5·f, last: 0.3, prev: 0.2}`, where `f = min(1, GP_cur/20)` so the current-season weight grows as
   games are played. Before the season starts, use `{last: 0.5, prev: 0.3, prev2: 0.2}`. This is the draft-day case.
@@ -773,6 +823,17 @@ For each player and each counting stat `c`, over the seasons `s ∈ {current-to-
   the ADP curve (§12.2, final step) and they are **flagged, not guessed**.
 
 ### 12.2 Valuation: category z-scores and VORP
+*In season (D-026), the valuation below is recomputed on the rest-of-season lens: `valuePlayers`
+runs on the preseason and the lens projections over the same players, and the **difference** is
+added to the seed's value, z and VORP, so the seed's whole-league pool and market calibration
+(D-006) carry over and a player without games keeps his seed numbers exactly. The lens VORP is
+**VOLS** (value over last starter). The family built on it (`libs/tools/src/valueNow.ts`): Adj. =
+`VOLS − (1 − share)(max(VOLS, 0) + 1)` with `share` over `seasonHorizonGames`; **VOFA** = Adj. −
+Adj. of the best healthy free agent at the player's scarcest eligible position; **CWA** and Week
+CWA (§12.7's machinery, see §12.8); luck (shooting % over the last 20 games, or SV% over the last
+10 starts, against his earlier rate, binomial z, labelled at |z| ≥ 1.5). Definitions shown to Ben
+and the agents live in one glossary, `libs/core/src/glossary.ts`.*
+
 1. **Separate the pools:** skaters (`P`) and goalies (`G`).
 2. **Size the draftable pool:**
    - Skaters: `N_P = numTeams × (starting skater slots)`, where Util counts as a skater slot.
@@ -866,6 +927,14 @@ For each player and each counting stat `c`, over the seasons `s ∈ {current-to-
 - **Incoming offers:** accept-worthy if `Δ_us > minTradeGain`. The LLM writes the rationale, and the plan always goes to Ben (`ask`) [T].
 
 ### 12.8 Waiver and streaming scoring
+*Wired 2026-10-02 (D-026): the `findPickups` tool runs `scoreWaivers` on the rest-of-season lens
+against our droppable players (locked, ask-listed, protected excluded). **Need is measured, not
+guessed:** CWA (`libs/model/src/categoryWins.ts`) is Δ expected categories won per week against
+the league field with the player on our roster versus without him (an add releases our
+lowest-value player; losing one of ours signs the best free agent), the same settle and weekly
+lines as §12.7. Week CWA does the same for this week's matchup with the banked score. Weekly
+lines from a full-season projection divide by the season's weeks (`projectionWeeks`), not the
+weeks left.*
 - **Rest-of-season gain:** `gain = VORP_f − VORP_d`, where `d` is our lowest-value droppable player at a compatible position.
 - **Streaming gain for this week:** `(games_f − games_d) × perGameValue_f × Σ_c w_c-adjusted`.
 - **Propose** when `max(ROS gain, streaming gain) > addThreshold` (§18.3) and add limits remain.
@@ -874,6 +943,8 @@ For each player and each counting stat `c`, over the seasons `s ∈ {current-to-
 ---
 
 ## 13. Agents [D]
+
+*Form and forecast tools (D-025): `getPlayerGames` (raw game log), `getPlayerForm` (windows, trends, in-season vs preseason per game), `getForecast` (matchup, players' next days, season). Every number is computed in code; prompts say which lens a forecast uses.*
 
 Each agent is one class implementing `Agent`, a prompt entry in `libs/prompts/prompts/<agent>.yaml`, and a
 tool allow-list. The math happens in tools, and the LLM chooses and explains.
@@ -948,6 +1019,10 @@ its propose tool, or by answering `noop` with a reason.
 ---
 
 ## 16. Storage (`libs/store`, SQLite with WAL) [D]
+
+*Agents' watch list (D-028): migration 009 `watch_list (user_id, player_key, reason, added_by, added_at, expires_at)`, repo `store.watchList`; written by the `watchPlayers`/`stopWatching` tools, Ben's "Stop following", and a Players-page name search that missed the pool and found the player on Yahoo (`added_by = 'search'`, 3 days, D-032). Every watched player is read into the league snapshot alongside the rostered players, the top FAs by preseason rank, last week's top 50 FAs by actual rank, and the waiver list.*
+*Mid-season values (D-026): migration 007 `valuation_history (league_key, date, player_key, lens, value, vols, adjusted, vofa, cwa, week_cwa, gp_current, low_conf)` written after each refresh, repo `store.valuations`, plus an index on skater games by season and team; migration 008 `lens_shadow` (one row per decision, subject and day where the other value lens would have decided differently), repo `store.lensShadow`.*
+*Game-level history (D-025, migration 006): `nhl_skater_games` and `nhl_goalie_games` keyed `(nhl_id, game_id)`, `nhl_players`, `ingest_state(season, last_date)`; repo `store.nhlGames`. Proposals refused before recording (D-022, migration 005): `proposal_attempts`.*
 Migrations are numbered SQL files applied at startup. The core schema:
 ```sql
 CREATE TABLE api_cache   (source TEXT, key TEXT, body TEXT NOT NULL, fetched_at TEXT NOT NULL,
@@ -1057,6 +1132,12 @@ protected:
 thresholds: { addThreshold: 0.5 }               # VORP units
 ```
 Any plan kind missing from `plans` is treated as `deny`. The gate fails closed.
+
+**Value lens per decision (D-026):** `valueLens: { lineup, autoGrab, protected, trades }`, each
+`preseason` (default) or `rest-of-season`. Each decision values players on its lens and runs the
+other in shadow (`lensSwitch.ts`), recording disagreements in `lens_shadow`; Settings and `fha
+shadow` list them. Thresholds keep their units on both lenses (VORP units for `addThreshold`
+and `autoGrab.minGain`, expected categories for `minTradeGain`), but re-check them when switching.
 
 ---
 

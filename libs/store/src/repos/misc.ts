@@ -75,6 +75,8 @@ export interface QuestionsRepo {
   get(id: string): QuestionRecord | undefined;
   /** Oldest first. */
   unanswered(): QuestionRecord[];
+  /** An agent's questions answered at or after `since`, oldest first (D-029). */
+  answeredSince(agent: AgentName, since: string): QuestionRecord[];
 }
 
 interface QuestionRow {
@@ -115,6 +117,9 @@ export function questionsRepo(db: Db, now: Clock): QuestionsRepo {
   const open = db.prepare(
     'SELECT * FROM questions WHERE answered_at IS NULL ORDER BY asked_at, rowid',
   );
+  const answered = db.prepare(
+    'SELECT * FROM questions WHERE agent = ? AND answered_at >= ? ORDER BY answered_at, rowid',
+  );
   return {
     ask(runId, agent, question, options = []) {
       const id = randomUUID();
@@ -127,6 +132,7 @@ export function questionsRepo(db: Db, now: Clock): QuestionsRepo {
       return r === undefined ? undefined : toQuestion(r);
     },
     unanswered: () => (open.all() as QuestionRow[]).map(toQuestion),
+    answeredSince: (agent, since) => (answered.all(agent, since) as QuestionRow[]).map(toQuestion),
   };
 }
 
