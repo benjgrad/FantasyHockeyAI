@@ -1,13 +1,12 @@
 import type { Player, Valuation } from '@fha/core';
-import {
-  CATEGORY_SATURATION,
-  availabilityAdjustedVorp,
-  categoryNeedWeights,
-  lowerIsBetter,
-} from '@fha/model';
+import { CATEGORY_SATURATION, availabilityAdjustedVorp, lowerIsBetter } from '@fha/model';
 import type { Store } from '@fha/store';
 import {
   currentMatchup,
+  discountedRoster,
+  fitLens,
+  needWeights,
+  type FitLensName,
   playerSeasonShare,
   scoringCategories,
   seasonHorizonGames,
@@ -41,6 +40,8 @@ export interface Strength {
   categories: StrengthRow[];
   weights: Record<string, number>;
   targets: string[];
+  /** The lens the sums and every card's fit read players from (D-040). */
+  lens: { view: LeagueView; name: FitLensName };
 }
 
 /** Most categories named as targets at once: "targeting everything" targets nothing. */
@@ -60,34 +61,7 @@ export function seasonShare(view: LeagueView, p: Player): number {
   return playerSeasonShare(view, p);
 }
 
-/**
- * A team's roster as z-only valuations, each z scaled by availability. Only `z` is read by
- * `categoryNeedWeights`; the other fields are placeholders to satisfy the model's type.
- */
-export function discountedRoster(view: LeagueView, teamKey: string): Valuation[] {
-  return view.roster(teamKey).entries.flatMap(({ player }) => {
-    const v = view.valuation(player.playerKey);
-    if (v === undefined) return [];
-    const share = seasonShare(view, player);
-    const z = Object.fromEntries(Object.entries(v.z).map(([c, x]) => [c, x * share]));
-    return [
-      {
-        nhlId: player.nhlId ?? 0,
-        name: player.name,
-        position: v.position,
-        team: player.nhlTeam,
-        positionType: player.positionType,
-        z,
-        value: v.value,
-        vorp: v.vorp,
-        vorpPosition: v.position,
-        perGameValue: v.perGameValue,
-        gp: v.gp,
-        lowConfidence: v.lowConfidence,
-      },
-    ];
-  });
-}
+export { discountedRoster };
 
 /** VORP net of his expected time out over the rest of the season; undefined when unvalued. */
 export function adjustedVorpOf(view: LeagueView, p: Player): number | undefined {
@@ -141,18 +115,26 @@ function winProbs(view: LeagueView): Record<string, number> {
 
 const cache = new WeakMap<LeagueView, Strength>();
 
-/** Our strength per scored category, weakest first. Pure over the view, so cached per view. */
-export function categoryStrength(view: LeagueView): Strength {
+/**
+ * Our strength per scored category, weakest first, cached per view. Each roster's z comes from
+ * the rest-of-season lens when the store is given (D-040), so a team's rank moves with the
+ * season's games; without it, the preseason values. With the store, the need
+ * weights `fit` uses are the season's marginal ΔP(win a week) weights against the league
+ * (D-034), so a category we already win stops pulling players up the list; without it (or if
+ * the audit cannot be built) they fall back to the roster-only need weights of the draft.
+ */
+export function categoryStrength(view: LeagueView, store?: Store): Strength {
   const hit = cache.get(view);
   if (hit !== undefined) return hit;
   const cats = scoringCategories(view.settings);
-  const ours = discountedRoster(view, view.teamKey);
+  const lens = fitLens(view, store);
+  const ours = discountedRoster(lens.view, view.teamKey);
   const league = view.snap.teams.map((t) => ({
     teamKey: t.teamKey,
-    sums: sums(discountedRoster(view, t.teamKey), cats),
+    sums: sums(discountedRoster(lens.view, t.teamKey), cats),
   }));
   const mine = sums(ours, cats);
-  const weights = categoryNeedWeights(ours, cats);
+  const weights = needWeights(view, store);
   const probs = winProbs(view);
   const of = Math.max(1, league.length);
   const rows = cats
@@ -172,7 +154,7 @@ export function categoryStrength(view: LeagueView): Strength {
       };
     })
     .sort((a, b) => b.rank - a.rank || a.z - b.z);
-  const out = { categories: rows, weights, targets: targetsFor(rows) };
+  const out = { categories: rows, weights, targets: targetsFor(rows), lens };
   cache.set(view, out);
   return out;
 }

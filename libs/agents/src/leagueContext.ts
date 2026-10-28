@@ -5,7 +5,7 @@ import {
   type LeagueSettings,
   type Permissions,
 } from '@fha/core';
-import type { LeagueView } from '@fha/tools';
+import { asOfLine, waiverRulesText, type LeagueView } from '@fha/tools';
 
 /**
  * The `{{leagueContext}}` block of every agent's system prompt (§7.4, §13): the league's rules
@@ -13,7 +13,8 @@ import type { LeagueView } from '@fha/tools';
  *
  * It sits in `system`, behind the cache breakpoint, so it holds only what is stable for a day:
  * settings, categories, slots, limits, today's date, the permission summary and the glossary
- * of what every number means. Rosters,
+ * of what every number means, plus the snapshot's as-of line (it changes with each hourly pull,
+ * which costs one cache write an hour; telling the model how old its data is is worth that). Rosters,
  * candidates and Ben's note go in the user message. The permission line is informational — the
  * gate enforces it in code (P2) — but telling the model up front saves it proposing moves that
  * are certain to be refused.
@@ -31,11 +32,13 @@ export function buildLeagueContext(
   return [
     `League: ${settings.name}, ${settings.numTeams} teams, ${settings.scoringType} scoring.`,
     `Today (America/New_York): ${today}. Week ${view.snap.week}.`,
+    // When the data is from, and a loud warning when the last Yahoo read failed (4b, P9).
+    asOfLine(view),
     `Skater categories: ${skaters.map((c) => c.abbr).join(', ')}.`,
     `Goalie categories: ${goalies.map((c) => c.abbr).join(', ')}.`,
     ...(lowerBetter.length > 0 ? [`Lower is better: ${lowerBetter.join(', ')}.`] : []),
     `Roster slots: ${slots}.`,
-    `Waivers: ${settings.usesFaab ? 'FAAB' : 'rolling priority, no FAAB'}.`,
+    waiverRulesText(view, settings.usesFaab),
     ...rulesLine(view, today),
     limitsLine(permissions),
     permissionsLine(permissions, view),
@@ -76,10 +79,16 @@ function limitsLine(p: Permissions): string {
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => `${k} ${String(v)}`);
     // Ask with timeout (D-018): queued for Ben, done on its own if he does not reject in time.
+    // A claim is never filed by us (U-22): its timeout only hands it to Ben.
+    const claim = kind === 'waiverClaim';
     const mode =
       rule.mode === 'askTimeout'
-        ? `ask (done after ${askTimeoutMinutes(rule)} min unless Ben rejects)`
-        : rule.mode;
+        ? claim
+          ? `ask (after ${askTimeoutMinutes(rule)} min unless Ben rejects, handed to Ben to file in Yahoo)`
+          : `ask (done after ${askTimeoutMinutes(rule)} min unless Ben rejects)`
+        : claim && rule.mode === 'allow'
+          ? 'allow (handed to Ben to file in Yahoo)'
+          : rule.mode;
     return `${kind} ${mode}${limits.length > 0 ? ` (${limits.join(', ')})` : ''}`;
   });
   return `Plan kinds (any not listed is refused): ${parts.join('; ') || 'none'}.`;

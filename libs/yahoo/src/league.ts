@@ -43,6 +43,8 @@ export interface LeagueMeta {
   playoffStartWeek?: number;
   /** Where undrafted players go after the draft: 'W' (waivers) or 'FA'. */
   postDraftPlayers?: string;
+  /** Which dropped players go through waivers: 'all', 'gametime', … [U] beyond 'all'. */
+  waiverRule?: string;
 }
 
 const RATE = new Set(['GAA', 'SV%']);
@@ -110,6 +112,7 @@ function parseMeta(lg: Raw, s: Raw): LeagueMeta {
     tradeEndDate: str(s.trade_end_date),
     playoffStartWeek: num(s.playoff_start_week),
     postDraftPlayers: str(s.post_draft_players),
+    waiverRule: str(s.waiver_rule),
   };
   return Object.fromEntries(Object.entries(meta).filter(([, v]) => v !== undefined)) as LeagueMeta;
 }
@@ -117,11 +120,13 @@ function parseMeta(lg: Raw, s: Raw): LeagueMeta {
 export function parseTeamRaw(t: Raw): LeagueTeam & { mine: boolean } {
   const manager = unwrap(t.managers, 'manager')[0];
   const nickname = str(manager?.nickname);
+  const priority = num(t.waiver_priority);
   return {
     teamKey: reqStr(t.team_key, 'team.team_key'),
     name: reqStr(t.name, 'team.name'),
     mine: flag(t.is_owned_by_current_login),
     ...(nickname === undefined ? {} : { managerNickname: nickname }),
+    ...(priority === undefined || priority < 1 ? {} : { waiverPriority: priority }),
   };
 }
 

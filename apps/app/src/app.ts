@@ -69,7 +69,7 @@ export function buildServices(deps: AppDeps, opts: AppOptions = {}): Services {
         deps.valuate ??
         ((leagueKey) =>
           valuateFor(
-            { explicit: config.valuationSnapshot, snapshotDir: config.snapshotDir },
+            { explicit: config.valuationSnapshot, snapshotDir: config.snapshotDir, store },
             leagueKey,
           )),
       now,

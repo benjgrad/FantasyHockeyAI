@@ -19,6 +19,15 @@ export function isLoginRedirect(res: Response): boolean {
   return /login\.yahoo\.com/i.test(res.headers.get('location') ?? '');
 }
 
+/** A redirect to Yahoo's consent screen (`guce.yahoo.com/consent`), seen from 2026-10-17. */
+export function isConsentRedirect(res: Response): boolean {
+  if (res.status < 300 || res.status >= 400) return false;
+  return /^https?:\/\/guce\.yahoo\.com\//i.test(res.headers.get('location') ?? '');
+}
+
+export const CONSENT_MESSAGE =
+  'Yahoo wants its consent page accepted: open Yahoo Fantasy in your browser, accept it, then reconnect Yahoo in Settings.';
+
 /**
  * A page we will post from must be a 200 HTML page: a dead session, a redirect or throttling
  * become errors (thrown before anything that matters is sent). Returns the page's HTML.
@@ -27,6 +36,8 @@ export async function checkPage(res: Response, what: string, path: string): Prom
   if (isLoginRedirect(res) || res.status === 401 || res.status === 403) {
     throw new YahooAuthError('Yahoo session expired or signed out; reconnect Yahoo.');
   }
+  // Never accepted on Ben's behalf: agreeing to Yahoo's terms is his to do (P2).
+  if (isConsentRedirect(res)) throw new YahooAuthError(CONSENT_MESSAGE, 'consent');
   if (res.status >= 300 && res.status < 400) {
     // Not the observed page. Report the path only.
     const to = (res.headers.get('location') ?? '').split('?')[0];

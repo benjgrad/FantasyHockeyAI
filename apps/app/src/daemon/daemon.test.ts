@@ -16,6 +16,7 @@ import {
 import { userPermissions } from '../permissions.js';
 import { Daemon } from './daemon.js';
 import { keepaliveDue } from './keepalive.js';
+import { CONSENT_REASON } from '../yahoo.js';
 import { LockHeldError } from './lock.js';
 import { firstGameFor, PREGAME_LEAD_MS } from './schedule.js';
 
@@ -63,7 +64,9 @@ describe('daemon: scheduler', () => {
     h.clock.now = new Date('2026-09-29T13:01:00Z'); // 09:01 ET
     expect(fresh.tick().map((x) => x.slot.key)).toEqual([
       'refresh@2026-09-29#daily',
+      'archive@2026-09-29#daily',
       'waivers@2026-09-29#daily',
+      'pull@2026-09-29#09', // the hourly Yahoo pull (4a), ahead of the job at the same minute
       'digest@2026-09-29#daily',
     ]);
     expect(fresh.tick()).toEqual([]);
@@ -284,7 +287,15 @@ describe('daemon: what is watched, visibly (D-027)', () => {
       }[];
     };
     const names = v.agents.map((a) => a.name);
-    expect(names).toEqual(['lineup', 'waivers', 'trades', 'matchup', 'leagueReview', 'assistant']);
+    expect(names).toEqual([
+      'lineup',
+      'waivers',
+      'trades',
+      'matchup',
+      'leagueReview',
+      'strategy',
+      'assistant',
+    ]);
     const lineup = v.agents.find((a) => a.name === 'lineup');
     expect(lineup?.schedule.some((x) => x.includes('10:00'))).toBe(true);
     expect(lineup?.triggers.some((x) => x.includes('IR-eligible'))).toBe(true);
@@ -378,6 +389,18 @@ describe('daemon: website keepalive (D-033)', () => {
     d.queueKeepalives();
     await d.queue.idle();
     expect(notices('failed')).toHaveLength(2);
+  });
+
+  it("Yahoo's consent page: expired by the website, and the push says to accept it", async () => {
+    h.yahoo.siteConsent = true;
+    d.queueKeepalives();
+    await d.queue.idle();
+    expect(h.store.yahooConnections.get(userId)).toMatchObject({
+      status: 'expired',
+      expiredBy: 'site',
+      lastError: CONSENT_REASON,
+    });
+    expect(notices('failed').map((n) => n.title)).toEqual(['Accept Yahoo’s consent page']);
   });
 
   it('Yahoo down: no expiry and no push (P9)', async () => {

@@ -3,7 +3,13 @@ import { useEffect, useRef } from 'react';
 import type { LeagueStatus } from '@fha/api';
 import { api } from '../api/endpoints';
 import { useNow } from '../pwa/OfflineStatus';
-import { LEAGUE_QUERY_KEYS, freshnessText, justRefreshed, statusPollMs } from './freshness';
+import {
+  LEAGUE_QUERY_KEYS,
+  freshnessText,
+  isFailed,
+  justRefreshed,
+  statusPollMs,
+} from './freshness';
 
 /** The league data's age, polled fast while a background rebuild runs. */
 export function useLeagueStatus(): LeagueStatus | undefined {
@@ -38,13 +44,17 @@ export function LeagueRefreshWatcher(): null {
   return null;
 }
 
-/** "Updated 17 min ago · refreshing from Yahoo…", with a pulsing dot while refreshing. */
+/**
+ * "Updated 17 min ago · refreshing from Yahoo…", with a pulsing dot while refreshing, and in the
+ * warning colour when the last Yahoo read failed and the page shows older data (4b).
+ */
 export function Freshness({ className = '' }: { className?: string }) {
   const status = useLeagueStatus();
   const now = useNow();
   if (status === undefined) return null;
+  const tone = isFailed(status) && !status.refreshing ? 'text-warn' : 'text-mut';
   return (
-    <div role="status" className={`flex items-center gap-1.5 text-xs text-mut ${className}`}>
+    <div role="status" className={`flex items-center gap-1.5 text-xs ${tone} ${className}`}>
       {status.refreshing ? (
         <span aria-hidden className="inline-block size-2 animate-pulse rounded-full bg-acc" />
       ) : null}

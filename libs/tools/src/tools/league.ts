@@ -2,8 +2,13 @@ import { addsUsedThisWeek } from '../adds.js';
 import { z } from 'zod';
 import { weeklyAddCap, type Player } from '@fha/core';
 import { normalizeName } from '@fha/model';
+import { fitLens, needWeights, playerFit } from '../fit.js';
 import { formFor } from '../history.js';
-import { defineTool, fail, ok, type RunContext } from '../context.js';
+import { SortSpec, compareBy, sortColumn, sortDigits, sortLabel, sortProblem, sortValues } from '../playerSort.js';
+import { pendingClaimLines, waiverOrderText } from '../claims.js';
+import { defineTool, fail, ok, type Ctx, type RunContext } from '../context.js';
+import { asOfLine, isStale } from '../freshness.js';
+import { openDecisions } from '../openDecisions.js';
 import { availabilityOf, fmt, label, scoringCategories, table } from '../derive.js';
 import { resolvePlayers, resolveTeam, teamName } from '../resolve.js';
 import type { LeagueView } from '../view.js';
@@ -40,33 +45,27 @@ export const getLeagueContext = defineTool({
       minTradeGain: perms.plans.tradePropose?.limits.minTradeGain,
       dryRun: perms.dryRun,
       paused: perms.paused,
+      asOf: view.freshness.builtAt,
+      statsThrough: view.freshness.statsThrough ?? null,
+      stale: isStale(view),
+      waiverPriority: view.waiverPriority() ?? null,
+      pendingClaims: view.pendingClaims().map((t) => t.transactionKey),
     };
+    const order = waiverOrderText(view);
     const lines = [
       `${data.league} (${data.source} data) — ${data.date}, week ${data.week} (${week.start}..${week.end})`,
+      asOfLine(view),
       `Our team: ${data.ourTeam}. Other teams: ${data.otherTeams.join(', ')}`,
       `Categories: ${data.categories.join(', ')}`,
       `Slots: ${data.slots.join(', ')}`,
       `Adds this week: ${addsUsed} used of ${maxAdds ?? 'no limit'}. Min trade gain: ${data.minTradeGain ?? 'none'}.`,
       `Draft status: ${data.draftStatus}. Writes: ${perms.paused ? 'PAUSED' : perms.dryRun ? 'dry run' : 'live'}.`,
-      ...pendingClaims(view),
+      ...(order === undefined ? [] : [`Waivers: rolling, no FAAB; ${order}.`]),
+      ...pendingClaimLines(view, openDecisions(ctx.store, ctx.now)),
     ];
     return Promise.resolve(ok(data, lines.join('\n')));
   },
 });
-
-/** Our waiver claims waiting in Yahoo (D-029): a second claim on the same player is wasted. */
-function pendingClaims(view: LeagueView): string[] {
-  const ours = view.snap.transactions.filter(
-    (t) => t.type === 'waiver' && t.teamKey === view.teamKey,
-  );
-  if (ours.length === 0) return [];
-  const name = (k: string) => view.player(k)?.name ?? k;
-  return [
-    `Pending waiver claims: ${ours
-      .map((t) => t.players.map((p) => `${p.toTeamKey === view.teamKey ? 'add' : 'drop'} ${name(p.playerKey)}`).join(', '))
-      .join('; ')}.`,
-  ];
-}
 
 function teamNameOf(view: LeagueView, key: string): string {
   return view.snap.teams.find((t) => t.teamKey === key)?.name ?? key;
@@ -93,6 +92,7 @@ function playerRow(ctx: RunContext, p: Player) {
     vorp: v?.vorp,
     perGameValue: v?.perGameValue,
     lowConfidence: v?.lowConfidence,
+    fit: playerFit(fitLens(ctx.view, ctx.store), needWeights(ctx.view, ctx.store), p).fit ?? undefined,
     ...nowColumns(ctx, p.playerKey),
     form: formSummary(ctx, p.playerKey),
   };
@@ -142,6 +142,7 @@ const ROW_HEADERS = [
   'Δ7d',
   'GP now',
   'perGame',
+  'Fit',
   '%own',
   'form (last 10)',
 ];
@@ -160,6 +161,7 @@ function rowCells(r: Row, p: Player): string[] {
     fmt(r.delta7d),
     r.gpThisSeason === undefined ? '-' : String(r.gpThisSeason),
     fmt(r.perGameValue, 3),
+    fmt(r.fit),
     r.percentOwned === undefined ? '-' : String(r.percentOwned),
     r.form,
   ];
@@ -197,65 +199,110 @@ export const getPlayers = defineTool({
 export const searchPlayers = defineTool({
   name: 'searchPlayers',
   description:
-    'Find available players: status FA (free agents: add with proposeAddDrop), W (on waivers: claim with proposeWaiverClaim; the owner column shows when he clears) or A (both), ranked by preseason value, rest-of-season VOLS, VOFA, CWA or % owned. Each row shows both lenses: value and VORP (preseason) next to VOLS, VOFA, CWA and Δ7d (rest of season). Filter by name fragment and position (C, LW, RW, D, G). Use the playerKeys it returns in proposals.',
+    "Find players by name fragment and position (C, LW, RW, D, G): status FA (free agents: add with proposeAddDrop), W (on waivers: claim with proposeWaiverClaim; the owner column shows when he clears) or A (every player in the league's pool, owned ones too: the owner column says whose, 'us' for ours). sort is required: one to three keys, each with its order, applied in turn (the second breaks ties in the first). A key is a named value (fit, value, ros, vofa, cwa, win, weekCwa, perGame, delta7d, gp, owned) or a scored category with a basis (projected, season, seasonPerGame, last10), e.g. [{by:'PPP', basis:'season', order:'desc'}] or [{by:'GAA', basis:'projected', order:'asc'}]. Each row shows both lenses (value and VORP preseason; VOLS, VOFA, CWA and Δ7d rest of season), Fit, and a column per sort key. A name not in the pool is looked up on Yahoo when that is available. Use the playerKeys it returns in proposals.",
   input: z.object({
     query: z.string().optional(),
     position: z.string().optional(),
     status: z.enum(['FA', 'W', 'A']).default('FA'),
-    sort: z
-      .enum(['value', 'owned', 'vofa', 'cwa', 'ros'])
-      .default('value')
-      .describe(
-        "value: preseason value; ros: rest-of-season VOLS; vofa: over the best free agent; cwa: categories a week added for us; owned: % owned",
-      ),
+    sort: SortSpec.describe('Required. The ranking, most important key first; state each order.'),
     limit: z.number().int().min(1).max(25).default(15),
   }),
   risk: 'read',
-  execute: (input, ctx) => {
+  execute: async (input, ctx) => {
+    const problem = sortProblem(ctx.view, input.sort);
+    if (problem !== undefined) return fail(problem);
     // Accent-insensitive: "stutzle" finds Stützle.
     const q = input.query === undefined ? undefined : normalizeName(input.query.trim());
-    // FA: free agents (an add); W: on waivers (a claim, clears on the date shown); A: either.
-    const inPool = (key: string) =>
-      ctx.view.isFreeAgent(key) &&
-      (input.status === 'A' || (input.status === 'W') === ctx.view.onWaivers(key));
+    const status = input.status ?? 'FA';
+    const named = (p: Player) => q === undefined || q === '' || normalizeName(p.name).includes(q);
     const found = ctx.view.snap.players.filter(
       (p) =>
-        inPool(p.playerKey) &&
+        inPool(ctx.view, status, p.playerKey) &&
         (input.position === undefined || p.eligible.includes(input.position)) &&
-        (q === undefined || q === '' || normalizeName(p.name).includes(q)),
+        named(p),
     );
-    const now = valueNowFor(ctx)?.players;
-    const lens = (p: Player) => now?.get(p.playerKey);
-    const score = (p: Player): number => {
-      const missing = Number.NEGATIVE_INFINITY;
-      if (input.sort === 'owned') return p.percentOwned ?? 0;
-      if (input.sort === 'ros') return lens(p)?.vols ?? missing;
-      if (input.sort === 'vofa') return lens(p)?.vofa ?? missing;
-      if (input.sort === 'cwa') return lens(p)?.cwa ?? missing;
-      return ctx.view.valuation(p.playerKey)?.value ?? missing;
-    };
-    const top = found.sort((a, b) => score(b) - score(a)).slice(0, input.limit);
-    const rows = top.map((p) => playerRow(ctx, p));
+    const keysOf = sortValues({ view: ctx.view, store: ctx.store, now: valueNowFor(ctx)?.players }, input.sort);
+    const cmp = compareBy(input.sort);
+    const top = found
+      .map((p) => ({ p, k: keysOf(p) }))
+      .sort((a, b) => cmp(a.k, b.k))
+      .slice(0, input.limit);
+    const rows = top.map(({ p, k }) => ({
+      ...playerRow(ctx, p),
+      sortedBy: Object.fromEntries(input.sort.map((s, i) => [sortColumn(s), k[i] ?? null])),
+    }));
     // Say what was searched first: the chat shows the result, and Ben reads what was asked.
-    const pool = { FA: 'free agents', W: 'players on waivers', A: 'all players' }[
-      input.status ?? 'FA'
+    const pool = { FA: 'free agents', W: 'players on waivers', A: 'all players (owned players too)' }[
+      status
     ];
     const asked = [
       `Searched ${pool}`,
       ...(input.query ? [`matching "${input.query}"`] : []),
       ...(input.position ? [`at ${input.position}`] : []),
-      `by ${{ owned: '% owned', value: 'preseason value', ros: 'rest-of-season VOLS', vofa: 'VOFA', cwa: 'CWA' }[input.sort ?? 'value']}`,
+      `by ${input.sort.map(sortLabel).join('; then ')}`,
     ].join(' ');
-    const summary =
-      rows.length === 0
-        ? `${asked}: no players match. Loosen the query or position.`
-        : `${asked}, top ${rows.length}:\n${table(
-            ROW_HEADERS,
-            rows.map((row, i) => rowCells(row, top[i] as Player)),
-          )}`;
-    return Promise.resolve(ok({ players: rows }, summary));
+    const preseasonFit =
+      input.sort.some((k) => k.by === 'fit') && fitLens(ctx.view, ctx.store).name === 'preseason'
+        ? ' (Fit on preseason values: the rest-of-season lens is unavailable)'
+        : '';
+    if (rows.length > 0) {
+      const summary = `${asked}${preseasonFit}, top ${rows.length}:\n${asOfLine(ctx.view)}\n${table(
+        [...input.sort.map(sortColumn), ...ROW_HEADERS],
+        top.map(({ p, k }, i) => [
+          ...input.sort.map((s, j) => fmt(k[j], sortDigits(s))),
+          ...rowCells(rows[i] as Row, p),
+        ]),
+      )}`;
+      return ok({ players: rows }, summary);
+    }
+    const others = ctx.view.snap.players.filter((p) => q !== undefined && q !== '' && named(p));
+    const miss =
+      others.length > 0
+        ? elsewhereText(ctx.view, others)
+        : q === undefined || q === ''
+          ? 'Loosen the position.'
+          : await outsidePool(ctx, input.query?.trim() ?? '');
+    return ok({ players: rows }, `${asked}: no players match. ${miss}\n${asOfLine(ctx.view)}`);
   },
 });
+
+/** FA: free agents (an add); W: on waivers (a claim, clears on the date shown); A: everyone. */
+function inPool(view: LeagueView, status: 'FA' | 'W' | 'A', key: string): boolean {
+  if (status === 'A') return true;
+  return view.isFreeAgent(key) && (status === 'W') === view.onWaivers(key);
+}
+
+/** The name is in the pool, just not under this status: say whose (or that he is on waivers). */
+function elsewhereText(view: LeagueView, players: readonly Player[]): string {
+  const where = (p: Player) =>
+    view.onWaivers(p.playerKey)
+      ? 'on waivers'
+      : view.isFreeAgent(p.playerKey)
+        ? 'free agent'
+        : teamName(view, view.ownerOf(p.playerKey));
+  const list = players.slice(0, 5).map((p) => `${p.name} (${where(p)})`);
+  return `The name matches ${list.join(', ')}: search with status A to see them.`;
+}
+
+/**
+ * A name the pool does not hold (it has rostered players and the top free agents only): ask
+ * Yahoo when the app can (D-032). Hits are named, not keyed: their keys reach the view with the
+ * next rebuild (P3). No live search, or Yahoo down, is a note (P9).
+ */
+async function outsidePool(ctx: Ctx, name: string): Promise<string> {
+  const pool = "He is not in the snapshot's player pool (rostered players and the top free agents)";
+  if (ctx.searchYahoo === undefined) {
+    return `${pool}, and a live Yahoo search is not available here. Check the spelling, or ask Ben.`;
+  }
+  try {
+    const r = await ctx.searchYahoo(name);
+    if (r.found.length === 0) return `${pool}, and Yahoo's search found no one new by that name.`;
+    const who = r.found.map((f) => `${f.name} (${f.nhlTeam})`).join(', ');
+    return `Found on Yahoo, outside the pool: ${who}. They are now followed and get values with the next refresh (a few minutes); search again then for their playerKeys.`;
+  } catch {
+    return `${pool}, and Yahoo could not be searched just now.`;
+  }
+}
 
 export const getTeamRoster = defineTool({
   name: 'getTeamRoster',

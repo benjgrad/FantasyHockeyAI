@@ -1,16 +1,11 @@
 import type { PlayerCard } from '@fha/api';
 import type { Player } from '@fha/core';
-import {
-  GOALIE_CATEGORY_FIELDS,
-  GOALIE_RATE_CATEGORIES,
-  categoryFit,
-  lowerIsBetter,
-  type Availability,
-} from '@fha/model';
+import { GOALIE_RATE_CATEGORIES, lowerIsBetter, type Availability } from '@fha/model';
 import {
   availabilityOf,
+  categoriesFor,
   dayStatus,
-  scoringCategories,
+  playerFit,
   weeksRemaining,
   SEASON_WEEKS,
   type LeagueView,
@@ -32,8 +27,9 @@ import {
  * Totals are **rest of season**: the snapshot's per-game projection times the games he is
  * expected to play from here, which is the season's remaining share of his projected games
  * less the games his injury is expected to cost. So an injured player's card shows what we
- * would actually get from him, not what a healthy season would give. Z-scores are the
- * snapshot's, against the rostered pool, oriented so higher is better in every category.
+ * would actually get from him, not what a healthy season would give. Per-game numbers and
+ * z-scores are the rest-of-season lens's (D-040), the same ones his fit is computed from, against
+ * the rostered pool and oriented so higher is better in every category.
  */
 export interface CardContext {
   view: LeagueView;
@@ -50,7 +46,7 @@ export function cardContext(view: LeagueView, now: Date, store?: Store): CardCon
   const today = view.snap.date > newYorkDate(now) ? view.snap.date : newYorkDate(now);
   return {
     view,
-    strength: categoryStrength(view),
+    strength: categoryStrength(view, store),
     today,
     nowIso: now.toISOString(),
     gamesThisWeek: view.gamesBetween(today, view.weekOf().end),
@@ -58,17 +54,7 @@ export function cardContext(view: LeagueView, now: Date, store?: Store): CardCon
   };
 }
 
-const GOALIE_CATS: ReadonlySet<string> = new Set<string>([
-  ...Object.keys(GOALIE_CATEGORY_FIELDS),
-  ...GOALIE_RATE_CATEGORIES,
-]);
-
-/** The scored categories that apply to a position type, in the league's order. */
-export function categoriesFor(view: LeagueView, positionType: 'P' | 'G'): string[] {
-  return scoringCategories(view.settings).filter(
-    (c) => GOALIE_CATS.has(c) === (positionType === 'G'),
-  );
-}
+export { categoriesFor };
 
 const round = (n: number, dp = 2): number => Math.round(n * 10 ** dp) / 10 ** dp;
 const dpFor = (cat: string): number => (cat === 'SV%' ? 3 : cat === 'GAA' ? 2 : 1);
@@ -111,8 +97,9 @@ function gameToday(c: CardContext, p: Player): string | null {
 }
 
 function categoriesOf(c: CardContext, p: Player, gp: number | null): PlayerCard['categories'] {
-  const pr = c.view.projection(p.playerKey);
-  const v = c.view.valuation(p.playerKey);
+  const lens = c.strength.lens.view;
+  const pr = lens.projection(p.playerKey);
+  const v = lens.valuation(p.playerKey);
   return categoriesFor(c.view, p.positionType).map((cat) => {
     const perGame = pr?.perGame[cat];
     const rate = (GOALIE_RATE_CATEGORIES as readonly string[]).includes(cat);
@@ -127,19 +114,12 @@ function categoriesOf(c: CardContext, p: Player, gp: number | null): PlayerCard[
   });
 }
 
-/** His fit to our needs, from the same weights as the category-strength panel. */
+/** His fit to our needs, from the same lens and weights as the category-strength panel. */
 export function fitOf(c: CardContext, p: Player): PlayerCard['fit'] {
-  const v = c.view.valuation(p.playerKey);
-  const { weights, targets } = c.strength;
-  const cats = categoriesFor(c.view, p.positionType);
-  const fit =
-    v === undefined
-      ? null
-      : round(categoryFit({ z: v.z } as Parameters<typeof categoryFit>[0], weights, cats));
-  const targetHits = targets.filter((t) => (v?.z[t] ?? 0) >= 0.5);
-  const worth = adjustedVorpOf(c.view, p);
-  const score = fit === null || worth === undefined ? null : round(worth + fit);
-  return { fit, score, weights, targets, targetHits };
+  const { weights, targets, lens } = c.strength;
+  const f = playerFit(lens, weights, p);
+  const targetHits = targets.filter((t) => (f.z[t] ?? 0) >= 0.5);
+  return { fit: f.fit, score: f.score, weights, targets, targetHits, lens: f.lens };
 }
 
 function valueOf(c: CardContext, p: Player, gp: number | null): PlayerCard['value'] {

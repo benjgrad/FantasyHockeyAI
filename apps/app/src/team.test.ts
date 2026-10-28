@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { TeamView } from '@fha/api';
+import { StrategyView, TeamView } from '@fha/api';
 import { call, connected, startHarness, type Harness } from './testing.js';
 
 let h: Harness | undefined;
@@ -42,5 +42,36 @@ describe('team page: the matchup opponent', () => {
     const team = TeamView.parse(await (await call(h, '/api/team', { cookie })).json());
     expect(team.opponent).not.toBeNull();
     expect(h.logs.some((l) => l.includes('scoreboard has no opponent'))).toBe(true);
+  });
+});
+
+describe('team page: the season strategy (D-034)', () => {
+  it('shows the audit before any version, then versions newest first with what changed', async () => {
+    h = await startHarness();
+    const cookie = await connected(h);
+    const empty = StrategyView.parse(await (await call(h, '/api/strategy', { cookie })).json());
+    expect(empty.versions).toEqual([]);
+    expect(empty.objective).toBe('winWeek');
+    expect(empty.audit?.categories).toHaveLength(13);
+
+    const snap = h.app.services.league.peek(h.store.yahooConnections.list()[0]?.userId ?? '');
+    const leagueKey = snap?.view.snap.leagueKey ?? '';
+    const base = {
+      leagueKey,
+      author: 'strategy',
+      stance: 'contend' as const,
+      targets: ['SOG', 'A'],
+      surplus: ['HIT'],
+      punts: [],
+      principles: ['No adds for HIT alone.'],
+      rationale: 'HIT is won nearly every week.',
+      reviewBy: undefined,
+    };
+    h.store.seasonStrategy.add(base);
+    h.store.seasonStrategy.add({ ...base, author: 'ben (chat)', targets: ['SOG', 'PPP'] });
+    const got = StrategyView.parse(await (await call(h, '/api/strategy', { cookie })).json());
+    expect(got.versions.map((v) => v.author)).toEqual(['ben (chat)', 'strategy']);
+    expect(got.versions[0]?.changes).toEqual(['targets was SOG, A']);
+    expect(got.versions[1]?.changes).toEqual([]);
   });
 });

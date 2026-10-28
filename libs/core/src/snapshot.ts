@@ -96,12 +96,20 @@ export const LeagueSnapshot = z
         playoffStartWeek: z.number().optional(),
         waiverDays: z.number().optional(),
         maxWeeklyAdds: z.number().optional(),
+        /** Yahoo's `waiver_rule` (e.g. 'all': every dropped player goes through waivers). */
+        waiverRule: z.string().optional(),
         seasonStart: z.string().optional(),
         seasonEnd: z.string().optional(),
       })
       .optional(),
     teams: z.array(
-      z.object({ teamKey: TeamKey, name: z.string(), managerNickname: z.string().optional() }),
+      z.object({
+        teamKey: TeamKey,
+        name: z.string(),
+        managerNickname: z.string().optional(),
+        /** Rolling waiver priority when the snapshot was read: 1 is first in line. */
+        waiverPriority: z.number().int().positive().optional(),
+      }),
     ),
     players: z.array(Player),
     rosters: z.record(TeamKey, z.array(z.object({ playerKey: PlayerKey, slot: z.string() }))),

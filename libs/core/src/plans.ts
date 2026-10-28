@@ -25,6 +25,7 @@ export const AGENT_NAMES = [
   'matchup',
   'trades',
   'leagueReview',
+  'strategy',
 ] as const;
 export const AgentName = z.enum(AGENT_NAMES);
 export type AgentName = z.infer<typeof AgentName>;

@@ -5,6 +5,7 @@ import {
   goalieLuck,
   skaterLuck,
   weeklyCategoryPlan,
+  type CategoryWinsInput,
   type LuckFlag,
   type WeekSide,
 } from '@fha/model';
@@ -21,6 +22,7 @@ import {
   seasonHorizonGames,
   weeksRemaining,
 } from './modelInputs.js';
+import { seasonWeights } from './seasonAudit.js';
 import { ROS_LENS, rosLensView } from './valuationLens.js';
 import type { LeagueView } from './view.js';
 
@@ -34,6 +36,7 @@ import type { LeagueView } from './view.js';
  * | adjusted | `vols` with expected time out taken off, once |
  * | vofa     | is he worth a roster spot today (over the best free agent at his position) |
  * | cwa      | what does he do for *our* team (Δ expected categories won a week) |
+ * | dWin     | the objective itself (D-034): Δ P(win a typical week) against the field |
  * | weekCwa  | what does he do for *this* matchup (the rest of this week) |
  * | luck     | is a hot or cold run finishing / save-percentage luck |
  */
@@ -54,6 +57,8 @@ export interface PlayerValueNow {
   vofaPosition: string | undefined;
   vofaAgainst: PlayerRef | undefined;
   cwa: number | undefined;
+  /** Δ P(win a typical week) against the field, with versus without him (D-034). */
+  dWin: number | undefined;
   cwaByCategory: Record<string, number>;
   /** Who would leave to make room (or come in, for one of ours). */
   cwaSwap: PlayerRef | undefined;
@@ -134,6 +139,7 @@ function build(view: LeagueView, store: Store): ValueNow {
       vofaPosition: bar?.pos,
       vofaAgainst: bar === undefined ? undefined : { playerKey: bar.b.playerKey, name: bar.b.name },
       cwa: c?.cwa,
+      dWin: c?.dWin,
       cwaByCategory: c?.byCategory ?? {},
       cwaSwap: c?.swap,
       weekCwa: week.get(p.playerKey),
@@ -168,26 +174,37 @@ function bestFreeAgents(
   return out;
 }
 
+/** Our roster and the field on a lens, as CWA and the roster comparisons take them. */
+export function categoryWinsInput(lens: LeagueView): CategoryWinsInput {
+  const m = modelInputs(lens);
+  const weights = seasonWeights(lens);
+  return {
+    settings: lens.settings,
+    categories: scoringCategories(lens.settings),
+    ourRoster: m.rosterIds(lens.teamKey),
+    reserve: m.reserveIds(lens.teamKey),
+    otherRosters: lens.otherTeams().map((t) => m.rosterIds(t.teamKey)),
+    projections: m.projections,
+    valuations: m.valuations,
+    freeAgents: m.freeAgentIds(),
+    weeksRemaining: weeksRemaining(lens.snap.week),
+    projectionWeeks: SEASON_WEEKS,
+    horizonGames: seasonHorizonGames(lens),
+    availability: m.availability,
+    ...(weights === undefined ? {} : { starterWeights: weights }),
+  };
+}
+
+type Cwa = { cwa: number; dWin: number; byCategory: Record<string, number>; swap: PlayerRef | undefined };
+
 /** CWA for every valued player, on the lens, against the whole league field. */
 function categoryWins(
   lens: LeagueView,
-): Map<string, { cwa: number; byCategory: Record<string, number>; swap: PlayerRef | undefined }> {
+): Map<string, Cwa> {
   const m = modelInputs(lens);
-  const out = new Map<string, { cwa: number; byCategory: Record<string, number>; swap: PlayerRef | undefined }>();
+  const out = new Map<string, Cwa>();
   const results = categoryWinsAdded(
-    {
-      settings: lens.settings,
-      categories: scoringCategories(lens.settings),
-      ourRoster: m.rosterIds(lens.teamKey),
-      otherRosters: lens.otherTeams().map((t) => m.rosterIds(t.teamKey)),
-      projections: m.projections,
-      valuations: m.valuations,
-      freeAgents: m.freeAgentIds(),
-      weeksRemaining: weeksRemaining(lens.snap.week),
-      projectionWeeks: SEASON_WEEKS,
-      horizonGames: seasonHorizonGames(lens),
-      availability: m.availability,
-    },
+    categoryWinsInput(lens),
     m.valuations.map((v) => v.nhlId),
   );
   for (const r of results) {
@@ -195,6 +212,7 @@ function categoryWins(
     const swap = swapKey === undefined ? undefined : lens.player(swapKey);
     out.set(m.key(r.nhlId), {
       cwa: r.cwa,
+      dWin: r.dWin,
       byCategory: r.byCategory,
       swap: swap === undefined ? undefined : ref(swap),
     });

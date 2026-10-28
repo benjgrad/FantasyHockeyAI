@@ -4,6 +4,7 @@ import { cat, league, resetIds, skater, slot } from './fixtures.js';
 import { availability } from './availability.js';
 import { seasonStarters } from './starters.js';
 import { TradeInputError, evaluateTrade, findTradeTargets } from './trade.js';
+import { TYPICAL_WEEK_DAY_GAMES } from './weeklyStarts.js';
 
 beforeEach(() => {
   resetIds();
@@ -48,6 +49,14 @@ const data = (all: Built[]) => ({
 });
 const ids = (...bs: Built[]) => bs.map((b) => b.p.nhlId);
 const PHI_1 = 0.8413;
+/**
+ * A one-game-a-week bench player behind a one-game-a-week starter starts on the days the
+ * starter is idle: `Σ w_d (1 − w_d) = 1 − Σ w_d²` over the typical week's day shares (D-035).
+ */
+const DAY_SHARES = TYPICAL_WEEK_DAY_GAMES.map(
+  (g) => g / TYPICAL_WEEK_DAY_GAMES.reduce((a, b) => a + b, 0),
+);
+const BENCH = 1 - DAY_SHARES.reduce((a, w) => a + w * w, 0);
 
 describe('evaluateTrade — hand-computed', () => {
   it('should price a straight swap as the change in P(win): Φ(1) → Φ(−1)', () => {
@@ -91,9 +100,10 @@ describe('evaluateTrade — marginal and roster-aware', () => {
       ...data([x, y, z, w, filler]),
     });
     const g = e.byCategory.find((c) => c.category === 'G');
-    // w (8) displaces x (5) at C; z stays at D. 7 → 10, not 7 → 15.
-    expect(g?.ourWeeklyBefore).toBeCloseTo(7, 10);
-    expect(g?.ourWeeklyAfter).toBeCloseTo(10, 10);
+    // w (8) displaces x (5) at C; z stays at D; the bench C starts on the starter's idle days.
+    // Before: x + z + y·BENCH. After: w + z + x·BENCH. Not 7 → 15.
+    expect(g?.ourWeeklyBefore).toBeCloseTo(7 + 3 * BENCH, 10);
+    expect(g?.ourWeeklyAfter).toBeCloseTo(10 + 5 * BENCH, 10);
   });
 
   it('should charge for the hole a trade leaves at a scarce position', () => {
@@ -112,8 +122,10 @@ describe('evaluateTrade — marginal and roster-aware', () => {
       ...data([x, z, w, d]),
     });
     const g = e.byCategory.find((c) => c.category === 'G');
-    // w beats z by 6 goals, but only one C starts and the D seat is now empty: 7 → 8.
-    expect(g?.ourWeeklyAfter).toBeCloseTo(8, 10);
+    // w beats z by 6 goals, but only one C starts at a time and the D seat is now empty:
+    // x plays only on w's idle days.
+    expect(g?.ourWeeklyAfter).toBeCloseTo(8 + 5 * BENCH, 10);
+    expect(g?.ourWeeklyAfter ?? 0).toBeLessThan(13);
   });
 
   it('should fill the spot a 2-for-1 frees with the best free agent, and make the partner release', () => {
@@ -139,9 +151,10 @@ describe('evaluateTrade — marginal and roster-aware', () => {
     const without = evaluateTrade(base);
 
     expect(withFa.ourSignings).toEqual(ids(fa));
-    // d at D (6) + the signed C (3) = 9; without a signing the C seat is empty: 6.
-    expect(withFa.byCategory[0]?.ourWeeklyAfter).toBeCloseTo(9, 10);
-    expect(without.byCategory[0]?.ourWeeklyAfter).toBeCloseTo(6, 10);
+    // d at D (6) + the signed C (3) = 9, plus c on d's idle days; without a signing the C
+    // seat is empty: 6 + c's idle-day starts.
+    expect(withFa.byCategory[0]?.ourWeeklyAfter).toBeCloseTo(9 + BENCH, 10);
+    expect(without.byCategory[0]?.ourWeeklyAfter).toBeCloseTo(6 + BENCH, 10);
     expect(withFa.deltaUs).toBeGreaterThan(without.deltaUs);
     // They receive two for one with a full roster, so their lowest-value player goes.
     expect(withFa.theirReleases).toEqual(ids(g1));

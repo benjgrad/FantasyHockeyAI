@@ -55,6 +55,7 @@ describe('parseSettings', () => {
       waiverDays: 2,
       minGoalieGames: 3,
       postDraftPlayers: 'W',
+      waiverRule: 'all',
     });
   });
 
@@ -77,6 +78,12 @@ describe('parseTeams', () => {
 
   it('should carry the redacted nickname through untouched', () => {
     expect(teams[0]?.managerNickname).toBe('REDACTED');
+  });
+
+  it("should read each team's rolling waiver priority", () => {
+    const priority = Object.fromEntries(teams.map((t) => [t.teamKey, t.waiverPriority]));
+    expect(priority['477.l.48535.t.6']).toBe(8);
+    expect(priority['477.l.48535.t.2']).toBe(1);
   });
 });
 

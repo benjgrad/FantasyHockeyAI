@@ -49,7 +49,12 @@ const entries = {
   cwa: {
     label: 'CWA',
     short: 'Category wins added: how many more categories a week WE expect to win with him.',
-    long: 'Δ expected categories won per week against the league field, between our roster with him and without him. For one of ours, the best free agent takes his place; for anyone else, our lowest-value player is released to make room. Only starters count, so a bench player is 0, and strength in a category we already win is worth little. This is "need", measured.',
+    long: 'Δ expected categories won per week against the league field, between our roster with him and without him. For one of ours, the best free agent takes his place; for anyone else, whichever of our active players costs a typical week least is released to make room (never one in an IR seat: dropping him frees no active spot). Lineups are set daily, so a bench player counts for the nights a starter has no game or is hurt (starters chosen by the season category weights), and strength in a category we already win is worth little. This is "need", measured.',
+  },
+  dWin: {
+    label: 'ΔWin%',
+    short: 'How many points of P(win a typical week) he adds for us: the objective itself.',
+    long: 'Δ P(win a typical week) against the league field, in percentage points, with him versus without him (the same swap as CWA). A week is won by taking more than half the categories, so padding a category we already win (saturated) adds nothing and moving a pivotal coin-flip category adds the most. CWA counts categories; ΔWin% counts weeks won. Where they disagree, ΔWin% is the one to trust (D-034).',
   },
   weekCwa: {
     label: 'Week CWA',
@@ -63,8 +68,8 @@ const entries = {
   },
   fit: {
     label: 'Fit',
-    short: 'How well his categories match what our roster needs.',
-    long: 'Adj. value plus a bonus for categories where our roster is weak. CWA measures the same thing directly against the league; Fit is the quicker roster-only version.',
+    short: 'How well his categories match what our team needs, on this season’s numbers.',
+    long: 'On the rest-of-season lens (preseason projection updated by this season’s games): Adj. VOLS plus a bonus for the categories that move our weekly win chances most. CWA measures the same thing directly against the league; Fit is the quicker version.',
   },
   z: {
     label: 'z',

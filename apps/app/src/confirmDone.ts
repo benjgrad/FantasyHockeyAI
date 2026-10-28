@@ -1,6 +1,7 @@
 import type { DecisionActionResult } from '@fha/api';
 import type { Plan, TeamKey, Transaction } from '@fha/core';
 import { describePlan } from '@fha/pipeline';
+import type { LeagueView } from '@fha/tools';
 import type { DecisionStatus } from '@fha/store';
 import { offering, mustCard } from './decisions.js';
 import type { CardContext } from './decisionCard.js';
@@ -138,8 +139,7 @@ export async function confirmDone(
     return {
       card: mustCard(s.store, planId, ctx),
       outcome: 'notConfirmed',
-      message:
-        'Yahoo doesn\'t show it yet. If you just made the move, give it a minute and tap "I did it" again.',
+      message: notYetText(rec.plan, league.view),
     };
   }
   settleDone(s, planId, rec.status);
@@ -148,6 +148,18 @@ export async function confirmDone(
     outcome: 'confirmed',
     message: 'Confirmed: Yahoo shows the move.',
   };
+}
+
+/**
+ * Why Yahoo does not show the move yet. A claim that is filed but has not processed is the one
+ * case Ben has nothing left to do (Phase 5): the fresh snapshot's transactions show it pending.
+ */
+function notYetText(plan: Plan, view: LeagueView): string {
+  if (plan.payload.kind === 'waiverClaim' && view.claimFiledFor(plan.payload.add) !== undefined) {
+    const clears = view.player(plan.payload.add)?.waiverDate;
+    return `Yahoo shows your claim filed. It processes when he clears waivers${clears === undefined ? '' : ` (${clears})`}; this card is confirmed once he is on the roster.`;
+  }
+  return 'Yahoo doesn\'t show it yet. If you just made the move, give it a minute and tap "I did it" again.';
 }
 
 /** Record Ben's answer (if the plan was still a proposal), then `executed`, both compare-and-set. */

@@ -8,7 +8,18 @@
 export const ZONE = 'America/New_York';
 
 export type DaemonJob =
-  'stats' | 'refresh' | 'lineup' | 'waivers' | 'matchup' | 'trades' | 'digest' | 'leagueReview';
+  | 'stats'
+  | 'refresh'
+  | 'lineup'
+  | 'waivers'
+  | 'matchup'
+  | 'trades'
+  | 'digest'
+  | 'leagueReview'
+  | 'strategy'
+  | 'pull'
+  | 'reseed'
+  | 'archive';
 
 export interface Slot {
   job: DaemonJob;
@@ -25,19 +36,44 @@ interface Fixed {
   tag: string;
 }
 
-/** §14.2, plus the Monday league review (the weekly league-changes analysis) at 07:00. */
+/**
+ * §14.2, plus the Monday league review (the weekly league-changes analysis) at 07:00 and the
+ * weekly retro that records the season strategy (D-034) after it, before the waivers run.
+ */
 export const FIXED_SLOTS: readonly Fixed[] = [
   // NHL game stats are final by then (late west-coast games end ~01:30); before the refresh.
   { job: 'stats', time: '05:30', tag: 'daily' },
+  // The weekly valuation re-seed (D-035), on the fresh stats and before the refresh values them.
+  { job: 'reseed', time: '05:45', days: [1], tag: 'weekly' },
   { job: 'refresh', time: '06:00', tag: 'daily' },
+  // Finished weeks from Yahoo into the archive (D-038); a no-op once they are all there.
+  { job: 'archive', time: '06:10', tag: 'daily' },
   { job: 'matchup', time: '06:30', days: [1, 4], tag: 'daily' },
   { job: 'leagueReview', time: '07:00', days: [1], tag: 'weekly' },
+  { job: 'strategy', time: '07:15', days: [1], tag: 'weekly' },
   { job: 'waivers', time: '08:00', tag: 'daily' },
   { job: 'digest', time: '09:00', tag: 'daily' },
   { job: 'lineup', time: '10:00', tag: 'am' },
   { job: 'trades', time: '12:00', days: [3], tag: 'weekly' },
   { job: 'lineup', time: '16:30', tag: 'pm' },
 ];
+
+/**
+ * The hourly Yahoo pull (4a): a snapshot rebuild every hour from 09:00 to 01:00 New York time,
+ * when waiver claims process, news lands and games are played. Before 2026-10-24 the snapshot
+ * was rebuilt only at 06:00 and on a read ≥15 min stale, and nothing recomputed in between.
+ */
+export const PULL_HOURS: readonly number[] = [
+  0, 1, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+];
+
+/** The day's pull slots, `pull@<date>#<hh>`. Kept apart from {@link slotsForDay}'s §14.2 list. */
+export function pullSlots(date: string): Slot[] {
+  return PULL_HOURS.map((h) => {
+    const hh = String(h).padStart(2, '0');
+    return { job: 'pull' as const, at: nyAt(date, `${hh}:00`), key: `pull@${date}#${hh}` };
+  });
+}
 
 /** The pre-game lineup runs this long before the day's first game involving our players. */
 export const PREGAME_LEAD_MS = 45 * 60 * 1000;

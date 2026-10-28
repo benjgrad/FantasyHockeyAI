@@ -13,7 +13,9 @@ import {
   playerLine,
   sumLines,
 } from './matchup.js';
-import { rosterCapacity, seasonStarters } from './starters.js';
+import { rosterCapacity } from './starters.js';
+import { weeklyStarts } from './weeklyStarts.js';
+import { fieldWinProbability } from './marginal.js';
 import { tradeReasons } from './tradeReasons.js';
 
 /**
@@ -77,7 +79,16 @@ export interface TradeInput {
    * pick starters, releases and signings) is discounted additively. Missing means healthy.
    */
   availability?: Readonly<Record<number, Availability>>;
+  /**
+   * What a trade is ranked and kept by (D-034): `winWeek`, Δ P(win a typical week) for each
+   * side; `expectedCats` (default), Δ expected categories won. Both are always reported.
+   */
+  objective?: TradeObjective;
 }
+
+export type TradeObjective = 'expectedCats' | 'winWeek';
+/** Under `winWeek`, a trade must raise our P(win a typical week) by more than this. */
+export const DEFAULT_MIN_WIN_GAIN = 0.01;
 
 export interface TradeCategoryDelta {
   category: string;
@@ -92,7 +103,10 @@ export interface TradeEvaluation {
   /** Δ expected categories won per week, for us and for the partner. */
   deltaUs: number;
   deltaThem: number;
-  /** Ranking score: `deltaUs + 0.5·deltaThem`. */
+  /** Δ P(win a typical week) against the field, for us and for the partner (D-034). */
+  winUs: number;
+  winThem: number;
+  /** Ranking score: `Δ_us + 0.5·Δ_them` on the input's objective. */
   score: number;
   /** Fairness: the partner does not lose expected categories, so could plausibly accept. */
   partnerGains: boolean;
@@ -107,8 +121,12 @@ export interface TradeEvaluation {
   reasons: string[];
 }
 
-/** `share`: of the remaining season, the part he is expected to be available for. */
-export type Entry = { p: Projection; v: Valuation; share: number };
+/**
+ * `share`: of the remaining season, the part he is expected to be available for. `v.value` is
+ * discounted for that time out (it picks releases and signings); `rank` is not, because on the
+ * nights he plays he starts on his quality.
+ */
+export type Entry = { p: Projection; v: Valuation; share: number; rank: number };
 export type Index = ReadonlyMap<number, Entry>;
 
 /** @internal Shared with {@link categoryWinsAdded}. */
@@ -126,7 +144,7 @@ export function buildIndex(
     if (!p) continue;
     const a = input.availability?.[v.nhlId];
     if (a === undefined) {
-      out.set(v.nhlId, { p, v, share: 1 });
+      out.set(v.nhlId, { p, v, share: 1, rank: v.value });
       continue;
     }
     const share = availableShare(a, horizon);
@@ -135,7 +153,7 @@ export function buildIndex(
       value: availabilityAdjustedVorp(v.value, share),
       vorp: availabilityAdjustedVorp(v.vorp, share),
     };
-    out.set(v.nhlId, { p, v: adjusted, share });
+    out.set(v.nhlId, { p, v: adjusted, share, rank: v.value });
   }
   return out;
 }
@@ -146,17 +164,22 @@ export function weeklyLine(
   index: Index,
   input: Pick<TradeInput, 'settings' | 'categories' | 'weeksRemaining' | 'projectionWeeks'>,
 ): CategoryLine {
-  const roster = ids.map((id) => entry(index, id).v);
-  const starters = seasonStarters(roster, input.settings);
-  return sumLines(
-    starters.map((v) => {
-      const { p, share } = entry(index, v.nhlId);
-      return playerLine(
-        p,
-        (share * p.gp) / (input.projectionWeeks ?? input.weeksRemaining),
-        input.categories,
-      );
+  const weeks = input.projectionWeeks ?? input.weeksRemaining;
+  const starts = weeklyStarts(
+    ids.map((id) => {
+      const { p, v, share, rank } = entry(index, id);
+      return {
+        id,
+        rank,
+        games: (share * p.gp) / weeks,
+        position: v.position,
+        eligible: v.eligible,
+      };
     }),
+    input.settings,
+  );
+  return sumLines(
+    ids.map((id) => playerLine(entry(index, id).p, starts.get(id) ?? 0, input.categories)),
   );
 }
 
@@ -183,14 +206,17 @@ export function settle(
 ): Settled {
   const out: Settled = { roster: [...roster], signed: [], released: [] };
   const value = (id: number): number => entry(index, id).v.value;
-  while (out.roster.length > capacity) {
+  // A roster Yahoo already holds is legal at its size: players in reserve seats (IR) sit
+  // beyond `capacity`. Only growth past the original size forces a release, never the stash.
+  const limit = Math.max(capacity, originalSize);
+  while (out.roster.length > limit) {
     const keepable = out.roster.filter((id) => !incoming.has(id));
     const from = keepable.length > 0 ? keepable : out.roster;
     const worst = from.reduce((a, b) => (value(b) < value(a) ? b : a));
     out.roster = out.roster.filter((id) => id !== worst);
     out.released.push(worst);
   }
-  const target = Math.min(originalSize, capacity);
+  const target = Math.min(originalSize, limit);
   for (let fa = pool[0]; out.roster.length < target && fa !== undefined; fa = pool[0]) {
     pool.shift(); // shared: a free agent we sign is gone before the partner settles
     out.roster.push(fa);
@@ -310,6 +336,11 @@ function evaluateIndexed(
 
   const deltaUs = total(pUsA) - total(pUsB);
   const deltaThem = total(pThemA) - total(pThemB);
+  const win = (team: CategoryLine, field: CategoryLine[]): number =>
+    fieldWinProbability(team, field, categories, input.matchup);
+  const winUs = win(usA, [themA, ...others]) - win(usB, [themB, ...others]);
+  const winThem = win(themA, [usA, ...others]) - win(themB, [usB, ...others]);
+  const byWin = input.objective === 'winWeek';
   const valueOf = (ids: readonly number[]): number =>
     ids.reduce((a, id) => a + entry(index, id).v.value, 0);
 
@@ -324,8 +355,12 @@ function evaluateIndexed(
   const evaluation: TradeEvaluation = {
     deltaUs,
     deltaThem,
-    score: deltaUs + TRADE_PARTNER_WEIGHT * deltaThem,
-    partnerGains: deltaThem >= 0,
+    winUs,
+    winThem,
+    score: byWin
+      ? winUs + TRADE_PARTNER_WEIGHT * winThem
+      : deltaUs + TRADE_PARTNER_WEIGHT * deltaThem,
+    partnerGains: byWin ? winThem >= 0 : deltaThem >= 0,
     expectedWon: {
       usBefore: total(pUsB),
       usAfter: total(pUsA),
@@ -384,11 +419,13 @@ function combos(ids: readonly number[], maxPerSide = 2): number[][] {
 
 /**
  * §12.7 target search: every 1-for-1, 2-for-1 and 1-for-2 swap with every partner, kept when
- * `Δ_us > minTradeGain` and `Δ_them ≥ 0`, ranked by `Δ_us + 0.5·Δ_them`.
+ * `Δ_us > minTradeGain` and `Δ_them ≥ 0`, ranked by `Δ_us + 0.5·Δ_them`, where Δ is expected
+ * categories won or, under `objective: 'winWeek'` (D-034), P(win a typical week).
  */
 export function findTradeTargets(input: TradeSearchInput): TradeCandidate[] {
   const index = buildIndex(input);
-  const minGain = input.minTradeGain ?? DEFAULT_MIN_TRADE_GAIN;
+  const byWin = input.objective === 'winWeek';
+  const minGain = input.minTradeGain ?? (byWin ? DEFAULT_MIN_WIN_GAIN : DEFAULT_MIN_TRADE_GAIN);
   const found: TradeCandidate[] = [];
   const keys = Object.keys(input.partners).sort();
   const memo = new Map<string, CategoryLine>();
@@ -404,7 +441,8 @@ export function findTradeTargets(input: TradeSearchInput): TradeCandidate[] {
       for (const get of combos(theirRoster, input.maxPerSide)) {
         if (give.length + get.length > 3) continue;
         const evaluation = evaluateIndexed({ ...base, give, get }, index, others, memo);
-        if (evaluation.deltaUs > minGain && evaluation.partnerGains) {
+        const gain = byWin ? evaluation.winUs : evaluation.deltaUs;
+        if (gain > minGain && evaluation.partnerGains) {
           found.push({ partner, give, get, evaluation });
         }
       }

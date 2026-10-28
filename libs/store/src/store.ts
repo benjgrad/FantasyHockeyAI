@@ -19,6 +19,8 @@ import { nhlGamesRepo, type NhlGamesRepo } from './repos/nhlGames.js';
 import { valuationHistoryRepo, type ValuationHistoryRepo } from './repos/valuationHistory.js';
 import { lensShadowRepo, type LensShadowRepo } from './repos/lensShadow.js';
 import { watchListRepo, type WatchListRepo } from './repos/watchList.js';
+import { seasonStrategyRepo, type SeasonStrategyRepo } from './repos/seasonStrategy.js';
+import { matchupArchiveRepo, type MatchupArchiveRepo } from './repos/matchupArchive.js';
 import { chatTurnsRepo, type ChatTurnsRepo } from './repos/chatTurns.js';
 import { conversationsRepo, type ConversationsRepo } from './repos/conversations.js';
 import { eventsRepo, type EventsRepo } from './repos/events.js';
@@ -70,6 +72,9 @@ export interface Store {
   lensShadow: LensShadowRepo;
   // Players the agents follow (migration 009).
   watchList: WatchListRepo;
+  seasonStrategy: SeasonStrategyRepo;
+  // Finished weeks as Yahoo reported them (migration 012).
+  matchupArchive: MatchupArchiveRepo;
   /** Migration versions this open applied; empty when the file was already current. */
   readonly migrationsApplied: readonly number[];
   /**
@@ -109,6 +114,8 @@ export function openStore(path: string, opts: StoreOptions = {}): Store {
     valuations: valuationHistoryRepo(db, now),
     lensShadow: lensShadowRepo(db, now),
     watchList: watchListRepo(db, now),
+    seasonStrategy: seasonStrategyRepo(db, now),
+    matchupArchive: matchupArchiveRepo(db, now),
     strategy: strategyRepo(db, now),
     kv: kvRepo(db, now),
     users: usersRepo(db, now),

@@ -3,6 +3,7 @@ import {
   ROS_CONFIDENT_GOALIE_STARTS,
   ROS_CONFIDENT_SKATER_GP,
   SEASON_TEAM_GAMES,
+  isOut,
   rosGoalieRates,
   rosSkaterRates,
   valuePlayers,
@@ -86,7 +87,9 @@ function build(view: LeagueView, store: Store): RosLensView {
     const pre = view.projection(p.playerKey);
     if (pre === undefined || h === undefined) continue;
     const updated =
-      p.positionType === 'G' ? goalieLens(view, h, pre, teamGames) : skaterLens(view, h, pre);
+      p.positionType === 'G'
+        ? goalieLens(view, h, pre, teamGames, p.status)
+        : skaterLens(view, h, pre);
     if (updated === undefined) continue;
     snap.projections[p.playerKey] = updated.projection;
     players.set(p.playerKey, updated.meta);
@@ -96,18 +99,50 @@ function build(view: LeagueView, store: Store): RosLensView {
   return { view: new LeagueView(snap, view.settings), players, histories };
 }
 
-/** Team games played this season, read once per team per build. */
-function memoTeamGames(store: Store, date: string): (team: string) => number {
+/** Team games played this season up to a date (default the view's), read once per pair. */
+type TeamGames = (team: string, upTo?: string) => number;
+
+function memoTeamGames(store: Store, date: string): TeamGames {
   const season = seasonsAround(date).current;
   const seen = new Map<string, number>();
-  return (team) => {
-    let n = seen.get(team);
+  return (team, upTo = date) => {
+    const key = `${team}|${upTo}`;
+    let n = seen.get(key);
     if (n === undefined) {
-      n = store.nhlGames.teamGamesPlayed(team, season, date);
-      seen.set(team, n);
+      n = store.nhlGames.teamGamesPlayed(team, season, upTo);
+      seen.set(key, n);
     }
     return n;
   };
+}
+
+/**
+ * The team games that say something about a goalie's role: from the game before his first
+ * appearance this season, and, while he is hurt now, only up to his last one. Games his team
+ * played while he was out are not a lost job (the Hellebuyck case, 2026-10-24: hurt since
+ * opening night, the update halved his starts). A healthy goalie who never plays keeps every
+ * team game as evidence: that is a lost job.
+ */
+function roleGames(
+  h: PlayerHistory & { kind: 'goalie' },
+  team: string,
+  season: string,
+  status: string | undefined,
+  teamGamesOf: TeamGames,
+): number {
+  const hurt = status !== undefined && (isOut(status) || status === 'DTD');
+  const dates = h.games
+    .filter((g) => g.season === season)
+    .map((g) => g.gameDate)
+    .sort();
+  const [first, last] = [dates[0], dates.at(-1)];
+  if (first === undefined || last === undefined) return hurt ? 0 : teamGamesOf(team);
+  const end = hurt ? teamGamesOf(team, last) : teamGamesOf(team);
+  return Math.max(0, end - teamGamesOf(team, dayBefore(first)));
+}
+
+function dayBefore(date: string): string {
+  return new Date(Date.parse(`${date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
 }
 
 function skaterLens(
@@ -138,14 +173,16 @@ function goalieLens(
   view: LeagueView,
   h: PlayerHistory,
   pre: SnapshotProjection,
-  teamGamesOf: (team: string) => number,
+  teamGamesOf: TeamGames,
+  status: string | undefined,
 ): { projection: SnapshotProjection; meta: LensPlayer } | undefined {
   if (h.kind !== 'goalie') return undefined;
   const { current } = seasonsAround(view.snap.date);
-  const team = h.games[0]?.team;
-  const teamGames = team === undefined ? 0 : teamGamesOf(team);
+  // His latest team: one who moved in the summer plays for the new one.
+  const team = [...h.games].sort((a, b) => a.gameDate.localeCompare(b.gameDate)).at(-1)?.team;
+  const teamGames = team === undefined ? 0 : roleGames(h, team, current, status, teamGamesOf);
   const pg = pre.perGame;
-  // Nothing this season, not even team games: keep the preseason projection exactly.
+  // Nothing this season that says anything: keep the preseason projection exactly.
   if (teamGames === 0 && h.games.every((g) => g.season !== current)) return undefined;
   const r = rosGoalieRates(h.games, {
     season: current,

@@ -9,7 +9,8 @@ import type { LeagueView } from './view.js';
  * the two would decide differently, the difference is recorded (`lens_shadow`), never acted on:
  * the switch is Ben's, per decision, in Settings.
  */
-export type ValueDecision = ShadowInsert['decision'];
+/** The lens choices in permissions; the objective shadow (`waivers`, D-034) is not one. */
+export type ValueDecision = Exclude<ShadowInsert['decision'], 'waivers'>;
 
 export interface DecisionLenses {
   lens: ValueLens;

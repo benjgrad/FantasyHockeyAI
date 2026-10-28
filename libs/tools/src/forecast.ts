@@ -2,6 +2,7 @@ import {
   SEASON_TEAM_GAMES,
   categoryValue,
   emptyLine,
+  matchupWinProbability,
   projectedWeekGames,
   weeklyCategoryPlan,
   type CategoryLine,
@@ -52,24 +53,7 @@ export function forecastMatchup(view: LeagueView, store: Store): MatchupForecast
   };
 }
 
-/**
- * P(win the matchup) from per-category win probabilities: the categories won follow a
- * Poisson-binomial distribution (exact, by dynamic programming); winning more than half wins,
- * exactly half counts as a half (Yahoo scores a tied matchup as a tie).
- */
-export function matchupWinProbability(ps: readonly number[]): number {
-  let dist = [1];
-  for (const p of ps) {
-    const next = new Array<number>(dist.length + 1).fill(0);
-    dist.forEach((q, k) => {
-      next[k] = (next[k] ?? 0) + q * (1 - p);
-      next[k + 1] = (next[k + 1] ?? 0) + q * p;
-    });
-    dist = next;
-  }
-  const n = ps.length;
-  return dist.reduce((a, q, k) => a + (2 * k > n ? q : 2 * k === n ? q / 2 : 0), 0);
-}
+export { matchupWinProbability };
 
 // ── a player's next days ──────────────────────────────────────────────────────────────────
 

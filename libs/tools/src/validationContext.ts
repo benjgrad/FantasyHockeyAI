@@ -60,12 +60,16 @@ function dryRunToday(store: Store, keys: readonly string[], since: string) {
 
 /**
  * Whether an open or executed plan blocks a new one. A roster move (add, drop, trade) blocks
- * anything touching its players. A lineup only blocks another lineup for the same date, and only
+ * anything touching its players, except that a waiver claim never blocks a lineup. A lineup only blocks another lineup for the same date, and only
  * while it is still open: a lineup already set changes no one's roster, so it never blocks a
  * trade or a later lineup (2026-10-01: an executed lineup refused a trade as a "duplicate").
  */
 function collides(existing: DecisionRecord, proposed: Plan | undefined, today: string): boolean {
   const e = existing.plan.payload;
+  // A waiver claim changes the roster only when the player clears, days later; until then the
+  // player it would drop still plays and his lineup is set as usual (2026-10-24: an open claim
+  // refused every lineup run of the day).
+  if (e.kind === 'waiverClaim' && proposed?.payload.kind === 'lineup') return false;
   if (e.kind !== 'lineup') return true;
   if (e.date < today || LANDED.has(existing.status)) return false;
   const p = proposed?.payload;

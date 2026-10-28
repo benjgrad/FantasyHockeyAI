@@ -1,0 +1,3545 @@
+[
+ {
+  "kind": "week",
+  "week": 1,
+  "ref": "",
+  "body": {
+   "week": 1,
+   "weekStart": "2026-09-29",
+   "weekEnd": "2026-10-04",
+   "matchups": [
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.1",
+       "name": "Drunk Dahlin",
+       "stats": {
+        "G": 14,
+        "A": 12,
+        "+/-": -2,
+        "PIM": 10,
+        "PPP": 8,
+        "SHP": 0,
+        "GWG": 5,
+        "SOG": 64,
+        "W": 3,
+        "GA": 7,
+        "GAA": 2.33,
+        "SA": 90,
+        "SV": 83,
+        "SV%": 0.922,
+        "SHO": 0,
+        "HIT": 21
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.7",
+       "name": "michael's Superb Team",
+       "stats": {
+        "G": 6,
+        "A": 25,
+        "+/-": 8,
+        "PIM": 12,
+        "PPP": 15,
+        "SHP": 1,
+        "GWG": 2,
+        "SOG": 51,
+        "W": 3,
+        "GA": 5,
+        "GAA": 1.25,
+        "SA": 120,
+        "SV": 115,
+        "SV%": 0.958,
+        "SHO": 2,
+        "HIT": 12
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.1",
+      "A": "477.l.48535.t.7",
+      "+/-": "477.l.48535.t.7",
+      "PIM": "477.l.48535.t.7",
+      "PPP": "477.l.48535.t.7",
+      "SHP": "477.l.48535.t.7",
+      "GWG": "477.l.48535.t.1",
+      "SOG": "477.l.48535.t.1",
+      "HIT": "477.l.48535.t.1",
+      "W": "tie",
+      "GAA": "477.l.48535.t.7",
+      "SV%": "477.l.48535.t.7",
+      "SHO": "477.l.48535.t.7"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.2",
+       "name": "I drop my best players",
+       "stats": {
+        "G": 14,
+        "A": 15,
+        "+/-": 12,
+        "PIM": 12,
+        "PPP": 7,
+        "SHP": 1,
+        "GWG": 1,
+        "SOG": 86,
+        "W": 3,
+        "GA": 2,
+        "GAA": 0.67,
+        "SA": 62,
+        "SV": 60,
+        "SV%": 0.968,
+        "SHO": 1,
+        "HIT": 51
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.8",
+       "name": "DraftAndRun",
+       "stats": {
+        "G": 8,
+        "A": 18,
+        "+/-": 4,
+        "PIM": 16,
+        "PPP": 8,
+        "SHP": 1,
+        "GWG": 0,
+        "SOG": 61,
+        "W": 2,
+        "GA": 8,
+        "GAA": 2.69,
+        "SA": 83,
+        "SV": 75,
+        "SV%": 0.904,
+        "SHO": 1,
+        "HIT": 35
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.2",
+      "A": "477.l.48535.t.8",
+      "+/-": "477.l.48535.t.2",
+      "PIM": "477.l.48535.t.8",
+      "PPP": "477.l.48535.t.8",
+      "SHP": "tie",
+      "GWG": "477.l.48535.t.2",
+      "SOG": "477.l.48535.t.2",
+      "HIT": "477.l.48535.t.2",
+      "W": "477.l.48535.t.2",
+      "GAA": "477.l.48535.t.2",
+      "SV%": "477.l.48535.t.2",
+      "SHO": "tie"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.3",
+       "name": "Dicks Picks 2026",
+       "stats": {
+        "G": 7,
+        "A": 21,
+        "+/-": 0,
+        "PIM": 10,
+        "PPP": 9,
+        "SHP": 0,
+        "GWG": 2,
+        "SOG": 85,
+        "W": 1,
+        "GA": 14,
+        "GAA": 3.55,
+        "SA": 90,
+        "SV": 76,
+        "SV%": 0.844,
+        "SHO": 0,
+        "HIT": 27
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.6",
+       "name": "Ben's Astonishing Team",
+       "stats": {
+        "G": 9,
+        "A": 14,
+        "+/-": 1,
+        "PIM": 37,
+        "PPP": 11,
+        "SHP": 0,
+        "GWG": 0,
+        "SOG": 77,
+        "W": 2,
+        "GA": 20,
+        "GAA": 4.06,
+        "SA": 131,
+        "SV": 111,
+        "SV%": 0.847,
+        "SHO": 0,
+        "HIT": 42
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.6",
+      "A": "477.l.48535.t.3",
+      "+/-": "477.l.48535.t.6",
+      "PIM": "477.l.48535.t.6",
+      "PPP": "477.l.48535.t.6",
+      "SHP": "tie",
+      "GWG": "477.l.48535.t.3",
+      "SOG": "477.l.48535.t.3",
+      "HIT": "477.l.48535.t.6",
+      "W": "477.l.48535.t.6",
+      "GAA": "477.l.48535.t.3",
+      "SV%": "477.l.48535.t.6",
+      "SHO": "tie"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.4",
+       "name": "apple seider 🧃",
+       "stats": {
+        "G": 7,
+        "A": 20,
+        "+/-": 6,
+        "PIM": 30,
+        "PPP": 8,
+        "SHP": 1,
+        "GWG": 2,
+        "SOG": 99,
+        "W": 0,
+        "GA": 8,
+        "GAA": 2.62,
+        "SA": 69,
+        "SV": 61,
+        "SV%": 0.884,
+        "SHO": 0,
+        "HIT": 70
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.5",
+       "name": "LA BAMBA BABY!!",
+       "stats": {
+        "G": 11,
+        "A": 18,
+        "+/-": 8,
+        "PIM": 19,
+        "PPP": 16,
+        "SHP": 0,
+        "GWG": 2,
+        "SOG": 93,
+        "W": 3,
+        "GA": 8,
+        "GAA": 1.56,
+        "SA": 112,
+        "SV": 104,
+        "SV%": 0.929,
+        "SHO": 1,
+        "HIT": 37
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.5",
+      "A": "477.l.48535.t.4",
+      "+/-": "477.l.48535.t.5",
+      "PIM": "477.l.48535.t.4",
+      "PPP": "477.l.48535.t.5",
+      "SHP": "477.l.48535.t.4",
+      "GWG": "tie",
+      "SOG": "477.l.48535.t.4",
+      "HIT": "477.l.48535.t.4",
+      "W": "477.l.48535.t.5",
+      "GAA": "477.l.48535.t.5",
+      "SV%": "477.l.48535.t.5",
+      "SHO": "477.l.48535.t.5"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "kind": "week",
+  "week": 2,
+  "ref": "",
+  "body": {
+   "week": 2,
+   "weekStart": "2026-10-05",
+   "weekEnd": "2026-10-11",
+   "matchups": [
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.1",
+       "name": "Drunk Dahlin",
+       "stats": {
+        "G": 11,
+        "A": 24,
+        "+/-": 17,
+        "PIM": 16,
+        "PPP": 14,
+        "SHP": 0,
+        "GWG": 4,
+        "SOG": 104,
+        "W": 3,
+        "GA": 20,
+        "GAA": 3.39,
+        "SA": 149,
+        "SV": 129,
+        "SV%": 0.866,
+        "SHO": 0,
+        "HIT": 37
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.2",
+       "name": "I drop my best players",
+       "stats": {
+        "G": 11,
+        "A": 32,
+        "+/-": 3,
+        "PIM": 17,
+        "PPP": 15,
+        "SHP": 1,
+        "GWG": 4,
+        "SOG": 96,
+        "W": 3,
+        "GA": 14,
+        "GAA": 2.42,
+        "SA": 164,
+        "SV": 150,
+        "SV%": 0.915,
+        "SHO": 0,
+        "HIT": 67
+       }
+      }
+     ],
+     "winners": {
+      "G": "tie",
+      "A": "477.l.48535.t.2",
+      "+/-": "477.l.48535.t.1",
+      "PIM": "477.l.48535.t.2",
+      "PPP": "477.l.48535.t.2",
+      "SHP": "477.l.48535.t.2",
+      "GWG": "tie",
+      "SOG": "477.l.48535.t.1",
+      "HIT": "477.l.48535.t.2",
+      "W": "tie",
+      "GAA": "477.l.48535.t.2",
+      "SV%": "477.l.48535.t.2",
+      "SHO": "tie"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.3",
+       "name": "Dicks Picks 2026",
+       "stats": {
+        "G": 10,
+        "A": 21,
+        "+/-": -6,
+        "PIM": 10,
+        "PPP": 10,
+        "SHP": 1,
+        "GWG": 1,
+        "SOG": 88,
+        "W": 1,
+        "GA": 10,
+        "GAA": 3.25,
+        "SA": 94,
+        "SV": 84,
+        "SV%": 0.894,
+        "SHO": 0,
+        "HIT": 28
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.5",
+       "name": "LA BAMBA BABY!!",
+       "stats": {
+        "G": 10,
+        "A": 17,
+        "+/-": 2,
+        "PIM": 18,
+        "PPP": 7,
+        "SHP": 0,
+        "GWG": 3,
+        "SOG": 112,
+        "W": 3,
+        "GA": 9,
+        "GAA": 2.03,
+        "SA": 102,
+        "SV": 93,
+        "SV%": 0.912,
+        "SHO": 0,
+        "HIT": 34
+       }
+      }
+     ],
+     "winners": {
+      "G": "tie",
+      "A": "477.l.48535.t.3",
+      "+/-": "477.l.48535.t.5",
+      "PIM": "477.l.48535.t.5",
+      "PPP": "477.l.48535.t.3",
+      "SHP": "477.l.48535.t.3",
+      "GWG": "477.l.48535.t.5",
+      "SOG": "477.l.48535.t.5",
+      "HIT": "477.l.48535.t.5",
+      "W": "477.l.48535.t.5",
+      "GAA": "477.l.48535.t.5",
+      "SV%": "477.l.48535.t.5",
+      "SHO": "tie"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.4",
+       "name": "apple seider 🧃",
+       "stats": {
+        "G": 13,
+        "A": 12,
+        "+/-": 2,
+        "PIM": 38,
+        "PPP": 10,
+        "SHP": 1,
+        "GWG": 3,
+        "SOG": 105,
+        "W": 4,
+        "GA": 7,
+        "GAA": 1.39,
+        "SA": 106,
+        "SV": 99,
+        "SV%": 0.934,
+        "SHO": 2,
+        "HIT": 41
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.8",
+       "name": "DraftAndRun",
+       "stats": {
+        "G": 13,
+        "A": 19,
+        "+/-": 3,
+        "PIM": 12,
+        "PPP": 12,
+        "SHP": 0,
+        "GWG": 2,
+        "SOG": 69,
+        "W": 0,
+        "GA": 10,
+        "GAA": 3.4,
+        "SA": 78,
+        "SV": 68,
+        "SV%": 0.872,
+        "SHO": 0,
+        "HIT": 27
+       }
+      }
+     ],
+     "winners": {
+      "G": "tie",
+      "A": "477.l.48535.t.8",
+      "+/-": "477.l.48535.t.8",
+      "PIM": "477.l.48535.t.4",
+      "PPP": "477.l.48535.t.8",
+      "SHP": "477.l.48535.t.4",
+      "GWG": "477.l.48535.t.4",
+      "SOG": "477.l.48535.t.4",
+      "HIT": "477.l.48535.t.4",
+      "W": "477.l.48535.t.4",
+      "GAA": "477.l.48535.t.4",
+      "SV%": "477.l.48535.t.4",
+      "SHO": "477.l.48535.t.4"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.6",
+       "name": "Ben's Astonishing Team",
+       "stats": {
+        "G": 16,
+        "A": 22,
+        "+/-": 6,
+        "PIM": 26,
+        "PPP": 13,
+        "SHP": 2,
+        "GWG": 2,
+        "SOG": 86,
+        "W": 5,
+        "GA": 9,
+        "GAA": 1.58,
+        "SA": 125,
+        "SV": 116,
+        "SV%": 0.928,
+        "SHO": 0,
+        "HIT": 58
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.7",
+       "name": "michael's Superb Team",
+       "stats": {
+        "G": 4,
+        "A": 15,
+        "+/-": -5,
+        "PIM": 31,
+        "PPP": 7,
+        "SHP": 0,
+        "GWG": 0,
+        "SOG": 82,
+        "W": 3,
+        "GA": 11,
+        "GAA": 2.21,
+        "SA": 124,
+        "SV": 113,
+        "SV%": 0.911,
+        "SHO": 0,
+        "HIT": 19
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.6",
+      "A": "477.l.48535.t.6",
+      "+/-": "477.l.48535.t.6",
+      "PIM": "477.l.48535.t.7",
+      "PPP": "477.l.48535.t.6",
+      "SHP": "477.l.48535.t.6",
+      "GWG": "477.l.48535.t.6",
+      "SOG": "477.l.48535.t.6",
+      "HIT": "477.l.48535.t.6",
+      "W": "477.l.48535.t.6",
+      "GAA": "477.l.48535.t.6",
+      "SV%": "477.l.48535.t.6",
+      "SHO": "tie"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "kind": "week",
+  "week": 3,
+  "ref": "",
+  "body": {
+   "week": 3,
+   "weekStart": "2026-10-12",
+   "weekEnd": "2026-10-18",
+   "matchups": [
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.1",
+       "name": "Drunk Dahlin",
+       "stats": {
+        "G": 10,
+        "A": 30,
+        "+/-": 19,
+        "PIM": 14,
+        "PPP": 12,
+        "SHP": 2,
+        "GWG": 4,
+        "SOG": 94,
+        "W": 3,
+        "GA": 11,
+        "GAA": 2.17,
+        "SA": 145,
+        "SV": 134,
+        "SV%": 0.924,
+        "SHO": 0,
+        "HIT": 31
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.8",
+       "name": "DraftAndRun",
+       "stats": {
+        "G": 5,
+        "A": 28,
+        "+/-": -1,
+        "PIM": 10,
+        "PPP": 15,
+        "SHP": 1,
+        "GWG": 1,
+        "SOG": 76,
+        "W": 1,
+        "GA": 12,
+        "GAA": 4.14,
+        "SA": 81,
+        "SV": 69,
+        "SV%": 0.852,
+        "SHO": 0,
+        "HIT": 37
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.1",
+      "A": "477.l.48535.t.1",
+      "+/-": "477.l.48535.t.1",
+      "PIM": "477.l.48535.t.1",
+      "PPP": "477.l.48535.t.8",
+      "SHP": "477.l.48535.t.1",
+      "GWG": "477.l.48535.t.1",
+      "SOG": "477.l.48535.t.1",
+      "HIT": "477.l.48535.t.8",
+      "W": "477.l.48535.t.1",
+      "GAA": "477.l.48535.t.1",
+      "SV%": "477.l.48535.t.1",
+      "SHO": "tie"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.2",
+       "name": "I drop my best players",
+       "stats": {
+        "G": 12,
+        "A": 23,
+        "+/-": 11,
+        "PIM": 4,
+        "PPP": 9,
+        "SHP": 1,
+        "GWG": 1,
+        "SOG": 93,
+        "W": 5,
+        "GA": 18,
+        "GAA": 3.24,
+        "SA": 130,
+        "SV": 112,
+        "SV%": 0.862,
+        "SHO": 0,
+        "HIT": 42
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.6",
+       "name": "Ben's Astonishing Team",
+       "stats": {
+        "G": 7,
+        "A": 18,
+        "+/-": 10,
+        "PIM": 39,
+        "PPP": 1,
+        "SHP": 2,
+        "GWG": 0,
+        "SOG": 81,
+        "W": 4,
+        "GA": 10,
+        "GAA": 1.64,
+        "SA": 156,
+        "SV": 146,
+        "SV%": 0.936,
+        "SHO": 1,
+        "HIT": 45
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.2",
+      "A": "477.l.48535.t.2",
+      "+/-": "477.l.48535.t.2",
+      "PIM": "477.l.48535.t.6",
+      "PPP": "477.l.48535.t.2",
+      "SHP": "477.l.48535.t.6",
+      "GWG": "477.l.48535.t.2",
+      "SOG": "477.l.48535.t.2",
+      "HIT": "477.l.48535.t.6",
+      "W": "477.l.48535.t.2",
+      "GAA": "477.l.48535.t.6",
+      "SV%": "477.l.48535.t.6",
+      "SHO": "477.l.48535.t.6"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.3",
+       "name": "Dicks Picks 2026",
+       "stats": {
+        "G": 10,
+        "A": 23,
+        "+/-": 6,
+        "PIM": 11,
+        "PPP": 8,
+        "SHP": 2,
+        "GWG": 1,
+        "SOG": 89,
+        "W": 3,
+        "GA": 16,
+        "GAA": 2.83,
+        "SA": 158,
+        "SV": 142,
+        "SV%": 0.899,
+        "SHO": 0,
+        "HIT": 48
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.4",
+       "name": "apple seider 🧃",
+       "stats": {
+        "G": 20,
+        "A": 22,
+        "+/-": 0,
+        "PIM": 14,
+        "PPP": 17,
+        "SHP": 0,
+        "GWG": 3,
+        "SOG": 105,
+        "W": 1,
+        "GA": 6,
+        "GAA": 2.04,
+        "SA": 78,
+        "SV": 72,
+        "SV%": 0.923,
+        "SHO": 1,
+        "HIT": 50
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.4",
+      "A": "477.l.48535.t.3",
+      "+/-": "477.l.48535.t.3",
+      "PIM": "477.l.48535.t.4",
+      "PPP": "477.l.48535.t.4",
+      "SHP": "477.l.48535.t.3",
+      "GWG": "477.l.48535.t.4",
+      "SOG": "477.l.48535.t.4",
+      "HIT": "477.l.48535.t.4",
+      "W": "477.l.48535.t.3",
+      "GAA": "477.l.48535.t.4",
+      "SV%": "477.l.48535.t.4",
+      "SHO": "477.l.48535.t.4"
+     }
+    },
+    {
+     "teams": [
+      {
+       "teamKey": "477.l.48535.t.5",
+       "name": "LA BAMBA BABY!!",
+       "stats": {
+        "G": 20,
+        "A": 15,
+        "+/-": 14,
+        "PIM": 16,
+        "PPP": 10,
+        "SHP": 1,
+        "GWG": 3,
+        "SOG": 112,
+        "W": 2,
+        "GA": 11,
+        "GAA": 2.9,
+        "SA": 102,
+        "SV": 91,
+        "SV%": 0.892,
+        "SHO": 0,
+        "HIT": 23
+       }
+      },
+      {
+       "teamKey": "477.l.48535.t.7",
+       "name": "michael's Superb Team",
+       "stats": {
+        "G": 14,
+        "A": 21,
+        "+/-": 9,
+        "PIM": 24,
+        "PPP": 11,
+        "SHP": 0,
+        "GWG": 1,
+        "SOG": 74,
+        "W": 4,
+        "GA": 7,
+        "GAA": 1.75,
+        "SA": 119,
+        "SV": 112,
+        "SV%": 0.941,
+        "SHO": 0,
+        "HIT": 28
+       }
+      }
+     ],
+     "winners": {
+      "G": "477.l.48535.t.5",
+      "A": "477.l.48535.t.7",
+      "+/-": "477.l.48535.t.5",
+      "PIM": "477.l.48535.t.7",
+      "PPP": "477.l.48535.t.7",
+      "SHP": "477.l.48535.t.5",
+      "GWG": "477.l.48535.t.5",
+      "SOG": "477.l.48535.t.5",
+      "HIT": "477.l.48535.t.7",
+      "W": "477.l.48535.t.7",
+      "GAA": "477.l.48535.t.7",
+      "SV%": "477.l.48535.t.7",
+      "SHO": "tie"
+     }
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamWeek",
+  "week": 3,
+  "ref": "477.l.48535.t.6",
+  "body": {
+   "week": 3,
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 5,
+      "+/-": 3,
+      "PIM": 5,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 15,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 3,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 6,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 3,
+      "+/-": 3,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 15,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 6,
+      "HIT": 9
+     }
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 6
+     }
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "RW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 8,
+      "HIT": 5
+     }
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 2,
+      "A": 1,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 1,
+      "GWG": 0,
+      "SOG": 8,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 2,
+      "+/-": 1,
+      "PIM": 6,
+      "PPP": 0,
+      "SHP": 1,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 1,
+      "PIM": 15,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 8
+     }
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 5,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 7,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 2,
+      "+/-": 3,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 5,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 0,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 2,
+      "GA": 4,
+      "GAA": 1.31,
+      "SA": 78,
+      "SV": 74,
+      "SV%": 0.949,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 0,
+      "GAA": 0,
+      "SA": 29,
+      "SV": 29,
+      "SV%": 1,
+      "SHO": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 6,
+      "GAA": 3.01,
+      "SA": 49,
+      "SV": 43,
+      "SV%": 0.878,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamWeek",
+  "week": 3,
+  "ref": "477.l.48535.t.2",
+  "body": {
+   "week": 3,
+   "teamKey": "477.l.48535.t.2",
+   "players": [
+    {
+     "playerKey": "477.p.8643",
+     "name": "Tim Stutzle",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 3,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 5,
+      "HIT": 10
+     }
+    },
+    {
+     "playerKey": "477.p.30546",
+     "name": "Adam Fantilli",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.8654",
+     "name": "Dylan Holloway",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.6877",
+     "name": "Kirill Kaprizov",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 4,
+      "A": 3,
+      "+/-": 4,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 1,
+      "SOG": 18,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5367",
+     "name": "Mika Zibanejad",
+     "slot": "RW",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": -3,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 1,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 6
+     }
+    },
+    {
+     "playerKey": "477.p.6391",
+     "name": "David Pastrnak",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 2,
+      "A": 3,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 2,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 11,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.7908",
+     "name": "Evan Bouchard",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 4,
+      "+/-": 5,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 10,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.7899",
+     "name": "Rasmus Dahlin",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.8284",
+     "name": "Moritz Seider",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 3,
+      "+/-": 3,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 6,
+      "HIT": 8
+     }
+    },
+    {
+     "playerKey": "477.p.33423",
+     "name": "Matthew Schaefer",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 3,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 12,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.30547",
+     "name": "Will Smith",
+     "slot": "Util",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 1,
+      "+/-": 2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 9,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.7520",
+     "name": "Elias Pettersson",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 1,
+      "+/-": -3,
+      "PIM": 0,
+      "PPP": 2,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 4
+     }
+    },
+    {
+     "playerKey": "477.p.5376",
+     "name": "J.T. Miller",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 4
+     }
+    },
+    {
+     "playerKey": "477.p.8644",
+     "name": "Lucas Raymond",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6753",
+     "name": "Lawson Crouse",
+     "slot": "BN",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.32790",
+     "name": "Ivan Demidov",
+     "slot": "IR",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5981",
+     "name": "Aleksander Barkov",
+     "slot": "IR",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.8895",
+     "name": "Jesper Wallstedt",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 3,
+      "GA": 7,
+      "GAA": 2.34,
+      "SA": 63,
+      "SV": 56,
+      "SV%": 0.889,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6887",
+     "name": "Karel Vejmelka",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 2,
+      "GA": 11,
+      "GAA": 4.3,
+      "SA": 67,
+      "SV": 56,
+      "SV%": 0.836,
+      "SHO": 0
+     }
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-12",
+  "body": {
+   "date": "2026-10-12",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 4,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 1,
+      "GAA": 1,
+      "SA": 30,
+      "SV": 29,
+      "SV%": 0.967,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-13",
+  "body": {
+   "date": "2026-10-13",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 2,
+      "+/-": 2,
+      "PIM": 5,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 2,
+      "+/-": 2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 3,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 7,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 6
+     }
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 4
+     }
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 0,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 2,
+      "PIM": 9,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 1,
+      "+/-": 3,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 1,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 5,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 2,
+      "+/-": 3,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 1,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "BN",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": -3,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 3,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 0,
+      "GA": 3,
+      "GAA": 3.13,
+      "SA": 22,
+      "SV": 19,
+      "SV%": 0.864,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 0,
+      "GA": 0,
+      "GAA": 0,
+      "SA": 4,
+      "SV": 4,
+      "SV%": 1,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-14",
+  "body": {
+   "date": "2026-10-14",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 5,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "BN",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-15",
+  "body": {
+   "date": "2026-10-15",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 6,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 3,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "RW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -2,
+      "PIM": 6,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 0,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 1,
+      "GAA": 0.92,
+      "SA": 21,
+      "SV": 20,
+      "SV%": 0.952,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 3,
+      "GAA": 2.9,
+      "SA": 27,
+      "SV": 24,
+      "SV%": 0.889,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-16",
+  "body": {
+   "date": "2026-10-16",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 3,
+      "+/-": 2,
+      "PIM": 0,
+      "PPP": 1,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 9,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "RW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 6,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 0,
+      "HIT": 6
+     }
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-17",
+  "body": {
+   "date": "2026-10-17",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 0,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 1,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": -2,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "RW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 1,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 4,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 5,
+      "HIT": 1
+     }
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 2,
+      "+/-": 2,
+      "PIM": 2,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": -1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 1,
+      "HIT": 3
+     }
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 0,
+      "GA": 2,
+      "GAA": 2.08,
+      "SA": 27,
+      "SV": 25,
+      "SV%": 0.926,
+      "SHO": 0
+     }
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {
+      "W": 1,
+      "GA": 0,
+      "GAA": 0,
+      "SA": 29,
+      "SV": 29,
+      "SV%": 1,
+      "SHO": 1
+     }
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ },
+ {
+  "kind": "teamDay",
+  "week": 3,
+  "ref": "2026-10-18",
+  "body": {
+   "date": "2026-10-18",
+   "teamKey": "477.l.48535.t.6",
+   "players": [
+    {
+     "playerKey": "477.p.5980",
+     "name": "Nathan MacKinnon",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6777",
+     "name": "Sebastian Aho",
+     "slot": "C",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 1,
+      "+/-": 1,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 3,
+      "HIT": 0
+     }
+    },
+    {
+     "playerKey": "477.p.5691",
+     "name": "Filip Forsberg",
+     "slot": "LW",
+     "eligible": [
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5441",
+     "name": "Blake Coleman",
+     "slot": "LW",
+     "eligible": [
+      "C",
+      "LW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {
+      "G": 0,
+      "A": 0,
+      "+/-": 0,
+      "PIM": 0,
+      "PPP": 0,
+      "SHP": 0,
+      "GWG": 0,
+      "SOG": 2,
+      "HIT": 2
+     }
+    },
+    {
+     "playerKey": "477.p.6395",
+     "name": "Adrian Kempe",
+     "slot": "RW",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7636",
+     "name": "Drake Batherson",
+     "slot": "RW",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7117",
+     "name": "Mikhail Sergachev",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.6407",
+     "name": "Marcus Pettersson",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5995",
+     "name": "Nikita Zadorov",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5986",
+     "name": "Darnell Nurse",
+     "slot": "D",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.4471",
+     "name": "Steven Stamkos",
+     "slot": "Util",
+     "eligible": [
+      "C",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5992",
+     "name": "Josh Morrissey",
+     "slot": "BN",
+     "eligible": [
+      "D",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.7516",
+     "name": "Nico Hischier",
+     "slot": "BN",
+     "eligible": [
+      "C",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5696",
+     "name": "Tom Wilson",
+     "slot": "BN",
+     "eligible": [
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.8653",
+     "name": "Seth Jarvis",
+     "slot": "IR",
+     "eligible": [
+      "LW",
+      "RW",
+      "Util"
+     ],
+     "positionType": "P",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5853",
+     "name": "Linus Ullmark",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.9118",
+     "name": "Jet Greaves",
+     "slot": "G",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5699",
+     "name": "Andrei Vasilevskiy",
+     "slot": "BN",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    },
+    {
+     "playerKey": "477.p.5820",
+     "name": "Connor Hellebuyck",
+     "slot": "IR",
+     "eligible": [
+      "G"
+     ],
+     "positionType": "G",
+     "stats": {}
+    }
+   ]
+  }
+ }
+]

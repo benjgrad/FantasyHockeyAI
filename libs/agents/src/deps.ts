@@ -3,7 +3,7 @@ import type { LlmClient, LlmRouter } from '@fha/llm';
 import type { SubmitOutcome } from '@fha/pipeline';
 import type { PromptCatalog } from '@fha/prompts';
 import type { Store } from '@fha/store';
-import type { LeagueView, ToolEvent } from '@fha/tools';
+import type { LeagueView, RunContext, ToolEvent } from '@fha/tools';
 import type { ToolNote } from './assistantHistory.js';
 
 /**
@@ -31,4 +31,6 @@ export interface AgentDeps {
   onToolNote?: (note: ToolNote) => void;
   /** Records a line in the Background activity chat (D-028): e.g. a player the agent follows. */
   activity?: (text: string) => void;
+  /** A live Yahoo name search for players outside the snapshot (D-032), when the app has one. */
+  searchYahoo?: RunContext['searchYahoo'];
 }

@@ -11,6 +11,7 @@ import {
 import {
   EVENT_KINDS,
   lensesFor,
+  objectiveOf,
   recordShadow,
   type AutoGrabPayload,
   type DecisionLenses,
@@ -24,6 +25,7 @@ import type { Notice } from '../push.js';
 import type { Services } from '../services.js';
 import { canWriteLive } from '../writeAdapter.js';
 import { candidateFor, grabBase } from './grabInputs.js';
+import { errText } from './jobs.js';
 import type { AutoGrabTrigger } from './rules.js';
 import { readerFor } from './watchers.js';
 
@@ -166,6 +168,10 @@ export async function runAutoGrab(s: Services, req: AutoGrabRequest): Promise<Au
   const since = `${view.weekOf().start}T00:00:00.000Z`;
   const dup = alreadyInPlay(s, req.playerKey, since);
   if (dup !== undefined) return record(s, req, 'skipped', `already proposed (${dup})`);
+  // Ben filed a claim on him in Yahoo himself: nothing to propose (D-036).
+  if (view.claimFiledFor(req.playerKey) !== undefined) {
+    return record(s, req, 'skipped', 'a claim on him is already filed in Yahoo');
+  }
   const cap = perms.autoGrab.maxPerWeek;
   if (cap !== undefined && grabsThisWeek(s, req.userId, since) >= cap) {
     return record(s, req, 'skipped', `auto-grab weekly cap reached (${cap})`);
@@ -177,13 +183,14 @@ export async function runAutoGrab(s: Services, req: AutoGrabRequest): Promise<Au
   if (candidate === undefined) return record(s, req, 'skipped', 'no valuation for him');
   const opp = evaluateOpportunity({ ...grabBase(view, s.store, perms, lenses.active), candidate });
   shadowGrab(s, view, perms, lenses, req, ownership, opp);
+  shadowObjective(s, view, perms, lenses, req, candidate, opp);
   const name = (k: string) => view.player(k)?.name ?? k;
   const fields: Fields = {
     kind: opp.kind,
     drop: opp.drop,
     dropName: opp.drop === null ? null : name(opp.drop),
-    gain: opp.gain,
-    required: opp.required,
+    // On the objective (D-034) the bar is in P(win), stated in the reason; gain/required are Adj.
+    ...(opp.dWin === undefined ? { gain: opp.gain, required: opp.required } : {}),
   };
   if (!opp.grab) return record(s, req, 'skipped', opp.skip ?? 'not worth it', fields);
   return act(s, req, league, opp, candidate, fields);
@@ -219,6 +226,48 @@ function shadowGrab(
     other: { grab: other.grab, drop: other.drop, gain: other.gain },
     summary: `Auto-grab ${req.name}: ${lenses.lens} would ${text(opp)}; ${lenses.otherLens} would ${text(other)}.`,
   });
+}
+
+/** Record when the other objective (D-034) would grab differently (never acted on). */
+function shadowObjective(
+  s: Services,
+  view: LeagueView,
+  perms: Permissions,
+  lenses: DecisionLenses,
+  req: AutoGrabRequest,
+  candidate: OpportunityCandidate,
+  opp: Opportunity,
+): void {
+  try {
+    const objective = objectiveOf(s.store);
+    const otherObjective = objective === 'winWeek' ? 'legacy' : 'winWeek';
+    const other = evaluateOpportunity({
+      ...grabBase(view, s.store, perms, lenses.active, otherObjective),
+      candidate,
+    });
+    if (other.grab === opp.grab && other.drop === opp.drop) return;
+    const name = (k: string | null) => (k === null ? 'nobody' : (view.player(k)?.name ?? k));
+    const text = (o: Opportunity) =>
+      o.grab ? `grab ${req.name}, dropping ${name(o.drop)}` : `skip (${o.skip ?? 'not worth it'})`;
+    s.store.lensShadow.record({
+      leagueKey: view.snap.leagueKey,
+      decision: 'autoGrab',
+      date: view.snap.date,
+      activeLens: lenses.lens,
+      subject: `objective:${req.playerKey}`,
+      chosen: { objective, grab: opp.grab, drop: opp.drop, gain: opp.gain, dWin: opp.dWin ?? null },
+      other: {
+        objective: otherObjective,
+        grab: other.grab,
+        drop: other.drop,
+        gain: other.gain,
+        dWin: other.dWin ?? null,
+      },
+      summary: `Auto-grab ${req.name} (D-034): ${objective} would ${text(opp)}; ${otherObjective} would ${text(other)}.`,
+    });
+  } catch (err) {
+    s.log(`auto-grab: objective shadow failed (${errText(err)})`); // P9: never blocks the grab
+  }
 }
 
 function planFor(s: Services, req: AutoGrabRequest, opp: Opportunity, runId: string): Plan {

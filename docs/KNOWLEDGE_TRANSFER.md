@@ -412,7 +412,7 @@ to `ctx.planSink`. They return `{ok:true, data:{planId}}`, and **nothing touches
 | `getRoster` | read | `{date?}` | our roster: playerKey, name, eligible, slot, status, gamesToday | lineup, waivers, trades, draft |
 | `getTeamRoster` | read | `{teamName}` → resolved to key via league teams, **not** a raw key | another team's roster | trades |
 | `getPlayers` | read | `{playerKeys: PlayerKey[] (≤25)}` | batch details + projections + valuation | all |
-| `searchPlayers` | read | `{query?, position?, status: 'FA'\|'W'\|'A', sort: 'value'\|'recent'\|'owned', limit≤25}` | ranked list with keys | waivers, draft |
+| `searchPlayers` | read | `{query?, position?, status: 'FA'\|'W'\|'A', sort: [{by, order: 'desc'\|'asc', basis?}] (1-3 keys, required; D-039), limit≤25}` | ranked list with keys, one column per sort key | waivers, draft |
 | `getDraftBoard` | read | `{limit≤30}` | best available by adjusted score (§12.5) with needs | draft |
 | `getMatchup` | read | `{week?}` | projected category totals vs opponent, win probabilities | matchup, waivers |
 | `getSchedule` | read | `{from, to}` | games per NHL team per day | lineup, waivers, matchup |
@@ -592,6 +592,8 @@ undone once waivers process) and runs it through the normal pipeline.
 | Transactions | `/league/{league_key}/transactions`, filterable by `;types=add,drop,trade`, or `;type=pending_trade;team_key=…` or `;type=waiver;team_key=…` |
 | Scoreboard and matchups | `/league/{league_key}/scoreboard;week=N`, which includes team stats per category |
 | Standings | `/league/{league_key}/standings` |
+| A team's counted week, per player [V] | `/team/{team_key}/roster;week=N/players/stats;type=week;week=N`: active-seat games only, so the players sum to the team's line (D-038) |
+| A team's day, per player [V] | `/team/{team_key}/roster;date=D/players/stats;type=date;date=D`: the seat and the real NHL line; '-' for an idle player (D-038) |
 
 **Rate limits:** Yahoo publishes none. Throttling is per app. Responses carry a `refresh_rate` attribute
 (60 was observed). Throttling shows up as 999/429, "Request denied" or dropped connections [R].
@@ -805,7 +807,11 @@ shrank toward the projection, not the positional mean this section describes). K
 games; goalie W/SHO/SA/TOI 20 starts; SV% and GAA 50 starts' worth of shots and minutes; goalie
 start share 10 team games (all [U], ROADMAP U-26). A call-up without a preseason projection uses
 his past seasons as the prior. A skater keeps his projected games; a goalie's starts follow the
-updated start share. Low confidence: under 10 GP (skaters) or 5 starts (goalies) this season.*
+updated start share. The start share counts only the team games that say something about his
+role (`roleGames`): from his first appearance this season, and while he is hurt now only up to
+his last one; a healthy goalie who has not played keeps every team game as evidence of a lost
+job. Before 2026-10-24 every team game counted, so Hellebuyck, hurt since opening night, lost
+half his projected starts. Low confidence: under 10 GP (skaters) or 5 starts (goalies) this season.*
 For each player and each counting stat `c`, over the seasons `s ∈ {current-to-date, last, last-1}`:
 - Recency weights `w = {cur: 0.5·f, last: 0.3, prev: 0.2}`, where `f = min(1, GP_cur/20)` so the current-season weight grows as
   games are played. Before the season starts, use `{last: 0.5, prev: 0.3, prev2: 0.2}`. This is the draft-day case.
@@ -908,15 +914,20 @@ and the agents live in one glossary, `libs/core/src/glossary.ts`.*
 2. **Probability of winning each category:**
    - `P(win_c) = Φ((T_us − T_opp) / σ_c)`, with the sign reversed when lower is better.
    - `σ_c` is estimated from the week-to-week variance of team totals (start at 1.0 × √(games) × the per-game sd, then learn it from the season's scoreboards).
-3. **Output weights:**
-   - `w_c = 1.0` by default;
-   - `0.3` when `P(win_c) > 0.9` (already won) or `< 0.1` (lost);
-   - `1.5` when `0.35 ≤ P ≤ 0.65` (swing categories).
-   - Season-long punts from Ben or the strategy set `w_c = 0`.
-4. **Consumers:** the weights feed the waiver scoring and the lineup tie-breaks for the week.
+3. **Output weights** (D-034, replacing the 0.3 / 1 / 1.5 steps as the suggestion):
+   - The objective is **P(win the week)**: the Poisson-binomial over the per-category `P(win_c)`,
+     more than half the categories wins, exactly half counts ½ (`matchupWinProbability`).
+   - `w_c` = the finite-difference ΔP(win the week) from one starter's worth more of `c` (a
+     counting category's weekly total over its seats; .010 SV% / 0.25 GAA for one goalie, [U]
+     U-34), normalised so the weights average 1. It is ~0 for a category decided either way and
+     highest for a pivotal coin flip. Code writes these before the matchup agent runs; the agent
+     adjusts with a rationale.
+   - Season-long punts in the season strategy (§12.9) set `w_c = 0`.
+4. **Consumers:** the weights feed the waiver streaming gain and auto-grab for the week. The
+   lineup solver does not read them yet.
 
 ### 12.7 Trade evaluation
-- **Team strength:** a team's per-week category totals, from its projected starters.
+- **Team strength:** a team's per-week category totals, from its daily lineups over a typical week (`weeklyStarts`, D-035): starters most nights, the bench on their idle ones.
 - **Expected categories won:** `E_cats(team) = Σ_c P(team beats average opponent in c)`, using the league distribution of the other teams.
 - **Trade value:** `Δ_us = E_cats(us after) − E_cats(us before)`, and `Δ_them` likewise. This is a **marginal** value: a third elite centre helps
   less than a first good goalie.
@@ -928,19 +939,98 @@ and the agents live in one glossary, `libs/core/src/glossary.ts`.*
 
 ### 12.8 Waiver and streaming scoring
 *Wired 2026-10-02 (D-026): the `findPickups` tool runs `scoreWaivers` on the rest-of-season lens
-against our droppable players (locked, ask-listed, protected excluded). **Need is measured, not
+against our droppable players (locked, ask-listed, protected and **reserve-seat players**
+excluded: dropping a player in an IR seat frees no active spot). **Need is measured, not
 guessed:** CWA (`libs/model/src/categoryWins.ts`) is Δ expected categories won per week against
-the league field with the player on our roster versus without him (an add releases our
-lowest-value player; losing one of ours signs the best free agent), the same settle and weekly
-lines as §12.7. Week CWA does the same for this week's matchup with the banked score. Weekly
-lines from a full-season projection divide by the season's weeks (`projectionWeeks`), not the
-weeks left.*
-- **Rest-of-season gain:** `gain = VORP_f − VORP_d`, where `d` is our lowest-value droppable player at a compatible position.
+the league field with the player on our roster versus without him (an add releases whichever
+active player costs the week least; losing one of ours signs the best free agent), the same
+weekly lines as §12.7. Week CWA does the same for this week's matchup with the banked score.
+Weekly lines from a full-season projection divide by the season's weeks (`projectionWeeks`),
+not the weeks left.*
+
+**Weekly lines count daily lineups (D-035).** Yahoo lineups are set daily, so a seat is filled on
+any day one of its eligible players has a game. `weeklyStarts` (`libs/model/src/weeklyStarts.ts`)
+is the typical week: over the seven days of `TYPICAL_WEEK_DAY_GAMES` (heavy Tue/Thu/Sat, light
+between [U]), a player plays on day `d` with probability `games·w_d/Σw`, and takes a seat when one
+of his eligible seats is free (`1 − Π o_s`, teams independent within a day), best-first by
+undiscounted value, specific seats before Util. So a bench player starts on a starter's idle or
+injured nights, and an injured starter's seat goes to his backup. This week's matchup
+(`remainingWeekLineFor`) does the same on the real schedule: each day, the players with a game
+are seated best-first (`seasonStarters` on that day's players). Before D-035 only season
+starters counted: every free agent who did not crack the starting seats added the same constant
+(the flat +0.124 CWA of 2026-10-24) and every add "released" an IR-seated player.
+
+- **Rest-of-season gain (legacy):** `gain = VORP_f − VORP_d`, where `d` is our lowest-value droppable player at a compatible position.
 - **Streaming gain for this week:** `(games_f − games_d) × perGameValue_f × Σ_c w_c-adjusted`.
 - **Propose** when `max(ROS gain, streaming gain) > addThreshold` (§18.3) and add limits remain.
+- **An add who is out** (`playProb` 0) is never paired with a drop: he would hold an active spot
+  for weeks. He can only be an IR stash, into an open reserve seat (the Shesterkin case).
+- **On the `winWeek` objective (D-034; the default since D-035)** the Adj. bar no longer gates
+  upgrades and IR stashes: the 30 best **adds** by a reweighted season worth (each category's z
+  times its marginal weight) are each scored against **every** legal drop on ΔP(win a typical
+  week), and must beat `0.01 × scarcity` (1 point, the trade search's bar; scarcity is the same
+  `max(1, (n/r)·(d/7))`). Shortlisting pairs instead (D-034's 150) cut the pair the objective
+  wanted before it was scored (Ovechkin for Coleman, 2026-10-23). Streams keep the Adj. bar,
+  since the season view scores a stream at ~0 (U-36). Auto-grab's bar is 3 × that floor (as
+  `minGain` 1.5 is 3 × 0.5), doubled on the last add; its drop is whichever legal drop costs
+  the week least, every one tried. The legacy result is still computed, and disagreements go to
+  `lens_shadow` (`waivers`, `autoGrab` with subject `objective:…`); `fha strategy objective
+  legacy` goes back.
 - **FAAB bid:** `round(clamp(gainPercentile × faabRemaining × 0.25, 0, faabRemaining × 0.5))`. Skip the bid when it's under $1 on a low-gain claim.
 
 ---
+
+### 12.9 Season strategy (D-034)
+- **Season weights.** The same marginal measure against the whole field, each team's typical
+  week (`strategyAudit` on `typicalWeekLine`): per category P(win) against the field, weight,
+  stance (saturated `P ≥ .85`, lost `P ≤ .15`, else contested), surplus (what we can shed for
+  ≤ 1 point of P(win a week)) and deficit (what +2 points takes).
+- **Where they are used.** Our typical-week starters and releases in CWA / ΔWin%
+  (`starterWeights`: `value + Σ (w_c − 1)·z_c`; the field keeps plain value), and the in-season
+  `fit` on player surfaces.
+- **Fit** (`libs/tools/src/fit.ts`, D-040): `fit = Σ (w_c − 1)·z_c` over his position's scored
+  categories, `score = adjusted VOLS + fit`. The player's z and VORP come from the
+  rest-of-season lens (`fitLens` → `rosLensView`), as do the category-strength panel's team
+  sums, the targets, the Players page's `cat:<CAT>` sort and key categories, and the card's
+  category z. Without a store, or when the lens cannot be built, it reads preseason values and
+  says so (`lens: 'preseason'`). The card's value row leads with the rest-of-season Adj., with
+  preseason VORP as a footnote; the page's `value` sort stays preseason (D-026 shows both lenses). The Players page, the cards and the agents'
+  `searchPlayers` all rank "by fit" through this one function.
+- **ΔWin%** (`dWin`): Δ P(win a typical week) against the field with versus without a player,
+  the same swap as CWA. A full active roster releases whichever of the four active players whose
+  loss costs the week least does best; a player in a reserve seat is never released (`reserve`).
+- **Typical week.** Each team's line is `weeklyStarts` over its roster (§12.8, D-035): the season
+  audit's weights now see bench depth, as the CWA swap does.
+- **Objective switch.** `legacy` ranks waiver upgrades by Adj. gain and trades by Δ expected
+  categories; `winWeek` ranks both by ΔP(win). Every row shows both measures; disagreements on
+  the top waiver upgrade are shadowed.
+- **The versioned plan** (`season_strategy`): stance (contend / hold / sell), targets, surplus,
+  punts, one to five principles, rationale, review date. Written by the weekly `strategy` agent
+  (Monday 07:15, after the league review: the §19.3 retro, then a new version) or by Ben through
+  chat. Every agent run and chat session starts with a `<season_strategy>` block: the current
+  version, what changed from the last, and code's audit headline for today. Ben sees the same
+  thing on the Team page's **Season strategy** card (`GET /api/strategy`): the current version,
+  earlier ones folded away with what changed, code's audit now, and which objective is live.
+  The card is read-only; a change goes through chat (`proposeStrategy`).
+
+### 12.10 Matchup history and retrospectives (D-038)
+
+- **Source.** The `matchup_archive` table (§16), filled by the daily `archive` job (§14) from
+  Yahoo's finished weeks: the scoreboard, every team's counted player lines, our seats and lines
+  by day, and what the model expected of our matchup (`weekProjection`, the same numbers as
+  `getMatchup`). Each record is written once; the job reads only what is missing (≤ 60 a run).
+- **Standings** (`standingsOf`): category W-L-T summed over the weeks, ranked by category win
+  share with a tie counting half, as Yahoo ranks this league; matchup W-L-T alongside (a week is
+  won by taking more categories than the opponent). They match Yahoo's own standings [V].
+- **Category record** (`categoryRecord`): per category, the weeks a team won, lost and tied it.
+  It is the evidence for a stance: a category lost most weeks is one the strategy may punt.
+- **Missed starts** (`missedStarts`): on each archived day, idle active seats (a player there
+  did not play) are matched to benched players who played and are eligible for the seat, most
+  specific seat first (Util last). Each match is a start the lineup left on the table at no
+  cost. `missedTotals` sums them over counting categories; rate categories (GAA, SV%) are not
+  summed. `flippable` lists the lost higher-is-better counting categories whose margin those
+  starts cover (tied or won), the opponent's line held as it was.
+- **Read by** `getMatchupHistory` (strategy, matchup, league-review and trades agents; chat).
 
 ## 13. Agents [D]
 
@@ -996,6 +1086,7 @@ its propose tool, or by answering `noop` with a reason.
 | Job | When | Notes |
 |---|---|---|
 | `refreshData` | 06:00 daily | NHL stats (incremental), settings, rosters, player map |
+| `archive` | 06:10 daily | Finished weeks from Yahoo into `matchup_archive`, only what is missing, ≤ 60 reads (D-038, §12.10) |
 | `lineup` | 10:00 daily, then 45 min before the first game, then 16:30 | the later runs pick up goalie confirmations; each run is idempotent (an empty diff means no plan) |
 | `waivers` | 08:00 daily | proposals go to approvals and expire at the waiver run or lock time |
 | `matchup` | Monday 06:30, Thursday 06:30 | writes `strategy` weights |
@@ -1022,6 +1113,8 @@ its propose tool, or by answering `noop` with a reason.
 
 *Agents' watch list (D-028): migration 009 `watch_list (user_id, player_key, reason, added_by, added_at, expires_at)`, repo `store.watchList`; written by the `watchPlayers`/`stopWatching` tools, Ben's "Stop following", and a Players-page name search that missed the pool and found the player on Yahoo (`added_by = 'search'`, 3 days, D-032). Every watched player is read into the league snapshot alongside the rostered players, the top FAs by preseason rank, last week's top 50 FAs by actual rank, and the waiver list.*
 *Mid-season values (D-026): migration 007 `valuation_history (league_key, date, player_key, lens, value, vols, adjusted, vofa, cwa, week_cwa, gp_current, low_conf)` written after each refresh, repo `store.valuations`, plus an index on skater games by season and team; migration 008 `lens_shadow` (one row per decision, subject and day where the other value lens would have decided differently), repo `store.lensShadow`.*
+
+*Matchup history (D-038): migration 012 `matchup_archive (league_key, kind, week, ref, body, recorded_at)`, kinds `week`, `teamWeek`, `teamDay` and `projection`, written once per record by the `archive` job; repo `store.matchupArchive`; bodies validated on read against `libs/core/src/history.ts`.*
 *Game-level history (D-025, migration 006): `nhl_skater_games` and `nhl_goalie_games` keyed `(nhl_id, game_id)`, `nhl_players`, `ingest_state(season, last_date)`; repo `store.nhlGames`. Proposals refused before recording (D-022, migration 005): `proposal_attempts`.*
 Migrations are numbered SQL files applied at startup. The core schema:
 ```sql

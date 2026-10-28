@@ -21,6 +21,8 @@ export interface LeagueTeam {
   teamKey: TeamKey;
   name: string;
   managerNickname?: string;
+  /** Rolling waiver priority, 1 = first in line (Yahoo's `waiver_priority`). */
+  waiverPriority?: number;
 }
 
 export interface PlayerQuery {

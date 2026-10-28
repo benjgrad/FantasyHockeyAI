@@ -12,6 +12,7 @@ import { parseMyTeams, parseSettings, parseTeams, parseTransactions } from './le
 import type { LeagueMeta, MyTeam } from './league.js';
 import { parsePlayers, type YahooPlayer } from './players.js';
 import { parseRoster, type RosterRead } from './roster.js';
+import { parseRosterStats, type RosterStats } from './rosterStats.js';
 import { matchupFor, parseScoreboard, type Matchup, type Scoreboard } from './scoreboard.js';
 import { sessionFromCredentials, type StoredSession, type YahooCredentials } from './session.js';
 import { CookieTransport, type OnCookies, type YahooTransport } from './transport.js';
@@ -60,6 +61,7 @@ export class WebSessionReader implements LeagueReader {
       teamKey: t.teamKey,
       name: t.name,
       ...(t.managerNickname === undefined ? {} : { managerNickname: t.managerNickname }),
+      ...(t.waiverPriority === undefined ? {} : { waiverPriority: t.waiverPriority }),
     }));
   }
 
@@ -127,6 +129,27 @@ export class WebSessionReader implements LeagueReader {
   async scoreboard(week?: number): Promise<Scoreboard> {
     const suffix = week === undefined ? '' : `;week=${week}`;
     return parseScoreboard(await this.t.get(`/league/${this.leagueKey}/scoreboard${suffix}`));
+  }
+
+  /**
+   * A team's players with the stats Yahoo counted for it in week `week` (active seats only), or
+   * with each player's NHL line and seat on `date` (see `RosterStats`).
+   */
+  async rosterStats(
+    teamKey: TeamKey,
+    at: { week: number } | { date: string },
+  ): Promise<RosterStats> {
+    if ('week' in at) {
+      const w = at.week;
+      return parseRosterStats(
+        await this.t.get(`/team/${teamKey}/roster;week=${w}/players/stats;type=week;week=${w}`),
+      );
+    }
+    assertDate(at.date);
+    const d = at.date;
+    return parseRosterStats(
+      await this.t.get(`/team/${teamKey}/roster;date=${d}/players/stats;type=date;date=${d}`),
+    );
   }
 
   /** Our H2H matchup for the week (the current one by default). */

@@ -12,8 +12,8 @@ import { StatTip } from '../components/StatTip';
 
 /**
  * The free-agent browser. Default sort is CWA, the categories a week a player adds for us on
- * the rest-of-season lens (D-026); fit (the preseason roster-only version), VOFA, VOLS and each
- * category are a tap away. Tick up to four players to compare.
+ * the rest-of-season lens (D-026); fit (the quicker roster-needs version, also rest of season),
+ * VOFA, VOLS and each category are a tap away. Tick up to four players to compare.
  */
 const STATUSES: { v: ListParams['status']; label: string }[] = [
   { v: 'FA', label: 'Free agents' },
@@ -26,7 +26,7 @@ export function Players() {
   const pane = usePane();
   const navigate = useNavigate();
   const { open } = usePlayerSheet();
-  const [params, setParams] = useState<ListParams>({ status: 'FA', sort: 'cwa', limit: 50 });
+  const [params, setParams] = useState<ListParams>({ status: 'FA', sort: 'win', limit: 50 });
   const [q, setQ] = useState('');
   const [picked, setPicked] = useState<string[]>([]);
   const effective = { ...params, q: q.trim() || undefined };
@@ -93,10 +93,11 @@ export function Players() {
           value={params.sort}
           onChange={(e) => set({ sort: e.target.value })}
         >
+          <option value="win">Sort: wins us weeks (ΔWin%)</option>
           <option value="cwa">Sort: helps us (CWA)</option>
           <option value="vofa">Sort: over best free agent (VOFA)</option>
           <option value="ros">Sort: rest-of-season value (VOLS)</option>
-          <option value="fit">Sort: fit to our needs (preseason)</option>
+          <option value="fit">Sort: fit to our needs</option>
           <option value="value">Sort: preseason value</option>
           {cats.map((c) => (
             <option key={c} value={`cat:${c}`}>
@@ -122,6 +123,7 @@ export function Players() {
       ) : null}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xs text-mut">
         <span>Columns:</span>
+        <StatTip k="dWin" />
         <StatTip k="cwa" />
         <StatTip k="vofa" />
         <StatTip k="delta7d" />
@@ -245,7 +247,7 @@ function Rows({
 
 type Row = PlayerListT['players'][number];
 
-/** The right-hand numbers: rest of season when available, else the preseason fit and value. */
+/** The right-hand numbers: rest of season when available, else fit and value on preseason values. */
 function NowColumn({ p }: { p: Row }) {
   const now = p.now;
   const tone = (n: number | null | undefined) =>
@@ -254,7 +256,7 @@ function NowColumn({ p }: { p: Row }) {
     return (
       <div className="text-right text-xs tabular-nums">
         <div>
-          fit <b className={tone(p.fit)}>{signed(p.fit)}</b>
+          fit (pre) <b className={tone(p.fit)}>{signed(p.fit)}</b>
         </div>
         <div className="text-mut">val {p.adjustedVorp?.toFixed(1) ?? '—'}</div>
         <div className="text-mut">{p.gamesThisWeek} gm wk</div>
@@ -265,7 +267,13 @@ function NowColumn({ p }: { p: Row }) {
   return (
     <div className="text-right text-xs tabular-nums">
       <div>
-        CWA <b className={tone(now.cwa)}>{now.cwa === null ? '—' : signed(now.cwa, 2)}</b>
+        ΔWin%{' '}
+        <b className={tone(now.dWin ?? null)}>
+          {now.dWin == null ? '—' : signed(now.dWin * 100, 1)}
+        </b>
+      </div>
+      <div className="text-mut">
+        CWA <span className={tone(now.cwa)}>{now.cwa === null ? '—' : signed(now.cwa, 2)}</span>
       </div>
       <div className="text-mut">
         VOFA <span className={tone(now.vofa)}>{signed(now.vofa, 1)}</span>

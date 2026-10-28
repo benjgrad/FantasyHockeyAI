@@ -29,7 +29,8 @@ const BASE_PERMS = {
     lineup: { mode: 'allow' },
     addDrop: { mode: 'allow', limits: { maxPerWeek: 3 } },
     waiverClaim: { mode: 'allow', limits: { maxPerWeek: 3 } },
-    tradePropose: { mode: 'ask', limits: { minTradeGain: 0.25 } },
+    // The approval tests' Eichel-for-Dahlin swap gains +0.04 a week; the bar is not under test.
+    tradePropose: { mode: 'ask', limits: { minTradeGain: 0.02 } },
     tradeRespond: { mode: 'ask' },
   },
   players: { locked: [] as string[], ask: [] as string[] },

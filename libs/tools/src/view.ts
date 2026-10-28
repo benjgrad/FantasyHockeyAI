@@ -15,6 +15,20 @@ import {
 import { weekBounds } from './derive.js';
 
 /**
+ * How current the view's data is (4b). The league service sets it when it builds the view and
+ * marks it stale when a rebuild fails and this older snapshot is served instead (P9); a view
+ * read from a file starts from the snapshot's own `recordedAt`.
+ */
+export interface ViewFreshness {
+  /** ISO instant the snapshot was read from Yahoo. */
+  builtAt: string;
+  /** The last NHL game date in the stats store when the view was built (D-025). */
+  statsThrough?: string;
+  /** Set when the latest rebuild failed and this older snapshot is what remains. */
+  stale?: { failedAt: string; reason: string };
+}
+
+/**
  * The league as tools see it: one immutable snapshot plus indexes over it.
  *
  * Every playerKey a tool hands the model comes from here, and every key the model sends back
@@ -24,6 +38,8 @@ import { weekBounds } from './derive.js';
 export class LeagueView {
   private readonly byKey: Map<string, Player>;
   private readonly owner: Map<string, TeamKey>;
+  /** Mutable on purpose: only the league service writes it (see {@link ViewFreshness}). */
+  freshness: ViewFreshness;
 
   constructor(
     readonly snap: LeagueSnapshot,
@@ -31,6 +47,7 @@ export class LeagueView {
   ) {
     this.byKey = new Map(snap.players.map((p) => [p.playerKey, p]));
     this.owner = new Map();
+    this.freshness = { builtAt: snap.recordedAt };
     for (const [teamKey, entries] of Object.entries(snap.rosters)) {
       for (const e of entries) this.owner.set(e.playerKey, teamKey);
     }
@@ -68,6 +85,28 @@ export class LeagueView {
   /** On waivers: adding him is a claim, and he clears on `player.waiverDate` (D-029). */
   onWaivers(key: string): boolean {
     return this.isFreeAgent(key) && this.byKey.get(key)?.onWaivers === true;
+  }
+
+  /** A team's place in the rolling waiver order (1 = first); undefined when Yahoo's was not read. */
+  waiverPriority(teamKey: TeamKey = this.teamKey): number | undefined {
+    return this.snap.teams.find((t) => t.teamKey === teamKey)?.waiverPriority;
+  }
+
+  /** Waiver claims a team has filed in Yahoo that have not processed yet. */
+  pendingClaims(teamKey: TeamKey = this.teamKey): Transaction[] {
+    return (this.snap.transactions as Transaction[]).filter(
+      (t) =>
+        t.type === 'waiver' &&
+        t.teamKey === teamKey &&
+        (t.status === undefined || t.status === 'pending'),
+    );
+  }
+
+  /** Our pending Yahoo claim to add this player, if one is filed. */
+  claimFiledFor(add: string): Transaction | undefined {
+    return this.pendingClaims().find((t) =>
+      t.players.some((p) => p.playerKey === add && p.toTeamKey === this.teamKey),
+    );
   }
 
   /**
@@ -165,7 +204,7 @@ export class SnapshotReader implements LeagueReader {
     const search = q.search?.toLowerCase();
     const rows = this.view.snap.players.filter((p) => {
       if (q.status === 'FA' && !this.view.isFreeAgent(p.playerKey)) return false;
-      if (q.status === 'W') return false; // rolling waivers are not modelled in snapshots yet
+      if (q.status === 'W' && !this.view.onWaivers(p.playerKey)) return false;
       if (q.position !== undefined && !p.eligible.includes(q.position)) return false;
       return search === undefined || p.name.toLowerCase().includes(search);
     });

@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-10-06**
+Last updated: **2026-10-27**
 
 ---
 
@@ -35,6 +35,46 @@ findings](#draft-night-findings)).
 Week CWA, luck, trend) is computed daily, shown on every player surface with explainers, and
 given to every agent; automated decisions still use preseason values and record where the new
 lens would differ — review in Settings and flip per decision.
+
+**Strategy audit (D-034, 2026-10-13):** Ben suspected we over-invest in saturated categories;
+the audit says yes. On the season view we win a typical week 75% of the time. **HIT (97%) and
+PIM (89%) are saturated**: one more starter's worth of either buys ~0.4–0.8 points of P(win a
+week), against **+3.8 for SOG** and +3.4 for W. The Oct 13 add (Coleman for Kuemper, chosen on
+Adj. for his 47 PIM / 138 HIT) scores **0.0**: he would not start. Three model bugs were
+behind "no free agent helps": IR stashes made every add release two players, releases went to
+the lowest *value* (a starting D) rather than the cheapest to lose, and starters were picked by
+equal-weight value. All fixed. The trade search on the new objective finds +4-point trades
+(HIT/PIM surplus for G/A/PPP/SOG) that the old search's 0.25-category bar hid. Waivers and
+trades keep the legacy ranking until `fha strategy objective winWeek` (shadowed meanwhile);
+the weekly `strategy` job (Mon 07:15) writes the versioned season strategy every session reads.
+Ben sees it on the Team page's Season strategy card, beside code's audit.
+
+**Chat review fixes (D-035..D-037, 2026-10-24):** Ben's 10-21..24 chats showed the app picking
+bad drops (Sergachev, then Hischier, for Ovechkin), giving every free agent the same CWA,
+offering an IR-LT goalie, not knowing our waiver place or the claim he had filed, and running on
+a preseason-only base with 46 players unvalued.
+- **Weekly lines** count daily lineups (bench players start on idle nights).
+- **Drops** are chosen on ΔP(win a week) among every legal one; **winWeek is now live**.
+- **Yahoo** is pulled hourly, with as-of and stale lines in every read.
+- **Waiver priority and filed claims** are known to the agents.
+- **Every player is valued**, and the seed is re-recorded weekly.
+
+**Search sorts (D-039, 2026-10-26):** `searchPlayers` now ranks by any scored category (on a
+stated basis: projected, this season, per game, last 10) or by fit, CWA, ΔWin, VOLS, VOFA and
+the rest, up to three keys with tie-breaks. The agent must choose the sort and state each
+order; there is no default.
+**Fit is current (D-040, 2026-10-27):** Fit, the category-strength panel, targets and the
+Players page's per-category sort now read the rest-of-season lens (this season's games), not
+the 09-29 preseason values. Only the columns labelled preseason still are.
+
+**Matchup history (D-038, 2026-10-25):** the agents can now look back. A daily `archive` job
+keeps every finished week as Yahoo scored it, and `getMatchupHistory` reads it: standings, each
+week's category results beside what we expected, both sides' counted player lines, and our
+missed starts. On the first three weeks we lead the league at 24-12-3, matching Yahoo's own
+standings, and week 3 (lost 6-7) had three missed starts, among them Hischier benched on 10-17
+while MacKinnon's C seat sat idle.
+- **Still Ben's:** switch auto-grab's lens to rest-of-season in Settings, his row still says
+  preseason; and restart `fha-app` to make all this live.
 
 **Blocking on Ben:** a Yahoo network capture of one add+drop, pure drop and claim (U-12; a
 plain add was captured 2026-09-29, a lineup edit 2026-10-01); a domain and sudo for nginx; approval to add an OIDC client to personal-os; a dedicated
@@ -91,7 +131,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns, 004 auto_approve); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
 | **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013). **Lineup write built 2026-10-01** (U-12, D-020; deployed by 2026-10-09): **Do it** on a lineup card saves it in Yahoo, and the daemon's lineup job executes on its own under `allow` with dry run off. Waits on a live LLM run | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
-| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; deployed by 2026-10-09): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push; **auto-grab** (D-016; deployed by 2026-10-09): a free agent back from out or a healthy player another team dropped who clears `autoGrab.minGain` is proposed at once (urgent push) or, with `ignoreDryRun`/dry run off, added through the same gate | Proposals carry evidence; nothing writes without approval | §12.8 |
+| **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; deployed by 2026-10-09): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push; **auto-grab** (D-016; deployed by 2026-10-09): a free agent back from out or a healthy player another team dropped who clears `autoGrab.minGain` is proposed at once (urgent push) or, with `ignoreDryRun`/dry run off, added through the same gate ; **2026-10-24** (D-035..D-037): ranked on ΔP(win a week) with daily-lineup weekly lines, every legal drop scored, IR-seat drops and out adds excluded, waiver priority and our filed Yahoo claims known to the agents, hourly Yahoo pulls, every player valued | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
 | **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; **ask with timeout** (D-018; deployed by 2026-10-09): a plan kind can be queued for Ben *and* done on its own unless he rejects it in time, with a per-minute sweeper, countdown cards and reminder pushes | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
 | **M-Y** | Live Yahoo reader + `fha snapshot record` (`libs/yahoo`, `libs/nhl` schedule) | `done` 2026-09-29 | A live snapshot of all 8 rosters, FAs, notes, schedule | §10, §11.2 |
@@ -100,7 +140,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` 2026-09-29 — **live at https://hockey.gradyserver.com** (nginx + Let's Encrypt, `fha-app` user service with the daemon). Registered itself with personal-os via DCR on first login. Chat turns made durable (D-014; deployed). Rebrand to **Hockey GM** (D-019: Rink look, light/dark themes, mobile navigation and scrolling) built 2026-10-01, deployed. Yahoo connection hardened by D-033 (full cookie jar, keepalive) | Sign-in round trip; approve from a decision card; push on the phone | §15 |
 | **M-PWA** | Installable PWA (offline shell + cached reads, update flow), durable chat turns, player cards / compare / free-agent browser / category strength | `done` 2026-09-30, deployed | Works offline with last data; a chat reply survives a disconnect; draft-board-style cards and comparisons in the app | §15 |
 | **M-LC** | League comparison: every team's category strength and rank (heatmap), head to head vs us (typical-week and this-week expected categories won, swing categories, cheapest to flip, top contributors), trade complementarity, our profile with the cheapest fix per weakness (FA vs trade), per-partner trade ideas; `getLeagueComparison` read tool for the trades agent and chat | `done` 2026-09-30, deployed by 2026-10-09. `GET /api/league/compare[/:teamKey]`, Team → League. Core in `libs/tools/src/leagueCompare.ts`; `findTradeTargets` gained `only`/`maxPerSide` (a scoped search keeps the whole league as the field). Typical week is an assumption (U-24) | Our ranks match the strength panel; H2H expected cats = Σ win probs; trade ideas limited to the partner | §12.6, §12.7 |
-| **M9** | Season strategy, weekly retro, evals in CI | `todo` | `eval:smoke` runs on every PR | §12.6, §19.3, §20 |
+| **M9** | Season strategy, weekly retro, evals in CI | `wip` — season strategy, audit and weekly retro job built 2026-10-13 (D-034); objective **switched to `winWeek` 2026-10-24** (D-035); eval runner not built, so the 10-21..24 bad decisions are scenario tests on recorded data (`libs/tools/src/scenarios-2026-10-24.test.ts`) until it is | `eval:smoke` runs on every PR | §12.6, §12.9, §19.3, §20 |
 
 ### Deferred from tonight
 
@@ -147,6 +187,22 @@ first use and update the row.
 
 | ID | Claim | Spec | How to verify | Status |
 |---|---|---|---|---|
+| **U-33** | The variance model's σ per category is right for a whole week (Poisson counts, PIM dispersion 2, +/- 1 per skater-game, independent players) | D-034, §12.6 | Fit the (us − them) spread per category from the season's scoreboards; set `sdOverride` | UNVERIFIED — nothing learns σ yet. The marginal weights (D-034) and every P(win) depend on it: too small a σ makes a category look decided too early |
+| **U-34** | One starter's worth (a counting category's weekly total over its seats; .010 SV% / 0.25 GAA for one goalie) is the right step for the marginal weights | D-034 | Compare the weights' ranking with what actually moved weekly outcomes (retro) | UNVERIFIED — a design choice; the ranking matters more than the scale, and the weights are renormalised to average 1 |
+| **U-35** | A trade the model scores as helping the partner (`winThem ≥ 0`) is one a human manager would accept | D-034, §12.7 | Track proposed trades' accept/reject against `winThem` | UNVERIFIED — doubtful for stars: the search offers Zadorov + Coleman for Makar because the partner's typical week improves, which no manager would take |
+| **U-36** | The season view (a typical week of season starters) is the right lens for adds | D-034 | Compare with streaming gains realised in the week | **PARTLY ADDRESSED 2026-10-24 (D-035):** the typical week now counts daily lineups, so a bench add earns his starts on idle nights and the flat "no free agent helps" is gone. A one-week stream is still judged on the Adj. bar (the season view averages a week's schedule away) |
+| **U-37** | One point of P(win a typical week) × add scarcity is the right add bar, and 3 points the right auto-grab bar | D-034, §12.8 | Shadow rows (`waivers`, `autoGrab`, subject `objective:…`) for a week, then retro the adds each bar would have made | UNVERIFIED — copied from the trade search's bar and the Adj. bars' 3× ratio, not fitted. Live since D-035 |
+| **U-38** | A claim from the top half of the waiver order must clear twice the bar, because it sends us to last | D-035, §12.8 | Retro: claims made from a high priority versus the players later lost for lack of it | UNVERIFIED — a judgment call (`claimBarFactor`, `libs/model/src/opportunity.ts`), in auto-grab and `findPickups` |
+| **U-39** | A typical week's daily lineups: NHL games per day shaped 6/11/5/12/5/14/6 (heavy Tue/Thu/Sat), each player's games spread like the league's, teams independent within a day, players seated best-first by undiscounted value | D-035, §12.8 | Replay a month of real lineups: starts per player per week, model versus Yahoo | UNVERIFIED — `TYPICAL_WEEK_DAY_GAMES` / `weeklyStarts`. It is a fluid approximation. It never benches a below-average goalie to protect GAA/SV%, and ignores the goalie minimum |
+| **U-40** | A goalie's role is read only from team games since his first appearance this season, and, while he is hurt now, only up to his last one | D-035, §12.2 | Check against goalies who lost or won a job mid-season | UNVERIFIED — a goalie hurt mid-run, then healthy and still not starting, reads as healthy throughout (his absence counts against his role); the game logs carry no injury history |
+| **U-41** | A player the seed never projected is projected from his three prior NHL seasons (0.5/0.3/0.2) shrunk toward replacement level at his position; with no NHL games, replacement rates over half the reference games | D-037 | Compare the filled players' projections with their actual rates over a month | UNVERIFIED — `priorProjection.ts`. The replacement prior is the median player below the last starter, averaged with the 10 around him; a first version at last-starter level outranked every depth player with a record (P5). A name with no `nhl_players` match (Chase Pietila, Artem Duda on 10-24) is treated as a newcomer with no history, not a misspelling. **Known gap:** the lens keeps a skater's projected games, so a no-history rookie who plays every game stays near −13 (McKenna, 12 of 12 games) |
+| **U-42** | Shifting a filled player by the median (seed − recomputed) value gap at his position puts him on the seed's market-calibrated scale | D-037, U-28 | Compare filled players' values with a consensus ROS board | UNVERIFIED — `seedFill.ts`; the seed was valued over the whole NHL, the recompute over Yahoo's players only |
+| **U-43** | When Yahoo processes a claim on the day a player clears waivers | D-036, U-22 | Note the time Ben's next claim (Ovechkin, clears 2026-10-26) lands in Yahoo | UNVERIFIED — the agents are told not to state it |
+| **U-44** | Which fantasy week a claim's add counts toward when it processes on a Monday | D-036, Q-006 | Check the weekly add count after the Ovechkin claim processes on 2026-10-26 | UNVERIFIED — the agents are told not to state it |
+| **U-45** | What Yahoo's `waiver_rule` values other than `all` mean (e.g. `gametime`) | D-036 | Read Yahoo's league settings help, or a league set to another rule | UNVERIFIED — parsed and carried, not yet used |
+| **U-46** | Yahoo marks a finished week `postevent` by the Monday after, so the 06:10 archive run gets it | D-038 | The `archive` run's summary on 2026-10-26 (week 4 archived, or "week 4 not final yet") | VERIFIED 2026-10-27 — the first run (06:10 Tue) archived weeks 1-4 as final, 60 reads; week 4's last four of our days follow on 10-28 |
+| **U-47** | In `roster;week=N` reads, `selected_position` is the slot on the week's first day | D-038 | Compare a week read's slots with that week's day reads for a player moved mid-week | UNVERIFIED — the archive shows week slots nowhere; missed starts use the day reads |
+| **U-48** | A player whose day line is all '-' did not play that day (an idle player), and one who played always has numbers | D-038 | Check a scratched-but-dressed backup goalie's day line | PARTLY VERIFIED 2026-10-25 — skaters with no game read '-' in every stat; a dressed backup goalie not checked |
 | **U-01** | Yahoo `?format=json` output is irregular (collections as numerically keyed objects), so we use XML | §10.3 | Request one collection both ways and compare | **VERIFIED 14:15 (PC session)**: plain `json` is irregular (`league` = 2-element array; `teams` = object keyed "0"…"n"). **`format=json_f` is clean** (arrays of `{team}`), and the prototype already uses it. Prefer `json_f` over the XML workaround |
 | **U-02** | Settings field names for the lineup-edit / lock setting | §10.3, §12.4 | Log raw settings on first run and map them | **VERIFIED 14:15 (PC session)**: `league.weekly_deadline = "intraday"` (settings page: "Weekly Deadline: Daily - Today"), `league.roster_type = "date"`, `league.edit_key` = the date currently editable ("2026-09-24"). Also `settings.uses_lock_eliminated_teams = 1`; the settings page says "Lock Benched Players: No" |
 | **U-03** | `limit=-1` may return all NHL rows at once | §11.1 | Try it; fall back to `start`/`limit` pagination | **VERIFIED 12:42** — returns all 940 rows in one response. No pagination implemented |
@@ -172,8 +228,8 @@ first use and update the row.
 | **U-27** | The snapshot's free agents (Yahoo's top FAs by rank, ~200) contain the best free agent at every position, so VOFA's bar is the true best available | D-026, D-032 | Compare the snapshot's best FA per position with a full Yahoo FA search sorted by our ROS value | **FALSIFIED in practice 2026-10-06:** Nils Hoglander (NSH, FA, scoring) was outside the pool, not even in the top 100 FAs by last week's actual rank, so nothing could find him. D-032 adds last week's top 50 by actual rank, the watch list, and a Yahoo search when a name search misses. A strong FA outside all of these still makes VOFA too generous |
 | **U-32** | Yahoo honours `sort_type=lastweek` with `sort=AR` on league player reads | D-032 | Compare `sort_type=lastweek` with `sort_type=season` once the season is a few weeks old | **PARTLY VERIFIED 2026-10-06 (live read):** `sort=AR` is honoured (a different order from `OR`), and `search=hoglander` returns Nils Hoglander. `lastweek` and `season` gave the same top 10, which is expected when the season is a week old, so `sort_type` itself is not yet shown to work |
 | **U-28** | The seed's per-position market calibration offsets (D-006) still hold in season | D-026 | Re-fit `calibratePositions` against a current consensus ROS board mid-season | UNVERIFIED — the lens carries the offsets as a constant (value and VORP move by the change in the uncalibrated ones) |
-| **U-29** | CWA's swaps match what a manager would do: adding a player releases our lowest-value one; losing one of ours signs the best free agent | D-026 | Compare CWA rankings with the waivers agent's and Ben's actual adds/drops over the first month | UNVERIFIED — same `settle` rule as the trade model (§12.7) |
-| **U-30** | Why a pasted Yahoo session dies, and how long it lasts | D-011, D-033 | Watch `yahooWeb: Yahoo set cookies …` in data/app.log and the time between reconnects | **VERIFIED 2026-10-09 (live probe):** the session was not dead. The API still accepted T + Y, but the website answered the team page with a 302 to `login.yahoo.com/config/login?noPrompt…` (Yahoo's *silent* sign-in), and that answer set **A1, A3, A1S** (Max-Age one year). With those kept, the same page loaded with the roster form. We kept only T and Y and dropped every cookie Yahoo set, so the website looked signed out. The first session lasted ~2.5 days (2026-09-30 → 10-02); the second ~7 days (10-02 11:00 → 10-09 16:30 ET). **Fixed by D-033.** Still to learn: how long a full, rotated jar lasts. Record it here |
+| **U-29** | CWA's swaps match what a manager would do: adding a player releases our lowest-value one; losing one of ours signs the best free agent | D-026 | Compare CWA rankings with the waivers agent's and Ben's actual adds/drops over the first month | **FALSIFIED 2026-10-24:** every add "released" Morrissey, who sat in an IR seat, a move Yahoo refuses with a full active roster. Since D-035 an add releases the active player whose loss costs the week least, never a reserve-seat one. "One of ours is replaced by the best free agent by value" stands, and is still unverified: that FA can be a skater for a goalie |
+| **U-30** | Why a pasted Yahoo session dies, and how long it lasts | D-011, D-033 | Watch `yahooWeb: Yahoo set cookies …` in data/app.log and the time between reconnects | **VERIFIED 2026-10-09 (live probe):** the session was not dead. The API still accepted T + Y, but the website answered the team page with a 302 to `login.yahoo.com/config/login?noPrompt…` (Yahoo's *silent* sign-in), and that answer set **A1, A3, A1S** (Max-Age one year). With those kept, the same page loaded with the roster form. We kept only T and Y and dropped every cookie Yahoo set, so the website looked signed out. The first session lasted ~2.5 days (2026-09-30 → 10-02); the second ~7 days (10-02 11:00 → 10-09 16:30 ET). **Fixed by D-033.** Still to learn: how long a full, rotated jar lasts. Record it here. **2026-10-17 (evening):** the jar from 10-10 kept working for the API, but the website began answering every page with a 307 to `guce.yahoo.com/consent` (Yahoo's consent screen; it sets only `GUCS`, and our jar has no `GUC`). The keepalive read that as "Yahoo down, retry", so nothing paused and no push went out; the 10-20 lineups failed at execution. Now a consent redirect is an expiry with its own push ("accept Yahoo's consent page, then reconnect"); we never accept Yahoo's terms on Ben's behalf. [U] whether accepting in his browser plus a reconnect clears it |
 | **U-31** | Goalie start probabilities and starter-note phrases: confirmed 1, likely (a note naming the day) 0.9, unknown = his rest-of-season start share, not starting 0; notes count only from the day before or the day itself | D-029 | Compare the signal with actual starters for a month (goalie game logs' `started`) | UNVERIFIED — on 2026-10-03 the Yahoo flag matched Ben (Kuemper false) and Rotowire (Vasilevskiy true) |
 | **U-18** | `percent_owned.delta` on free agents is a recent (daily) change, and the top 75 FAs by `sort=OR` contain the risers | — | Compare the watcher's top-50 risers with Yahoo's "trending" list for a week | UNVERIFIED — the status/news watcher ranks FAs by it (`apps/app/src/daemon/watchers.ts`) |
 | **U-19** | Rotowire notes' wording for absences ("4-6 months after surgery in June", "until at least early November", "a couple of weeks", "six-game suspension") | §12.1 | Check `daysOutFromNote` against real returns over the first month | UNVERIFIED — patterns written against the 2026-09-29 notes only (`libs/model/src/injuryNote.ts`); anything else falls back to U-13's defaults |
@@ -231,6 +287,275 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-040 — 2026-10-27 — Fit and category strength read the rest-of-season lens
+
+**Why.** Ben found that Fit was "only for preseason", which was not acceptable. Its weights were
+already the season's (D-034), but the player side read the seed valuations of 09-29: his
+category z, and the adjusted VORP the fit score adds to. So did the category-strength panel
+and its targets, the Players page's `cat:<CAT>` sort and key-category chips, and the card's
+category z. A player's hot or cold season never moved his Fit, and the page said
+"fit to our needs (preseason)".
+
+**Decided:**
+- **One lens helper** (`fitLens`, `libs/tools/src/fit.ts`): the rest-of-season lens
+  (`rosLensView`, the preseason projection updated by this season's games, the one VOLS and CWA
+  use); without a store, or if it cannot be built, the preseason view, **named** so (P9).
+- **Read from it:** Fit and its score (adjusted VOLS + fit), target hits, the strength panel's
+  team sums and ranks, the roster-only fallback weights, the page's category sort and chips,
+  and the card's category z and per-game numbers. `PlayerFit` carries `lens`.
+- **The card's value row** leads with the rest-of-season Adj. (`now.adjusted`); preseason VORP
+  and its after-injury figure are a footnote beneath it (Ben, 2026-10-27: the card "still
+  showing the old numbers"). Preseason leads only where no rest-of-season value exists, labelled.
+- **Still preseason, labelled:** the Players page's `value` sort, and the preseason terms in
+  Compare, the side-by-side lens comparison of D-026.
+- **Said, not hidden:** the page shows "fit (pre)" where only preseason values exist, and
+  `searchPlayers` adds a note when its Fit sort fell back.
+- Supersedes D-039's description of Fit as "adjusted value plus the bonus for categories our
+  roster needs".
+
+### D-039 — 2026-10-26 — searchPlayers takes a required, ordered sort: categories on a stated basis, fit and the value family
+
+**Why.** Ben wanted to search by PPP, A, SOG, Fit, CWA and so on, and wanted the agent made to
+say how it ranks. `searchPlayers` sorted by one of five value numbers, preseason value by
+default, so "who gets power-play points?" came back ranked by something else, silently.
+
+**Decided:**
+- **`sort` is required** (`libs/tools/src/playerSort.ts`): one to three keys, each
+  `{by, order}`, applied in turn so the second breaks ties in the first. A missing sort, or a
+  key without its order, is an invalid call the loop returns to the model.
+- **Keys:** `fit`, `value`, `ros` (VOLS), `vofa`, `cwa`, `win` (ΔWin), `weekCwa`, `perGame`,
+  `delta7d`, `gp`, `owned`; or a scored category with a **basis**: `projected` (rest-of-season
+  lens per game, per start for goalies), `season` (totals so far), `seasonPerGame`, `last10`
+  (totals over his last 10 games, from the NHL game logs). A category needs a basis, a named
+  value takes none, and a category this league does not score is refused with the list.
+- **Blanks sink:** a player without a number for a key goes below those with one, in either
+  order, so `asc` on GAA never surfaces goalies with no games.
+- **The result says what it ranked by** in words, and shows each key as its own column. Every
+  player table (getPlayers, getTeamRoster, searchPlayers) gains a **Fit** column.
+- **Fit is one module** (`libs/tools/src/fit.ts`): the Players page and the agents' search
+  rank by the same score (adjusted VORP + fit, under the season's need weights).
+- Prompts: assistant 1.6.0 and waivers 1.6.0 say to pick the sort from the question and tell
+  Ben what the list is ranked by.
+
+### D-038 — 2026-10-25 — Finished weeks are archived from Yahoo, and the agents read them for retrospectives
+
+**Why.** Ben asked whether the agents could look at past matchups, ours and others'. They
+could not: `getMatchup` served the current week only, snapshots carried no records, and the
+daily snapshots on disk hold each week's scoreboard as of Sunday morning, before Sunday's
+games. The weekly retro (D-034) had nothing to look back on but moves re-scored today.
+
+**Verified first (2026-10-25, read-only GETs with the stored session):**
+- `league/…/scoreboard;week=N` serves any past week: weeks 1-3 read `postevent`, all four
+  matchups, 13 category winners each.
+- `team/…/roster;week=N/players/stats;type=week` gives each player's stats **as counted for
+  the team**, active seats only: ours sum exactly to the team's week (G 7, A 18, SOG 81), and
+  Hischier's goal on the bench on 10-13 is not in his week. It works for every team.
+- `team/…/roster;date=D/players/stats;type=date` gives the seat and the real NHL line that day
+  (Hischier: BN, 1 G, 3 SOG on 10-13); an idle player's stats read '-'.
+- Standings computed from the archived weeks match Yahoo's `standings` exactly (category
+  W-L-T, 39 per team after three weeks), so we compute them rather than read them.
+
+**Decided:**
+- **Archive** (`matchup_archive`, migration 012): per finished week, the league's scoreboard,
+  every team's counted lines and our seven days; per week, what the model expected of our
+  matchup. Bodies are domain JSON keyed by category (`libs/core/src/history.ts`); a final week
+  never changes, so each record is read once.
+- **The `archive` job** (daily 06:10, after `refresh`; `apps/app/src/daemon/archiveJob.ts`)
+  reads only what is missing, at most 60 requests a run, and carries on the next run. A week
+  not yet `postevent` waits (U-46). Backfilling weeks 1-3 takes 48 reads; a week after that 16.
+- **What we expected:** recorded live when the job runs on a week's first day
+  (`weekStart`); otherwise rebuilt from that day's saved snapshot (`reconstructed`, as of the
+  snapshot's time, which can be that evening with some games banked).
+- **`getMatchupHistory`** (`libs/tools/src/tools/history.ts`), for the strategy, matchup,
+  league-review and trades agents and chat. Without a week: standings, a team's results week by
+  week beside what we expected, its record per category. With a week: every matchup, the
+  category scores, both sides' counted lines, and for us the **missed starts**: a benched
+  player who played while a seat he fits held someone who did not, and the lost categories
+  those starts would have tied or won (`libs/tools/src/lineupRetro.ts`). A benched player who
+  played while every seat he fits was in use is a choice, not a miss, and is not listed.
+- The strategy prompt's retro now starts from last week in `getMatchupHistory`.
+
+### D-037 — 2026-10-24 — Every player is valued: unmapped players are projected from their game logs; the seed is re-recorded weekly
+
+**Why.** Every valuation came from one seed file recorded on 2026-09-29, joined by playerKey. 46
+of the 351 players in the 10-24 snapshot had no value, because they were outside the
+434-player draft map. That included Podkolzin, Ekholm and Skinner, and Marcus Pettersson while
+he was ours. Those players were invisible to `findPickups`, CWA and trades, and the agent had
+dropped Pettersson saying he "can't be scored". The fallback name join in
+`fha snapshot value` could never fire, because the ranking was pre-filtered to mapped players.
+
+**Decided:**
+- **Map by name.** `fillSeedGaps` (`libs/tools/src/seedFill.ts`) maps each unvalued player to
+  `nhl_players` by name, only among candidates of his position type.
+  - The `buildPlayerMap` guards still apply: an exact name may disagree on team, a fuzzy match
+    needs the team and ≥ 0.93, and a tie is broken by team or left unmapped.
+  - An id already taken is never reused.
+- **Project from game logs.** He is projected from his three prior seasons, weighted
+  0.5/0.3/0.2, each shrunk toward replacement level at his position
+  (`libs/model/src/priorProjection.ts`, U-41). The current season is left to the ROS lens.
+- **Value on the seed's scale.** He is shifted by the median seed-versus-recomputed gap at his
+  position (U-42). Players the seed already valued are untouched.
+- **Where it runs.** In the app's valuate step, so every consumer sees it. Today all 46 fill,
+  and ModelInputs sees 351 of 351 players, up from 305.
+- **Weekly re-seed.** A `reseed` job, Monday 05:45 between `stats` and `refresh`, writes
+  `<snapshotDir>/live-<date>.json` (`apps/app/src/reseed.ts`, `daemon/reseedJob.ts`). It keeps
+  every old value, fills the new players, and is idempotent. `findSeed` takes the newest file,
+  so the next rebuild uses it. It is a no-op while `FHA_VALUATION_SNAPSHOT` pins a seed.
+- **The gm join.** `fha snapshot value`'s name join now uses every projected NHL player.
+
+### D-036 — 2026-10-24 — Yahoo is pulled hourly, freshness is said in every read, and the agents know our place in the waiver order
+
+**Why.** The snapshot was rebuilt at 06:00 and on any read ≥ 15 min stale; the watchers only
+logged events; the stats ingest recalculated nothing.
+- **Failed reads were silent.** A failed Yahoo read served the old snapshot without a word, and
+  most tools never said how old their data was.
+- **The waiver order was invisible.** The agents knew only "rolling priority, no FAAB". They
+  didn't know our place in the order. They told Ben a claim he had filed in Yahoo
+  (Ovechkin/Coleman, `status: pending` in the snapshot's transactions) was "waiting on Ben", and
+  they described claims as going through "after 60 minutes".
+- **Search skipped owned players.** `searchPlayers` with status A ("all") excluded every owned
+  player, ours included.
+
+**Decided:**
+- **Hourly pull.** A `pull` job runs every hour, 09:00–01:00 New York time, through the job
+  queue (`daemon/pulls.ts`).
+  - A watcher that sees a real change (a transaction, a status change, a goalie starting flag)
+    invalidates the snapshot and queues a pull.
+  - The stats ingest and the re-seed invalidate every league.
+  - Each successful pull re-records the day's value rows (keyed by day, so they are replaced,
+    not duplicated).
+  - Failures are `runs` rows and back off 40 min → 4 h, with no push. The 06:00 refresh still
+    pushes on failure.
+- **Freshness said everywhere.**
+  - The league service marks a fallback view stale.
+  - The league context, getRoster, searchPlayers and findPickups print "As of … (Yahoo read);
+    NHL stats through …", and a STALE warning when the last read failed (`asOfLine`).
+  - `/api/league/status` and the client's Freshness show failed/stale and the stats date.
+- **Waivers.**
+  - `waiver_priority` and `waiver_rule` are parsed (`view.waiverPriority()`).
+  - The league context explains rolling waivers with our place in the order, and marks claim
+    processing time and week attribution as unverified (U-43, U-44).
+  - Our pending Yahoo claims show in getRoster and getLeagueContext. An open claim plan whose
+    claim is in Yahoo reads "filed in Yahoo"; a duplicate is refused; "I did it" confirms it.
+    Auto-grab skips a player Ben has a claim on; `findPickups` marks his row "claim already filed
+    in Yahoo", so a better drop can still be suggested.
+  - Claim wording everywhere says Ben files the claim in Yahoo and it processes when the
+    player clears waivers.
+- **Search.**
+  - Status A includes owned players, with an owner column.
+  - An FA/W miss names the owner.
+  - A name outside the pool falls back to a live Yahoo search (`RunContext.searchYahoo`, reusing
+    `findOutsidePool`), with a note when that is unavailable.
+
+### D-035 — 2026-10-24 — Weekly lines count daily lineups; drops are chosen on the objective; winWeek is live
+
+**Why.** A review of the chats from 10-21 to 10-24 found the waiver advice wrong in ways Ben
+could see:
+- **Ovechkin, 10-23.** Auto-grab offered him for Sergachev, a strong A/PPP defenceman with the
+  lowest *preseason* Adj. Then the agent offered him for Hischier. Ben had to suggest Coleman.
+- **Flat numbers.** Every free agent showed the same CWA (+0.124) and the same ΔP(win), and
+  every pair "released Josh Morrissey", who sat in an IR seat.
+- **Shesterkin, 10-21.** An IR-LT goalie, out ~60 days, was the top pickup.
+
+**Causes:**
+- **Typical-week lineup.** The typical week counted only season starters, and an IR-seated
+  player could hold a starting seat. So no free agent below our starters changed the line,
+  and each add got the same constant.
+- **Release choice.** An add could release a reserve-seat player, which Yahoo would refuse
+  with a full active roster.
+- **Drop choice.** Every move scored add worth minus drop worth, so the drop was always the
+  lowest single number. On the objective, the 150-pair shortlist ranked by season gain and cut
+  Ovechkin–Coleman before it was scored, and auto-grab tried only the four cheapest drops.
+- **Injured adds.** `findPickups` paired an injured free agent with an active drop.
+
+**Decided:**
+1. **Daily lineups.**
+   - `weeklyStarts` (`libs/model`) feeds every typical-week line: CWA, ΔWin%, trades, the
+     season audit and the league page. It is a fluid daily fill over a typical week's game
+     days (U-39).
+   - This week's matchup line seats the players who have a game, day by day, on the real
+     schedule.
+   - A bench player now counts on a starter's idle or injured nights.
+2. **Legal releases.** With the active roster full, an add releases an active player, never a
+   reserve-seat one (`reserve`). `findPickups` does not offer reserve-seat drops.
+3. **Drops chosen on the objective.**
+   - On winWeek, the 30 best adds by the reweighted proxy are each scored against every legal
+     drop.
+   - Auto-grab tries every legal drop.
+   - An add who is out can only be an IR stash; `openReserveSlots` is now passed.
+4. **winWeek is the default objective** for `findPickups` and auto-grab (`objectiveOf`;
+   `fha strategy objective legacy` reverts). Legacy stays in shadow.
+5. **Auto-grab's lens default** in `config/permissions.yaml` is rest-of-season. Ben's own
+   setting is his to flip in Settings.
+6. **Goalie start share.** It counts only the team games that say something about his role
+   (`roleGames`, U-40). Hellebuyck, hurt since opening night, had lost half his projected
+   starts (59 → 29.5), which made "drop Hellebuyck" look free.
+7. **A pending waiver claim never blocks a lineup** (`collides`, `validationContext.ts`). On
+   10-24 the open Ovechkin claim, dropping Coleman, refused every lineup run of the day as a
+   "duplicate". A claim changes the roster only when the player clears.
+8. **Priority-aware claim bar.** A claim spends waiver priority, so while we are in the top
+   half of the order a claim must clear twice the bar (U-38).
+
+**Result on the 10-24 data:**
+- CWA varies across free agents: Ovechkin +0.258, Trocheck +0.239, Geekie +0.227…
+- Ovechkin is the top add at +4.4 points of P(win a week), dropping Jet Greaves, our fourth
+  goalie (his CWA is +0.007).
+- Coleman (+1.6) and Hischier (+1.6) are nearly tied as drops.
+- Sergachev is a loss (−0.6).
+- These are scenarios in `libs/tools/src/scenarios-2026-10-24.test.ts`, on fixtures
+  `live-2026-10-24.json` and `games-2026-10-24.json`.
+
+**Supersedes:** D-034's "legacy until switched", its 150-pair shortlist, and auto-grab's four
+drop candidates. §12.8's "an add releases our lowest-value player" no longer holds (U-29).
+
+### D-034 — 2026-10-13 — The objective is P(win the week); category weights come from code; the season strategy is versioned and every session reads it
+Ben asked whether we were over-investing in saturated categories. We were, in three places, none
+of which measured the real objective. A head-to-head category week is won by taking more than
+half the categories, so the quantity to maximise is **P(win the week)**: the Poisson-binomial
+over per-category P(win) (`matchupWinProbability`, now in `@fha/model`). Expected categories
+(CWA, the trade search) still rewards padding a category from 0.85 to 0.95; this doesn't.
+- **Model** (`libs/model/src/marginal.ts`): `strategyAudit` measures each category's weight as
+  the finite-difference ΔP(win the week) from one starter's worth more (U-34), normalised to
+  average 1, and labels it saturated (P ≥ .85), contested or lost (P ≤ .15), with the surplus we
+  can shed for ≤ 1 point and what +2 points takes. `fieldWinProbability` averages per-opponent
+  week probabilities. CWA rows carry `dWin` (ΔWin%); trades carry `winUs`/`winThem`.
+- **Bugs fixed in the swap model** (each with a failing test first): (1) `settle` treated
+  players in IR seats as over capacity, so an add released *two* players and every free agent
+  scored ≈ −0.5 categories — the "no free agent helps" of 2026-10-13; (2) an add released the
+  lowest-*value* player, a starting D on a roster whose D all have negative VORP — now whoever
+  costs the week least among four candidates; (3) our typical-week starters were picked by
+  equal-weight value — now by the season weights (`starterWeights`), so a HIT/PIM grinder no
+  longer starts over a scorer.
+- **Weekly weights**: `getMatchup` suggests the marginal weights against this week's opponent;
+  the matchup job writes them from code *before* the agent runs (so a timeout never leaves a week
+  unweighted, as on 2026-10-12); the agent adjusts with a rationale. The 0.3/1/1.5 step rule is
+  retired for suggestions (still the fallback with no sides).
+- **Objective switch** (`fha strategy objective legacy|winWeek`, kv `strategy.objective`,
+  default legacy): `findPickups` shows every pair's ΔP(win wk); under `winWeek` it ranks upgrades
+  by it and drops those ≤ 0; `findTradeTargets` takes `objective` (default from the switch) and
+  shows both. Disagreements on the top waiver upgrade are shadowed (`lens_shadow`, decision
+  `waivers`). In-season `fit` uses the season weights (league-relative), not the roster-only
+  draft weights. ΔWin% is on player cards and the default Players sort.
+- **Add bars on the objective** (2026-10-13, Ben: "the minimum VORP check is probably defunct
+  now"): under `winWeek` the Adj. bar no longer filters upgrades before they are ranked (it hid
+  pairs that win weeks but gain little Adj.). Upgrades and IR stashes must raise P(win a typical
+  week) by 1 point × add scarcity; auto-grab by 3 points (doubled on the last add), dropping
+  whoever costs the week least. Streams keep the Adj. bar (U-36). Under `legacy` both run and
+  disagreements are shadowed. On 2026-10-13 the Adj. bar recommended Sherwood for Greaves
+  (+0.0 pts) and Walker for Hischier (−1.6 pts); the win bar recommends nothing (U-37).
+- **Strategy audit for agents and Ben**: `getStrategyAudit` (season | week | moves | pickups) for
+  every agent that weighs categories and the chat; `fha strategy audit` for the terminal.
+- **Handoff** (migration 011 `season_strategy`): versioned, never edited (a change supersedes).
+  `getStrategy` / `proposeStrategy` (internal state, no roster change; from chat the author is
+  `ben (chat)`). Every agent run and chat starts with a `<season_strategy>` block: the current
+  version, what changed, and code's audit headline for today. A weekly `strategy` agent (Mon
+  07:15, after leagueReview) runs the retro (§19.3) and records the version for the week ahead,
+  then pushes Ben a summary.
+- **Not done:** the agent-level eval scenario (the eval runner is M9; the Coleman case is a model
+  test meanwhile); learning σ (U-33); the lineup solver still starts by per-game value, not the
+  weights; trade acceptance realism (U-35).
+*Supersedes §12.6's step weights as the suggestion, and D-026's "fit is roster-only".*
 
 ### D-033 — 2026-10-09 — Keep Yahoo's whole cookie jar, keep it fresh, and tell website from API health
 Yahoo "disconnected" at the 16:30 lineup. The session was alive: the website wanted the A1/A3/A1S
@@ -415,8 +740,8 @@ every agent must know what each stat means.
   lens per decision (with what disputed lineup players actually did that day) or `fha shadow`.
   Ben flips each decision when the record convinces him; thresholds are re-checked then (§18.3).
 - **Not done:** CWA is not yet a trade-search objective of its own (the search already scores
-  Δ expected categories won); category-strength need weights (`fit`) are still roster-only — CWA
-  is the league-relative measure; the `waiversDrop` decision is covered by `findPickups` (agent
+  Δ expected categories won; *D-034 adds ΔP(win the week) as one*); category-strength need weights
+  (`fit`) are still roster-only (*league-relative since D-034*) — CWA is the league-relative measure; the `waiversDrop` decision is covered by `findPickups` (agent
   input) rather than a lens switch; a backtest of the K constants (U-26).
 
 ### D-025 — 2026-10-02 — Game-level history, deterministic trends, live matchup and forecasts

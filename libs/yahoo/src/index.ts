@@ -6,6 +6,7 @@ export * from './players.js';
 export * from './league.js';
 export * from './roster.js';
 export * from './scoreboard.js';
+export * from './rosterStats.js';
 export * from './reader.js';
 export * from './redact.js';
 export * from './web/addDrop.js';

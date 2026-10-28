@@ -32,7 +32,7 @@ describe('read tools over the mock league', () => {
     const { ctx } = testRun();
     const r = await getRoster.execute({}, ctx);
     const s = summary(r);
-    expect(s.split('\n')).toHaveLength(1 + 1 + 17); // title, header, 17 players
+    expect(s.split('\n')).toHaveLength(1 + 1 + 1 + 17); // title, as-of line, header, 17 players
     const makar = s.split('\n').find((l) => l.startsWith(MAKAR)) ?? '';
     expect(makar).toContain('Cale Makar');
     expect(makar).toMatch(/\| D \| O \|/);
@@ -69,7 +69,7 @@ describe('read tools over the mock league', () => {
 
   it('searchPlayers lists only free agents, best value first, within the limit', async () => {
     const { ctx } = testRun();
-    const r = await searchPlayers.execute({ position: 'D', status: 'FA', sort: 'value', limit: 5 }, ctx);
+    const r = await searchPlayers.execute({ position: 'D', status: 'FA', sort: [{ by: 'value', order: 'desc' }], limit: 5 }, ctx);
     if (!r.ok) throw new Error(r.error);
     const values = r.data.players.map((p) => p.value ?? 0);
     expect(r.data.players).toHaveLength(5);
@@ -86,9 +86,9 @@ describe('read tools over the mock league', () => {
         if (fa) Object.assign(fa, { onWaivers: true, waiverDate: '2026-10-15', name: 'Waiver Guy' });
       },
     });
-    const w = summary(await searchPlayers.execute({ status: 'W', sort: 'value', limit: 5 }, ctx));
+    const w = summary(await searchPlayers.execute({ status: 'W', sort: [{ by: 'value', order: 'desc' }], limit: 5 }, ctx));
     expect(w).toMatch(/Waiver Guy.*waivers until 2026-10-15/);
-    const f = summary(await searchPlayers.execute({ status: 'FA', sort: 'value', limit: 25, query: 'Waiver Guy' }, ctx));
+    const f = summary(await searchPlayers.execute({ status: 'FA', sort: [{ by: 'value', order: 'desc' }], limit: 25, query: 'Waiver Guy' }, ctx));
     expect(f).toMatch(/no players match/);
   });
 
@@ -100,7 +100,7 @@ describe('read tools over the mock league', () => {
         if (fa) Object.assign(fa, { name: 'Nils Höglander' });
       },
     });
-    const s = summary(await searchPlayers.execute({ status: 'FA', sort: 'value', limit: 5, query: 'HOGLANDER' }, ctx));
+    const s = summary(await searchPlayers.execute({ status: 'FA', sort: [{ by: 'value', order: 'desc' }], limit: 5, query: 'HOGLANDER' }, ctx));
     expect(s).toContain('Nils Höglander');
   });
 
@@ -140,8 +140,13 @@ describe('read tools over the mock league', () => {
     for (const c of r.data.categories) {
       expect(c.pWin).toBeGreaterThanOrEqual(0);
       expect(c.pWin).toBeLessThanOrEqual(1);
-      expect([0.3, 1, 1.5]).toContain(c.suggestedWeight);
+      // D-034: marginal ΔP(win the week) weights, never negative, averaging 1.
+      expect(c.suggestedWeight).toBeGreaterThanOrEqual(0);
     }
+    const mean =
+      r.data.categories.reduce((a, c) => a + c.suggestedWeight, 0) / r.data.categories.length;
+    expect(mean).toBeCloseTo(1, 1);
+    expect(r.data.pWinWeek).toBeGreaterThan(0);
     expect(r.summary).toContain('Expected categories won');
     expect(await getMatchup.execute({ week: 5 }, ctx)).toMatchObject({ ok: false });
   });

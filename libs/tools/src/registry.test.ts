@@ -28,10 +28,10 @@ describe('registry', () => {
     expect(ALL_TOOLS['getRosterHealth']?.risk).toBe('read');
   });
 
-  it('getLeagueEvents is a read tool, and only the league reviewer holds it', () => {
+  it('getLeagueEvents is a read tool, held only by the league reviewer and the strategist', () => {
     expect(ALL_TOOLS['getLeagueEvents']?.risk).toBe('read');
     const holders = AGENT_NAMES.filter((a) => AGENT_TOOLS[a].includes('getLeagueEvents'));
-    expect(holders).toEqual(['leagueReview']);
+    expect(holders).toEqual(['leagueReview', 'strategy']);
     // Read-only: it recommends; actions come from the other agents.
     expect(AGENT_TOOLS.leagueReview.filter((n) => ALL_TOOLS[n]?.risk !== 'read')).toEqual([]);
   });
@@ -53,6 +53,7 @@ describe('registry', () => {
   });
 
   it('only propose tools, setCategoryWeights and the watch-list writers carry propose risk', () => {
+    // proposeStrategy writes the season plan (D-034), never a roster.
     const propose = Object.values(ALL_TOOLS)
       .filter((t) => t.risk === 'propose')
       .map((t) => t.name)
@@ -60,6 +61,7 @@ describe('registry', () => {
     expect(propose).toEqual([
       'proposeAddDrop',
       'proposeLineup',
+      'proposeStrategy',
       'proposeTrade',
       'proposeTradeResponse',
       'proposeWaiverClaim',

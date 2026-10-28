@@ -54,7 +54,7 @@ function names(view: LeagueView, keys: readonly string[]): string {
 export function describeEvaluation(a: TradeAssessment): string {
   const e = a.evaluation;
   return [
-    `Trade with ${a.team.name}: Δ expected categories won per week — us ${fmt(e.deltaUs)}, them ${fmt(e.deltaThem)} (score ${fmt(e.score)}, summed z ${fmt(e.summedZ)}).`,
+    `Trade with ${a.team.name}: Δ expected categories won per week — us ${fmt(e.deltaUs)}, them ${fmt(e.deltaThem)} (score ${fmt(e.score)}, summed z ${fmt(e.summedZ)}). Δ P(win a typical week), the objective (D-034): us ${fmt(e.winUs * 100, 1)} pts, them ${fmt(e.winThem * 100, 1)} pts.`,
     ...e.reasons,
   ].join('\n');
 }
@@ -62,7 +62,7 @@ export function describeEvaluation(a: TradeAssessment): string {
 export const evaluateTrade = defineTool({
   name: 'evaluateTrade',
   description:
-    'Score a trade: how it changes expected categories won per week for us and for the partner (§12.7). Name the partner by team name; give = our playerKeys, get = theirs. Evaluate before every proposeTrade or proposeTradeResponse.',
+    'Score a trade: how it changes expected categories won per week, and P(win a typical week) (D-034), for us and for the partner (§12.7). Name the partner by team name; give = our playerKeys, get = theirs. Evaluate before every proposeTrade or proposeTradeResponse.',
   input: z.object({
     partnerTeamName: z.string().min(1),
     give: z.array(z.string()).min(1).max(4),
@@ -79,6 +79,8 @@ export const evaluateTrade = defineTool({
           partner: a.value.team.name,
           deltaUs: e.deltaUs,
           deltaThem: e.deltaThem,
+          winUs: e.winUs,
+          winThem: e.winThem,
           score: e.score,
           partnerGains: e.partnerGains,
           summedZ: e.summedZ,

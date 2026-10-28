@@ -12,6 +12,8 @@ import {
   type MyTeam,
   type OnCookies,
   type RosterRead,
+  type RosterStats,
+  type Scoreboard,
   type StoredSession,
   type YahooPlayer,
   type YahooPlayerQuery,
@@ -44,8 +46,13 @@ export interface LiveLeagueSource {
   playersByKey(keys: readonly string[]): Promise<YahooPlayer[]>;
   /** Our head-to-head matchup this week, from Yahoo's scoreboard. */
   ourMatchup(): Promise<Matchup | undefined>;
-  /** Every matchup this week (one read); when present the snapshot keeps the whole league's. */
-  scoreboard?(): Promise<{ week: number; matchups: Matchup[] }>;
+  /**
+   * Every matchup in a week (this one by default; one read). When present the snapshot keeps the
+   * whole league's, and the archive reads finished weeks through it (D-038).
+   */
+  scoreboard?(week?: number): Promise<Scoreboard>;
+  /** A team's player lines for a week (counted) or a day (seat and NHL line); D-038. */
+  rosterStats?(teamKey: TeamKey, at: { week: number } | { date: string }): Promise<RosterStats>;
 }
 
 export interface YahooAccess {
@@ -86,7 +93,7 @@ export interface YahooAccess {
 export interface WriteHooks {
   describe: (plan: Plan) => string;
   notify: (text: string) => void;
-  onAuthExpired: () => void;
+  onAuthExpired: (err: YahooAuthError) => void;
   /** Secret-free lines only. */
   log: (line: string) => void;
   /** Cookies Yahoo rotated, to persist (D-033). */
@@ -315,14 +322,26 @@ export function rotationSaver(deps: RotationDeps, userId: string): OnCookies {
 }
 
 /** A Yahoo failure as an HTTP error; an auth failure also marks the connection expired. */
+/** What an expired connection records as its reason, which the reconnect push repeats. */
+export const CONSENT_REASON = 'Yahoo wants its consent page accepted';
+
+export function expiryReason(err: YahooAuthError, side: 'api' | 'site'): string {
+  if (err.reason === 'consent') return CONSENT_REASON;
+  return side === 'site'
+    ? 'Yahoo website session expired or signed out'
+    : 'Yahoo session expired or signed out';
+}
+
 export function yahooFailure(store: Store, userId: string, err: unknown): HttpError {
   if (err instanceof HttpError) return err;
   if (err instanceof YahooAuthError) {
-    store.yahooConnections.markStatus(userId, 'expired', 'Yahoo session expired or signed out');
+    store.yahooConnections.markStatus(userId, 'expired', expiryReason(err, 'api'));
     return new HttpError(
       409,
       'yahoo_reconnect_required',
-      'Your Yahoo session expired. Reconnect Yahoo Fantasy in Settings.',
+      err.reason === 'consent'
+        ? 'Yahoo wants its consent page accepted. Open Yahoo Fantasy in your browser, accept it, then reconnect Yahoo in Settings.'
+        : 'Your Yahoo session expired. Reconnect Yahoo Fantasy in Settings.',
     );
   }
   store.yahooConnections.markStatus(userId, 'error', errName(err));

@@ -2,6 +2,7 @@ import type { Plan } from '@fha/core';
 import type { Store } from '@fha/store';
 import type { LeagueState } from './league.js';
 import {
+  expiryReason,
   openCredentials,
   rotationSaver,
   type LiveWriteAdapter,
@@ -53,13 +54,8 @@ export function liveAdapterFor(d: LiveDeps): LiveAdapterFor {
     return d.yahoo.writeAdapter(credentials, league.leagueKey, league.teamKey, {
       ...hooks,
       // The website refused it: an API read must not clear this (U-30).
-      onAuthExpired: () =>
-        d.store.yahooConnections.markStatus(
-          userId,
-          'expired',
-          'Yahoo website session expired or signed out',
-          'site',
-        ),
+      onAuthExpired: (err) =>
+        d.store.yahooConnections.markStatus(userId, 'expired', expiryReason(err, 'site'), 'site'),
       log: (line) => d.log(`user ${userId}: ${line}`),
       onCookies: rotationSaver(d, userId),
     });

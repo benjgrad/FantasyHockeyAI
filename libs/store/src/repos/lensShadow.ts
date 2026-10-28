@@ -3,7 +3,8 @@ import { parseLoose, type Clock, type Db } from '../db.js';
 /** A decision the other lens would have made differently (D-026). */
 export interface ShadowInsert {
   leagueKey: string;
-  decision: 'lineup' | 'autoGrab' | 'protected' | 'trades';
+  /** `waivers`: the objective shadow (D-034), Adj. ranking against ΔP(win the week). */
+  decision: 'lineup' | 'autoGrab' | 'protected' | 'trades' | 'waivers';
   date: string;
   activeLens: 'preseason' | 'rest-of-season';
   subject?: string;

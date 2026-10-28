@@ -2,9 +2,9 @@ import type { LeagueTeam, Projection, TeamKey, Valuation } from '@fha/core';
 import {
   bankedLine,
   evaluateTrade,
+  expectedGamesPlayed,
   finalLine,
   playerLine,
-  projectedWeekGames,
   seasonStarters,
   sumLines,
   weeklyCategoryPlan,
@@ -93,6 +93,14 @@ export class ModelInputs {
     return (this.view.snap.rosters[teamKey] ?? []).flatMap((e) => {
       const id = this.idOf.get(e.playerKey);
       return id === undefined ? [] : [id];
+    });
+  }
+
+  /** A team's players in reserve seats (IR, IR+), as model ids. */
+  reserveIds(teamKey: TeamKey): number[] {
+    return (this.view.snap.rosters[teamKey] ?? []).flatMap((e) => {
+      const id = this.idOf.get(e.playerKey);
+      return id === undefined || (e.slot !== 'IR' && e.slot !== 'IR+') ? [] : [id];
     });
   }
 
@@ -188,9 +196,11 @@ export function opponentIsDerived(view: LeagueView): boolean {
 }
 
 /**
- * A team's projected line for the rest of the week: its season starters among the players who
- * will play at all this week, times their expected games (team games less games missed
- * injured, scaled by each player's share of team games).
+ * A team's projected line for the rest of the week, day by day as Ben sets lineups (D-035): each
+ * day, the players with a game that day are seated best-first by season value, so a bench player
+ * starts on the nights a starter is idle or hurt. Each start counts his expected share of that
+ * game (the part he is expected to be back for, times his share of team games, a goalie's start
+ * share). Players in reserve seats are left out by {@link remainingWeekLine}.
  */
 export function remainingWeekLine(
   view: LeagueView,
@@ -215,27 +225,46 @@ export function remainingWeekLineFor(
   const m = modelInputs(view);
   const { end } = view.weekOf(from);
   // With banked totals, only games not yet started remain; without, everything from `from`.
-  const games =
-    opts.notStartedAfter === undefined
-      ? view.gamesBetween(from, end)
-      : view.gamesNotStarted(opts.notStartedAfter, end);
-  const weekGames = (v: Valuation, gpShare = 1): number =>
-    projectedWeekGames(games.get(v.team) ?? 0, { gpShare, availability: m.availability[v.nhlId] });
-  const healthy = playerKeys.flatMap((key) => {
+  const days = view.snap.schedule
+    .filter((d) => d.date >= from && d.date <= end)
+    .map((d) => ({
+      teams: new Set(
+        d.games
+          .filter((g) => opts.notStartedAfter === undefined || g.startTimeUtc > opts.notStartedAfter)
+          .flatMap((g) => [g.home, g.away]),
+      ),
+    }));
+  const players = playerKeys.flatMap((key) => {
     const id = m.id(key);
     const v = id === undefined ? undefined : m.valuationById(id);
-    // Scheduled but out all week: he would only take a starter's seat from someone who plays.
-    if (v === undefined || ((games.get(v.team) ?? 0) > 0 && weekGames(v) === 0)) return [];
-    return [v];
+    const p = id === undefined ? undefined : m.projectionById(id);
+    return v === undefined || p === undefined ? [] : [{ v, p, a: m.availability[v.nhlId] }];
+  });
+  // The part of each of his games he is expected to play: games missed injured come first.
+  const played = new Map<number, number[]>();
+  for (const { v, a } of players) {
+    let n = 0;
+    played.set(
+      v.nhlId,
+      days.map((d) => {
+        if (!d.teams.has(v.team)) return 0;
+        n += 1;
+        return a === undefined ? 1 : expectedGamesPlayed(a, n) - expectedGamesPlayed(a, n - 1);
+      }),
+    );
+  }
+  const games = new Map<number, number>();
+  days.forEach((_, i) => {
+    const today = players.filter(({ v }) => (played.get(v.nhlId)?.[i] ?? 0) > 0).map((x) => x.v);
+    for (const v of seasonStarters(today, view.settings)) {
+      games.set(v.nhlId, (games.get(v.nhlId) ?? 0) + (played.get(v.nhlId)?.[i] ?? 0));
+    }
   });
   const cats = scoringCategories(view.settings);
-  const starters = seasonStarters(healthy, view.settings);
   return sumLines(
-    starters.flatMap((v) => {
-      const p = m.projectionById(v.nhlId);
-      if (p === undefined) return [];
-      return [playerLine(p, weekGames(v, Math.min(1, p.gp / TEAM_GAMES)), cats)];
-    }),
+    players.map(({ v, p }) =>
+      playerLine(p, (games.get(v.nhlId) ?? 0) * Math.min(1, p.gp / TEAM_GAMES), cats),
+    ),
   );
 }
 
@@ -257,18 +286,9 @@ export interface MatchupView {
  * otherwise the whole week from the snapshot date is projected.
  */
 export function currentMatchup(view: LeagueView): MatchupView | undefined {
-  const opponent = opponentFor(view, view.snap.week);
-  if (opponent === undefined) return undefined;
-  const from = view.snap.date;
-  const cats = scoringCategories(view.settings);
-  const live = liveSides(view, opponent.teamKey, cats);
-  const after = live === undefined ? {} : { notStartedAfter: view.snap.recordedAt };
-  const us: WeekSide = { remaining: remainingWeekLine(view, view.teamKey, from, after) };
-  const them: WeekSide = { remaining: remainingWeekLine(view, opponent.teamKey, from, after) };
-  if (live !== undefined) {
-    us.actual = live.us;
-    them.actual = live.them;
-  }
+  const sides = currentSides(view);
+  if (sides === undefined) return undefined;
+  const { opponent, from, cats, live, us, them } = sides;
   const plan = weeklyCategoryPlan(us, them, cats);
   return {
     opponent,
@@ -288,6 +308,23 @@ export function currentMatchup(view: LeagueView): MatchupView | undefined {
         }),
     plan,
   };
+}
+
+/** This week's two sides: banked from the scoreboard when read, plus the unplayed games. */
+export function currentSides(view: LeagueView) {
+  const opponent = opponentFor(view, view.snap.week);
+  if (opponent === undefined) return undefined;
+  const from = view.snap.date;
+  const cats = scoringCategories(view.settings);
+  const live = liveSides(view, opponent.teamKey, cats);
+  const after = live === undefined ? {} : { notStartedAfter: view.snap.recordedAt };
+  const us: WeekSide = { remaining: remainingWeekLine(view, view.teamKey, from, after) };
+  const them: WeekSide = { remaining: remainingWeekLine(view, opponent.teamKey, from, after) };
+  if (live !== undefined) {
+    us.actual = live.us;
+    them.actual = live.them;
+  }
+  return { opponent, from, cats, live, us, them };
 }
 
 /** This week's banked lines from the snapshot's scoreboard, when it is this week and opponent. */

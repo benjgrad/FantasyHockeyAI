@@ -2,7 +2,12 @@ import type { CategoryWeights, LeagueSettings, Valuation } from '@fha/core';
 import type { Availability } from './availability.js';
 import { unfilledStartingSlots } from './draft.js';
 import { isOut } from './lineupRules.js';
-import { scoreWaiverPair, waiverWorth, type WaiverInput } from './waiver.js';
+import {
+  DEFAULT_MIN_ADD_WIN_GAIN,
+  scoreWaiverPair,
+  waiverWorth,
+  type WaiverInput,
+} from './waiver.js';
 
 /**
  * Auto-grab opportunity detection (D-016): is this one player, available right now, a big
@@ -22,7 +27,15 @@ import { scoreWaiverPair, waiverWorth, type WaiverInput } from './waiver.js';
  * Adds are scarce (Q-006): with no adds left there is nothing to do, and spending the week's
  * **last** add needs twice `minGain`, because an add used now cannot answer an injury later in
  * the week.
+ *
+ * With `winObjective` (D-034) the gain is ΔP(win a typical week) instead: the drop is whichever
+ * legal drop costs the week least (every one is tried; the cheapest four by Adj. once left out
+ * the drop the week wanted), and the bar is `GRAB_WIN_FACTOR` times the add floor (as 1.5 is
+ * three times 0.5), doubled on the last add.
  */
+/** Auto-grab's bar over the ordinary add floor, as `minGain`'s default is 3× `addThreshold`. */
+export const GRAB_WIN_FACTOR = 3;
+
 export interface OpportunityPlayer {
   playerKey: string;
   valuation: Valuation;
@@ -58,11 +71,24 @@ export interface OpportunityInput {
   addCap?: number | undefined;
   /** Net rest-of-season VORP gain to exceed (permissions `autoGrab.minGain`). */
   minGain: number;
+  /** Our place in the rolling waiver order (1 = first) and the league's size, when known. */
+  waiverPriority?: number;
+  numTeams?: number;
   locked: readonly string[];
   protectedKeys: readonly string[];
   ask: readonly string[];
   /** Open reserve seats, one entry per seat (e.g. ['IR']). */
   openReserveSlots?: readonly string[];
+  /** Judge the grab on ΔP(win a typical week) (D-034); `minGain` is then unused. */
+  winObjective?: {
+    /** ΔP(win a typical week) per pair; `healthy` ids are scored as if fully available. */
+    delta: (
+      pairs: readonly { add: number; drop: number | null }[],
+      opts?: { healthy?: readonly number[] },
+    ) => readonly number[];
+    /** Floor before `GRAB_WIN_FACTOR` and the last-add doubling; default the add floor. */
+    minGain?: number;
+  };
 }
 
 export interface Opportunity {
@@ -72,6 +98,8 @@ export interface Opportunity {
   drop: string | null;
   /** Net rest-of-season VORP gain (0 when there was nothing to score). */
   gain: number;
+  /** ΔP(win a typical week), when judged on the objective (D-034). */
+  dWin?: number;
   /** The bar it had to clear. */
   required: number;
   reasons: string[];
@@ -149,18 +177,75 @@ function keepsLineupLegal(input: OpportunityInput, drop: OpportunityPlayer): boo
   );
 }
 
-/** The bar: `minGain`, doubled when this grab would spend the week's last add. */
+/** The floor the bar starts from: `minGain`, or on the objective the add floor × the factor. */
+function grabFloor(input: OpportunityInput): number {
+  const o = input.winObjective;
+  return o === undefined
+    ? input.minGain
+    : (o.minGain ?? DEFAULT_MIN_ADD_WIN_GAIN) * GRAB_WIN_FACTOR;
+}
+
+/** The bar: the floor, doubled on the week's last add, and again for a costly claim. */
 export function requiredGrabGain(input: OpportunityInput): number {
   const left = input.addCap === undefined ? Infinity : input.addCap - input.addsUsed;
-  return left === 1 ? 2 * input.minGain : input.minGain;
+  const claim = input.candidate.ownership === 'waivers' ? claimBarFactor(input) : 1;
+  return (left === 1 ? 2 : 1) * claim * grabFloor(input);
+}
+
+/**
+ * A claim spends our waiver priority (rolling, no FAAB: the winner drops to last), so while we
+ * hold a top-half place a claim must be worth twice the bar [U] U-38. Unknown priority: 1.
+ */
+export function claimBarFactor(p: { waiverPriority?: number; numTeams?: number }): number {
+  if (p.waiverPriority === undefined || p.numTeams === undefined) return 1;
+  return p.waiverPriority <= p.numTeams / 2 ? 2 : 1;
+}
+
+const pts = (x: number): string => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)} pts`;
+
+interface Move {
+  drop: OpportunityPlayer | null;
+  gain: number;
+  dWin?: number;
+  reasons: string[];
 }
 
 /** The best move for this candidate and its net gain, before any threshold. */
-function bestMove(input: OpportunityInput): {
-  drop: OpportunityPlayer | null;
-  gain: number;
-  reasons: string[];
-} {
+function bestMove(input: OpportunityInput): Move {
+  const m = bestAdjMove(input);
+  const o = input.winObjective;
+  if (o === undefined || (rosterFull(input) && m.drop === null)) return m;
+  // On the objective the drop is whoever costs the week least among every legal one.
+  const drops: (OpportunityPlayer | null)[] = rosterFull(input)
+    ? dropOrder(input).filter((d) => keepsLineupLegal(input, d))
+    : [null];
+  const add = input.candidate.valuation.nhlId;
+  const deltas = o.delta(drops.map((d) => ({ add, drop: d?.valuation.nhlId ?? null })));
+  let best = 0;
+  drops.forEach((_, i) => {
+    if ((deltas[i] ?? -Infinity) > (deltas[best] ?? -Infinity)) best = i;
+  });
+  const drop = drops[best] ?? null;
+  const dWin = deltas[best] ?? 0;
+  const pair =
+    drop === null
+      ? undefined
+      : scoreWaiverPair(input.candidate.valuation, drop.valuation, waiverInput(input));
+  const gain = pair?.rosGain ?? m.gain;
+  const name = input.candidate.valuation.name;
+  return {
+    drop,
+    gain,
+    dWin,
+    reasons: [
+      drop === null
+        ? `A roster spot is open: ${name} is worth ${pts(dWin)} of P(win a typical week).`
+        : `${name} for ${drop.valuation.name}: ${pts(dWin)} of P(win a typical week) (season gain ${fmt(gain)}).`,
+    ],
+  };
+}
+
+function bestAdjMove(input: OpportunityInput): Move {
   const w = waiverInput(input);
   const c = input.candidate.valuation;
   if (!rosterFull(input)) {
@@ -211,9 +296,24 @@ export function evaluateOpportunity(input: OpportunityInput): Opportunity {
   const m = bestMove(input);
   const drop = m.drop?.playerKey ?? null;
   if (rosterFull(input) && m.drop === null) return no('no droppable player', m.reasons);
-  if (!(m.gain > required)) {
-    const why = required > input.minGain ? ' (the last add this week needs double)' : '';
-    return no(`gain ${fmt(m.gain)} < ${fmt(required)}${why}`, m.reasons, m.gain, drop);
+  const onWin = input.winObjective !== undefined;
+  const score = onWin ? (m.dWin ?? 0) : m.gain;
+  const show = onWin ? pts : fmt;
+  const extra = m.dWin === undefined ? {} : { dWin: m.dWin };
+  if (!(score > required)) {
+    const left = input.addCap === undefined ? Infinity : input.addCap - input.addsUsed;
+    const notes = [
+      ...(left === 1 ? ['the last add this week needs double'] : []),
+      ...(kind === 'waiverClaim' && claimBarFactor(input) > 1
+        ? [`a claim spends our #${String(input.waiverPriority)} waiver priority, so double`]
+        : []),
+    ];
+    const why = notes.length === 0 ? '' : ` (${notes.join('; ')})`;
+    const label = onWin ? 'ΔP(win a week) ' : 'gain ';
+    return {
+      ...no(`${label}${show(score)} < ${show(required)}${why}`, m.reasons, m.gain, drop),
+      ...extra,
+    };
   }
   const waiver =
     kind === 'waiverClaim'
@@ -226,8 +326,9 @@ export function evaluateOpportunity(input: OpportunityInput): Opportunity {
     kind,
     drop,
     gain: m.gain,
+    ...extra,
     required,
-    reasons: [...m.reasons, ...waiver, `Clears the ${fmt(required)} auto-grab bar.`],
+    reasons: [...m.reasons, ...waiver, `Clears the ${show(required)} auto-grab bar.`],
   };
 }
 
@@ -236,15 +337,29 @@ export function evaluateOpportunity(input: OpportunityInput): Opportunity {
  * injured free agent is worth watching for his return, or a dropped player worth a closer look.
  */
 export function healthyGain(input: OpportunityInput): number {
+  const m = bestMove(healthy(input));
+  return input.winObjective === undefined ? m.gain : (m.dWin ?? 0);
+}
+
+/** Whether he would clear the auto-grab floor if healthy (on whichever measure is active). */
+export function clearsWhenHealthy(input: OpportunityInput): boolean {
+  return healthyGain(input) > grabFloor(input);
+}
+
+function healthy(input: OpportunityInput): OpportunityInput {
   const id = input.candidate.valuation.nhlId;
   const availability = Object.fromEntries(
     Object.entries(input.availability ?? {}).filter(([k]) => Number(k) !== id),
   );
-  return bestMove({
+  const o = input.winObjective;
+  return {
     ...input,
     addCap: undefined,
     availability,
     candidate: { ...input.candidate, status: undefined },
     addsUsed: 0,
-  }).gain;
+    ...(o === undefined
+      ? {}
+      : { winObjective: { ...o, delta: (pairs) => o.delta(pairs, { healthy: [id] }) } }),
+  };
 }

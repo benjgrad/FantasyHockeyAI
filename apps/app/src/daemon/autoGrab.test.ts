@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Permissions, Plan } from '@fha/core';
-import { EVENT_KINDS } from '@fha/tools';
+import { EVENT_KINDS, OBJECTIVE_KEY } from '@fha/tools';
 import { cardFor } from '../decisionCard.js';
 import { userPermissions } from '../permissions.js';
 import { cardContext } from '../services.js';
@@ -153,10 +153,30 @@ describe('auto-grab: acting', () => {
 
   it('below minGain → skipped with the numbers, recorded, no push', async () => {
     await setup((p) => (p.autoGrab.minGain = 50));
+    // minGain is the legacy (Adj.) bar; on winWeek, the default since D-035, the bar is ΔP.
+    h.store.kv.set(OBJECTIVE_KEY, 'legacy');
     const r = await runAutoGrab(h.app.services, back());
     expect(r.outcome).toBe('skipped');
     expect(r.reason).toMatch(/^gain \d+\.\d\d < 50\.00$/);
     expect(events()[0]).toMatchObject({ outcome: 'skipped' });
+    expect(notices()).toEqual([]);
+  });
+
+  it('a claim Ben already filed in Yahoo → skipped, no push (D-036)', async () => {
+    await setup();
+    const team = h.store.yahooConnections.list()[0]?.teamKey ?? '';
+    h.yahoo.txs.push({
+      transactionKey: 'l.w.c.1',
+      type: 'waiver',
+      timestamp: '',
+      teamKey: team,
+      status: 'pending',
+      players: [{ playerKey: TROCHECK, toTeamKey: team }],
+    } as (typeof h.yahoo.txs)[number]);
+    await h.app.services.league.get(userId, { refresh: true });
+    const r = await runAutoGrab(h.app.services, back());
+    expect(r.outcome).toBe('skipped');
+    expect(r.reason).toBe('a claim on him is already filed in Yahoo');
     expect(notices()).toEqual([]);
   });
 

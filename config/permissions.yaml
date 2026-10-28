@@ -76,6 +76,7 @@ autoGrab:
 # both lenses, but rest-of-season numbers move: re-check them when you switch.
 valueLens:
   lineup: preseason
-  autoGrab: preseason
+  # Rest of season since D-035: on preseason values auto-grab offered Ovechkin for Sergachev.
+  autoGrab: rest-of-season
   protected: preseason
   trades: preseason

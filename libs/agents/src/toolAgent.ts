@@ -3,7 +3,14 @@ import { noting } from './toolNotes.js';
 import type { Agent, AgentName, AgentRequest, AgentResponse, Permissions } from '@fha/core';
 import type { LlmClient } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
-import { decisionsBlock, newRunState, toolsFor, type RunContext, type RunState } from '@fha/tools';
+import {
+  decisionsBlock,
+  newRunState,
+  strategyBlock,
+  toolsFor,
+  type RunContext,
+  type RunState,
+} from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
 import { failed, outcomeLines, submittedPlans, toResponse } from './response.js';
@@ -85,6 +92,7 @@ export class ToolAgent implements Agent {
     const system = renderPrompt(deps.prompts, config.promptId, {
       leagueContext: [
         buildLeagueContext(deps.settings, permissions, deps.view, today),
+        strategyBlock(deps.view, deps.store),
         decisionsBlock(deps.view, deps.store, req.context.now),
       ]
         .filter((x) => x !== '')
@@ -101,6 +109,7 @@ export class ToolAgent implements Agent {
       ...(deps.userId === undefined ? {} : { userId: deps.userId }),
       submit: deps.submit,
       ...(deps.log === undefined ? {} : { log: deps.log }),
+      ...(deps.searchYahoo === undefined ? {} : { searchYahoo: deps.searchYahoo }),
       ...(deps.activity === undefined ? {} : { activity: deps.activity }),
       ...(deps.activity === undefined ? {} : { activity: deps.activity }),
       state,

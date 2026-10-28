@@ -12,6 +12,7 @@ import {
 import { submitPlan } from '@fha/pipeline';
 import type { Store } from '@fha/store';
 import { pipelineFor } from './decisions.js';
+import { findOutsidePool } from './playersFind.js';
 import type { LeagueState } from './league.js';
 import { userPermissions } from './permissions.js';
 import type { Services } from './services.js';
@@ -79,6 +80,15 @@ export function agentDepsFor(
     // What an agent changes in app state (e.g. a player it follows) is recorded where Ben reads
     // the background activity (D-028).
     activity: (text) => recordReply(s.store, userId, { text }),
+    // A searchPlayers name miss asks Yahoo, as the Players page does (D-032, Phase 6).
+    searchYahoo: (name) =>
+      findOutsidePool(
+        s,
+        userId,
+        league.view,
+        { status: 'all', position: undefined, sort: 'value', q: name, limit: 3 },
+        'in chat',
+      ),
   };
 }
 

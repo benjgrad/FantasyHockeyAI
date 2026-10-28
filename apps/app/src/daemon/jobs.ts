@@ -1,10 +1,14 @@
 import { addsRemaining, createAgent, runJob, type JobName, type ToolNote } from '@fha/agents';
 import { activityConversationId, recordReply, recordTrigger, triggerText } from '../activity.js';
-import { ingestDaily, recordValuationDay } from '@fha/tools';
+import { auditWeek, ingestDaily, recordValuationDay, type LeagueView } from '@fha/tools';
+import { marginalWeights } from '@fha/model';
 import type { RunStatus } from '@fha/store';
 import { agentDepsFor, llmFor } from '../chatRuntime.js';
 import type { Services } from '../services.js';
 import { digestText, gatherDigest } from './digest.js';
+import { pull as pullSnapshot } from './pulls.js';
+import { reseed } from './reseedJob.js';
+import { archive } from './archiveJob.js';
 import type { DaemonJob } from './schedule.js';
 
 /**
@@ -139,6 +143,9 @@ async function agentJob(
       }),
     );
   }
+  // The week's category weights come from code first (D-034), so a matchup run that fails or
+  // times out still leaves the week weighted; the agent may then adjust them with a rationale.
+  if (job === 'matchup') writeCodeWeights(s.store, league.view);
   // A triggered run is told why it runs (D-028); a schedule slot needs no explanation.
   const scheduled = /^\w+@\d{4}-\d{2}-\d{2}#\w+$/.test(why) || why === job;
   const r = await runJob(
@@ -174,12 +181,16 @@ async function agentJob(
       ? {}
       : { error: { code: r.response.error.code, message: r.response.error.detail } }),
   });
-  if (job === 'leagueReview' && !failed && r.response.message.trim() !== '') {
+  if (
+    (job === 'leagueReview' || job === 'strategy') &&
+    !failed &&
+    r.response.message.trim() !== ''
+  ) {
     await s.push.notify(userId, {
       kind: 'league',
-      title: 'League this week',
+      title: job === 'strategy' ? 'Strategy for the week' : 'League this week',
       body: r.response.message,
-      url: '/',
+      url: job === 'strategy' ? activityUrl(s, userId) : '/',
     });
   }
   return {
@@ -206,11 +217,22 @@ function stats(env: JobEnv): Body {
     }
     const r = await ingestDaily({ store: env.s.store, pull, log: env.s.log }, today);
     env.s.store.kv.set(mark, today);
+    // New games change the rest-of-season values: every league rebuilds on its next read (4a).
+    invalidateLeagues(env.s);
     return {
       status: 'success',
       summary: `NHL games ${r.season} ${r.from}..${r.to}: ${r.skaters} skater, ${r.goalies} goalie rows`,
     };
   };
+}
+
+/**
+ * Mark every connected league's snapshot stale, so its values recompute from the stats store on
+ * the next read (4a). For jobs that change what values are built from: the stats ingest, and the
+ * weekly re-seed.
+ */
+export function invalidateLeagues(s: Services): void {
+  for (const c of s.store.yahooConnections.list()) s.league.invalidate(c.userId);
 }
 
 export function executeJob(
@@ -223,5 +245,24 @@ export function executeJob(
   if (job === 'stats') return recorded(env, job, stats(env));
   if (job === 'refresh') return recorded(env, job, refresh(env, userId));
   if (job === 'digest') return recorded(env, job, digest(env, userId));
+  if (job === 'pull') return recorded(env, job, () => pullSnapshot(env, userId, why));
+  if (job === 'reseed') return recorded(env, job, () => reseed(env, userId));
+  if (job === 'archive') return recorded(env, job, () => archive(env, userId));
   return agentJob(env, userId, job, signal, why);
+}
+
+/** This week's marginal ΔP(win) weights against the opponent, stored for the week (D-034). */
+export function writeCodeWeights(store: Services['store'], view: LeagueView): void {
+  try {
+    const week = auditWeek(view, store);
+    if (week === undefined) return;
+    const strategy = store.seasonStrategy.current(view.snap.leagueKey);
+    store.strategy.set(
+      view.snap.week,
+      marginalWeights(week.audit, strategy === undefined ? {} : { punts: strategy.punts }),
+      `code (D-034): each category's ΔP(win the week) against ${week.against[0]?.name ?? 'the opponent'} per starter's worth, averaging 1${strategy === undefined || strategy.punts.length === 0 ? '' : `; punts ${strategy.punts.join(', ')} from strategy v${String(strategy.id)}`}`,
+    );
+  } catch {
+    // P9: the agent still runs and can set the weights itself.
+  }
 }

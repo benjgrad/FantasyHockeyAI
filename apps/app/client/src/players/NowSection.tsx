@@ -36,6 +36,11 @@ export function NowSection({ now }: { now: Now }) {
       <div className="grid grid-cols-2 gap-1.5 text-sm sm:grid-cols-4">
         <Cell k="vols" value={now.vols.toFixed(2)} />
         <Cell k="vofa" value={signed(now.vofa)} tone={now.vofa} />
+        <Cell
+          k="dWin"
+          value={now.dWin == null ? '—' : signed(now.dWin * 100, 1)}
+          tone={now.dWin ?? null}
+        />
         <Cell k="cwa" value={now.cwa === null ? '—' : signed(now.cwa, 3)} tone={now.cwa} />
         <Cell
           k="weekCwa"

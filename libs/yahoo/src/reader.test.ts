@@ -27,6 +27,7 @@ describe('WebSessionReader over recorded responses', () => {
   it('should implement LeagueReader: settings, teams, roster', async () => {
     expect((await reader.settings()).numTeams).toBe(8);
     expect((await reader.teams()).map((x) => x.teamKey)).toContain(TEAM);
+    expect((await reader.teams()).find((x) => x.teamKey === TEAM)?.waiverPriority).toBe(8);
     const roster = await reader.roster(TEAM, '2026-09-29');
     expect(roster.entries.find((e) => e.player.name === 'Filip Gustavsson')?.slot).toBe('BN');
   });

@@ -86,10 +86,15 @@ export interface TestRunOptions {
   /** Edit a copy of the snapshot before the view is built. */
   edit?: (snap: LeagueSnapshot) => void;
   store?: Store;
+  /** Another recorded snapshot (a scenario's), instead of the mock league. */
+  snapshotPath?: string;
 }
 
-export function mockView(edit?: (snap: LeagueSnapshot) => void): LeagueView {
-  const base = LeagueView.fromFile(MOCK_SNAPSHOT_PATH, MOCK_SETTINGS);
+export function mockView(
+  edit?: (snap: LeagueSnapshot) => void,
+  path: string = MOCK_SNAPSHOT_PATH,
+): LeagueView {
+  const base = LeagueView.fromFile(path, MOCK_SETTINGS);
   if (edit === undefined) return base;
   const snap = structuredClone(base.snap);
   edit(snap);
@@ -98,7 +103,7 @@ export function mockView(edit?: (snap: LeagueSnapshot) => void): LeagueView {
 
 export function testRun(opts: TestRunOptions = {}): TestRun {
   const now = opts.now ?? MOCK_NOW;
-  const view = mockView(opts.edit);
+  const view = mockView(opts.edit, opts.snapshotPath);
   const store = opts.store ?? openStore(':memory:', { now: () => new Date(now) });
   const permissions = opts.permissions ?? mockPermissions();
   const adapter = new DryRunAdapter();

@@ -6,6 +6,7 @@ import { approvePlan, dismissPlan, executePlan, rejectPlan } from './decisions.j
 import { HttpError, readJson, sendJson } from './http.js';
 import type { Route } from './router.js';
 import { cardContext, type Services } from './services.js';
+import { strategyView } from './strategyView.js';
 import { teamView } from './team.js';
 
 /**
@@ -22,6 +23,15 @@ export function teamRoutes(s: Services): Route[] {
       auth: 'user',
       handle: async ({ res, user }) => {
         sendJson(res, 200, teamView(await s.league.forDisplay(user.id), s.now(), s.store));
+      },
+    },
+    {
+      method: 'GET',
+      path: '/api/strategy',
+      auth: 'user',
+      handle: async ({ res, user }) => {
+        const { view } = await s.league.forDisplay(user.id);
+        sendJson(res, 200, strategyView(view, s.store));
       },
     },
     {

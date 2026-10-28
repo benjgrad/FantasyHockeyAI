@@ -7,6 +7,7 @@ import {
   mean,
   playerLine,
   seasonStarters,
+  weeklyStarts,
   stdev,
   sumLines,
   weeklyCategoryPlan,
@@ -149,7 +150,7 @@ function typicalStarters(view: LeagueView, roster: readonly Seat[]): Seat[] {
   });
 }
 
-/** The typical-week line of a team: {@link TYPICAL_WEEK_GAMES} per starter, discounted. */
+/** The typical-week line of a team: {@link TYPICAL_WEEK_GAMES} team games a player, seated daily. */
 export function typicalWeekLine(view: LeagueView, teamKey: TeamKey): CategoryLine {
   return teamWeek(view, teamKey).line;
 }
@@ -162,13 +163,25 @@ function teamWeek(
   const cats = scoringCategories(view.settings);
   const roster = seats(view, m, teamKey);
   const starters = typicalStarters(view, roster);
+  // Daily lineups (D-035): a bench player starts on a starter's idle or injured nights.
+  const games = (s: Seat, p: { gp: number }) =>
+    TYPICAL_WEEK_GAMES * Math.min(1, p.gp / TEAM_GAMES) * s.share;
+  const withProjection = roster.flatMap((s) => {
+    const p = m.projectionById(s.v.nhlId);
+    return p === undefined ? [] : [{ s, p }];
+  });
+  const starts = weeklyStarts(
+    withProjection.map(({ s, p }) => ({
+      id: s.v.nhlId,
+      rank: s.v.value,
+      games: games(s, p),
+      position: s.v.position,
+      ...(s.v.eligible === undefined ? {} : { eligible: s.v.eligible }),
+    })),
+    view.settings,
+  );
   const line = sumLines(
-    starters.flatMap((s) => {
-      const p = m.projectionById(s.v.nhlId);
-      if (p === undefined) return [];
-      const games = TYPICAL_WEEK_GAMES * Math.min(1, p.gp / TEAM_GAMES) * s.share;
-      return [playerLine(p, games, cats)];
-    }),
+    withProjection.map(({ s, p }) => playerLine(p, starts.get(s.v.nhlId) ?? 0, cats)),
   );
   return { line, starters, roster };
 }

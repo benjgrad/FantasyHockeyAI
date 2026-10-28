@@ -26,7 +26,11 @@ export interface SnapshotInputs {
   date: string;
   recordedAt: string;
   schedule: (date: string) => Promise<ScheduleDay[]>;
-  valuate: (players: readonly Player[]) => Valued;
+  /** The seed's values for these players; `ctx` lets it fill players the seed lacks (D-035). */
+  valuate: (
+    players: readonly Player[],
+    ctx?: { settings: LeagueSettings; date: string; warn?: (message: string) => void },
+  ) => Valued;
   freeAgents?: number;
   /** Players outside the free-agent reads to carry anyway: the user's watch list (D-032). */
   extraKeys?: readonly string[];
@@ -67,7 +71,7 @@ export async function buildSnapshot(i: SnapshotInputs): Promise<BuiltSnapshot> {
     players.set(y.player.playerKey, y.player);
     details.set(y.player.playerKey, y.detail);
   }
-  const valued = valueOrEmpty(i, [...players.values()]);
+  const valued = valueOrEmpty(i, [...players.values()], settings);
   const { opponent, matchup } = await readMatchup(i, teams, settings.categories);
   const snapshot: LeagueSnapshot = {
     recordedAt: i.recordedAt,
@@ -83,6 +87,7 @@ export async function buildSnapshot(i: SnapshotInputs): Promise<BuiltSnapshot> {
       teamKey: t.teamKey,
       name: t.name,
       ...(t.managerNickname === undefined ? {} : { managerNickname: t.managerNickname }),
+      ...(t.waiverPriority === undefined ? {} : { waiverPriority: t.waiverPriority }),
     })),
     players: [...players.values()].map((p) => {
       const id = valued.ids.get(p.playerKey);
@@ -109,6 +114,7 @@ function rulesOf(meta: LeagueMeta): NonNullable<LeagueSnapshot['rules']> {
     ...(meta.playoffStartWeek === undefined ? {} : { playoffStartWeek: meta.playoffStartWeek }),
     ...(meta.waiverDays === undefined ? {} : { waiverDays: meta.waiverDays }),
     ...(meta.maxWeeklyAdds === undefined ? {} : { maxWeeklyAdds: meta.maxWeeklyAdds }),
+    ...(meta.waiverRule === undefined ? {} : { waiverRule: meta.waiverRule }),
     ...(meta.startDate === undefined ? {} : { seasonStart: meta.startDate }),
     ...(meta.endDate === undefined ? {} : { seasonEnd: meta.endDate }),
   };
@@ -296,9 +302,13 @@ async function readSchedule(i: SnapshotInputs): Promise<LeagueSnapshot['schedule
   }
 }
 
-function valueOrEmpty(i: SnapshotInputs, players: readonly Player[]): Valued {
+function valueOrEmpty(
+  i: SnapshotInputs,
+  players: readonly Player[],
+  settings: LeagueSettings,
+): Valued {
   try {
-    return i.valuate(players);
+    return i.valuate(players, { settings, date: i.date, warn: i.warn });
   } catch (e) {
     i.warn(`valuations unavailable: ${errText(e)}`);
     return { valuations: {}, projections: {}, ids: new Map() };

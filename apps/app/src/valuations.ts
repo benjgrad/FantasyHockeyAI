@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LeagueSnapshot, type Player } from '@fha/core';
+import { LeagueSnapshot, type LeagueSettings, type Player } from '@fha/core';
+import type { Store } from '@fha/store';
+import { fillSeedGaps } from '@fha/tools';
 import type { Valued } from './snapshot.js';
 
 /**
@@ -13,10 +15,20 @@ import type { Valued } from './snapshot.js';
  * values change when projections are re-run, not when rosters change. So the app joins each
  * live player, by playerKey, to the newest recorded snapshot for the same league.
  *
- * A player the seed lacks (a call-up, a deep free agent) stays unvalued, which the tools show
- * honestly; a guessed value would be worse. No seed at all means no valuations, with a warning.
+ * A player the seed lacks (a call-up, a deep free agent) is filled from his game logs when the
+ * store is available (D-035, `fillSeedGaps`): mapped by name, projected from his prior seasons or
+ * at replacement level, valued on the seed's scale. A doubtful name join stays unvalued, which the
+ * tools show honestly; a guessed identity would be worse. No seed at all means no valuations,
+ * with a warning.
  */
-export type Valuate = (players: readonly Player[]) => Valued;
+export interface ValuateContext {
+  settings: LeagueSettings;
+  /** The snapshot date; its season is the one the prior excludes. */
+  date: string;
+  warn?: (message: string) => void;
+}
+
+export type Valuate = (players: readonly Player[], ctx?: ValuateContext) => Valued;
 
 /** The newest `live-*.json` directly under `dir` whose league matches, or undefined. */
 export function findSeed(dir: string, leagueKey: string): string | undefined {
@@ -37,7 +49,7 @@ export function findSeed(dir: string, leagueKey: string): string | undefined {
   return undefined;
 }
 
-export function seededValuate(seedPath: string): Valuate {
+export function seededValuate(seedPath: string, fill?: { store: Store }): Valuate {
   const seed = LeagueSnapshot.parse(JSON.parse(readFileSync(seedPath, 'utf-8')));
   const ids = new Map(
     seed.players.flatMap((p) =>
@@ -46,18 +58,41 @@ export function seededValuate(seedPath: string): Valuate {
         : [[p.playerKey, { nhlId: p.nhlId, confidence: p.mapConfidence ?? 1 }] as const],
     ),
   );
-  return (players) => {
-    const out: Valued = { valuations: {}, projections: {}, ids: new Map() };
-    for (const p of players) {
-      const v = seed.valuations[p.playerKey];
-      const pr = seed.projections[p.playerKey];
-      const id = ids.get(p.playerKey);
-      if (v !== undefined) out.valuations[p.playerKey] = v;
-      if (pr !== undefined) out.projections[p.playerKey] = pr;
-      if (id !== undefined) out.ids.set(p.playerKey, id);
+  return (players, ctx) => {
+    const base = seededValues(seed, ids, players);
+    if (fill === undefined || ctx === undefined) return base;
+    try {
+      const r = fillSeedGaps({
+        players,
+        seed: base,
+        store: fill.store,
+        settings: ctx.settings,
+        date: ctx.date,
+      });
+      return { valuations: r.valuations, projections: r.projections, ids: r.ids };
+    } catch (e) {
+      // The seed alone is still a usable snapshot (P9).
+      ctx.warn?.(`filling unseeded players failed: ${e instanceof Error ? e.message : String(e)}`);
+      return base;
     }
-    return out;
   };
+}
+
+function seededValues(
+  seed: LeagueSnapshot,
+  ids: ReadonlyMap<string, { nhlId: number; confidence: number }>,
+  players: readonly Player[],
+): Valued {
+  const out: Valued = { valuations: {}, projections: {}, ids: new Map() };
+  for (const p of players) {
+    const v = seed.valuations[p.playerKey];
+    const pr = seed.projections[p.playerKey];
+    const id = ids.get(p.playerKey);
+    if (v !== undefined) out.valuations[p.playerKey] = v;
+    if (pr !== undefined) out.projections[p.playerKey] = pr;
+    if (id !== undefined) out.ids.set(p.playerKey, id);
+  }
+  return out;
 }
 
 /**
@@ -66,7 +101,7 @@ export function seededValuate(seedPath: string): Valuate {
  * a warning and an unvalued snapshot.
  */
 export function valuateFor(
-  opts: { explicit: string | undefined; snapshotDir: string },
+  opts: { explicit: string | undefined; snapshotDir: string; store?: Store },
   leagueKey: string,
 ): Valuate {
   const path = opts.explicit ?? findSeed(opts.snapshotDir, leagueKey);
@@ -77,5 +112,5 @@ export function valuateFor(
       );
     };
   }
-  return seededValuate(path);
+  return seededValuate(path, opts.store === undefined ? undefined : { store: opts.store });
 }

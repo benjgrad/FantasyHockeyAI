@@ -16,6 +16,8 @@ import {
   type Matchup,
   type MyTeam,
   type PlayerDetail,
+  type RosterStats,
+  type Scoreboard,
   type StoredSession,
   sessionFromCredentials,
 } from '@fha/yahoo';
@@ -116,6 +118,8 @@ export interface FakeYahoo extends YahooAccess {
   seen: StoredSession[];
   /** When true, the website keepalive fails as an expired session (U-30). */
   siteDead: boolean;
+  /** The website sends every page to Yahoo's consent screen. */
+  siteConsent: boolean;
   /** Keepalive checks made. */
   siteChecks: number;
   /** Status overrides by playerKey (`undefined` = healthy), applied to every read. */
@@ -131,6 +135,14 @@ export interface FakeYahoo extends YahooAccess {
   pool: { FA: string[]; W: string[] };
   /** playerKeys removed from whatever roster the recording had them on (a drop). */
   dropped: Set<string>;
+  /** Overrides the recording's week (Yahoo's `current_week`). */
+  currentWeek?: number;
+  /**
+   * Past weeks' scoreboards (D-038). While any is set, the reader also serves `scoreboard(week)`
+   * and `rosterStats`, the latter from `rosterStats` (absent: the call fails).
+   */
+  weeks: Map<number, Scoreboard>;
+  rosterStats?: (teamKey: string, at: { week: number } | { date: string }) => RosterStats;
 }
 
 function detailFor(fake: FakeYahoo, playerKey: string): PlayerDetail {
@@ -152,6 +164,29 @@ function withStatus(fake: FakeYahoo, p: Player): Player {
   return status === undefined ? rest : { ...rest, status };
 }
 
+type Guard = <T>(what: string, v: () => T) => Promise<T>;
+
+/** The archive's reads (D-038): this week from `matchup`, past weeks from `weeks`. */
+function pastWeeks(
+  fake: FakeYahoo,
+  guard: Guard,
+): Pick<LiveLeagueSource, 'scoreboard' | 'rosterStats'> {
+  return {
+    scoreboard: (week) =>
+      guard('scoreboard', () => {
+        const past = week === undefined ? undefined : fake.weeks.get(week);
+        if (past !== undefined) return past;
+        const m = fake.matchup;
+        return { week: week ?? m?.week ?? 1, matchups: m === undefined ? [] : [m] };
+      }),
+    rosterStats: (teamKey, at) =>
+      guard('rosterStats', () => {
+        if (fake.rosterStats === undefined) throw new Error('no roster stats recorded');
+        return fake.rosterStats(teamKey, at);
+      }),
+  };
+}
+
 export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
   const byKey = new Map(snap.players.map((p) => [p.playerKey, p]));
   const fake: FakeYahoo = {
@@ -159,6 +194,7 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
     down: false,
     seen: [],
     siteDead: false,
+    siteConsent: false,
     siteChecks: 0,
     status: new Map(),
     details: new Map(),
@@ -167,10 +203,12 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
     reads: [],
     pool: { FA: [], W: [] },
     dropped: new Set(),
+    weeks: new Map(),
     checkSite: () => {
       fake.siteChecks += 1;
       if (fake.down) return Promise.reject(new TypeError('fetch failed'));
       if (fake.siteDead) return Promise.reject(new YahooAuthError('sent to sign-in'));
+      if (fake.siteConsent) return Promise.reject(new YahooAuthError('sent to consent', 'consent'));
       return Promise.resolve();
     },
     myTeams: (c) => {
@@ -202,7 +240,10 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
         });
       return {
         settingsAndMeta: () =>
-          guard('settings', () => ({ settings: MOCK_SETTINGS, meta: { currentWeek: snap.week } })),
+          guard('settings', () => ({
+            settings: MOCK_SETTINGS,
+            meta: { currentWeek: fake.currentWeek ?? snap.week },
+          })),
         teams: () => guard('teams', () => snap.teams),
         rosterDetailed: (teamKey, date) =>
           guard('roster', () => {
@@ -240,6 +281,7 @@ export function fakeYahoo(snap: LeagueSnapshot): FakeYahoo {
             ),
           ),
         ourMatchup: () => guard('scoreboard', () => fake.matchup),
+        ...(fake.weeks.size === 0 ? {} : pastWeeks(fake, guard)),
       };
     },
   };

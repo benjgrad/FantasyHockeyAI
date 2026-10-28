@@ -24,6 +24,8 @@ export interface RankOutput {
   valuations: Valuation[];
   /** The projections the valuations were computed from, restricted to the same pool. */
   projections: Projection[];
+  /** Every projected NHL player, pool or not: the live name join's candidates (D-035). */
+  candidates: { nhlId: number; name: string; team: string; position: string }[];
   replacement: Record<string, number>;
   leagueName: string;
   leagueKey: string;
@@ -110,6 +112,12 @@ export function buildRanking(seasonsBack = 3, calibrate = true): RankOutput {
   return {
     valuations,
     projections: pool,
+    candidates: enriched.map((p) => ({
+      nhlId: p.nhlId,
+      name: p.name,
+      team: p.team,
+      position: p.position,
+    })),
     replacement: res.replacement,
     leagueName: settings.name,
     leagueKey: settings.leagueKey,

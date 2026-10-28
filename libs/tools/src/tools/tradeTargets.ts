@@ -5,6 +5,7 @@ import { modelInputs } from '../modelInputs.js';
 import { resolveTeam } from '../resolve.js';
 import { searchTrades } from '../tradeSearch.js';
 import { lensesFor, recordShadow } from '../lensSwitch.js';
+import { objectiveOf } from '../strategy.js';
 
 /**
  * The trade search as a tool (§12.7): code tries every swap and scores both sides; the model
@@ -15,12 +16,16 @@ import { lensesFor, recordShadow } from '../lensSwitch.js';
  * them anyway, and a candidate the model cannot propose only wastes its turns.
  */
 const SHOWN = 8;
+const pts = (x: number) => `${x >= 0 ? '+' : ''}${(x * 100).toFixed(1)}`;
 
 export const findTradeTargets = defineTool({
   name: 'findTradeTargets',
   description:
-    'Search for trades that help us and do not hurt the partner, scored by evaluateTrade’s model for both sides, best first. With partnerTeamName: every 1-for-1, 2-for-1 and 1-for-2 with that team (a few seconds). Without: every team, 1-for-1 only. Call it before proposing a new trade; use evaluateTrade only to test a variation.',
-  input: z.object({ partnerTeamName: z.string().min(1).optional() }),
+    "Search for trades that help us and do not hurt the partner, scored by evaluateTrade’s model for both sides, best first. With partnerTeamName: every 1-for-1, 2-for-1 and 1-for-2 with that team (a few seconds). Without: every team, 1-for-1 only. objective 'winWeek' ranks and keeps by Δ P(win a typical week) for each side (D-034): the trade that turns surplus into wins; 'expectedCats' by Δ expected categories. Default: the objective switch (legacy = expectedCats). Every row shows both. Call it before proposing a new trade; use evaluateTrade only to test a variation.",
+  input: z.object({
+    partnerTeamName: z.string().min(1).optional(),
+    objective: z.enum(['winWeek', 'expectedCats']).optional(),
+  }),
   risk: 'read',
   execute: (input, ctx) => {
     const { view, permissions } = ctx;
@@ -36,11 +41,15 @@ export const findTradeTargets = defineTool({
       ...permissions.players.locked,
       ...view.pendingTradesForUs().flatMap((t) => t.players.map((p) => p.playerKey)),
     ]);
-    const minGain = permissions.plans.tradePropose?.limits.minTradeGain;
+    const objective =
+      input.objective ?? (objectiveOf(ctx.store) === 'winWeek' ? 'winWeek' : 'expectedCats');
+    // Ben's minTradeGain is in expected categories; under winWeek the model's own bar applies.
+    const minGain =
+      objective === 'winWeek' ? undefined : permissions.plans.tradePropose?.limits.minTradeGain;
     const shape = input.partnerTeamName === undefined ? 1 : 2;
     const search = (v: typeof view) => {
       const mv = modelInputs(v);
-      return searchTrades(v, only, shape, minGain)
+      return searchTrades(v, only, shape, minGain, objective)
         .map((c) => ({ c, give: c.give.map((id) => mv.key(id)), get: c.get.map((id) => mv.key(id)) }))
         .filter((x) => ![...x.give, ...x.get].some((k) => blocked.has(k)))
         .slice(0, SHOWN);
@@ -55,6 +64,8 @@ export const findTradeTargets = defineTool({
       get: x.get,
       deltaUs: x.c.evaluation.deltaUs,
       deltaThem: x.c.evaluation.deltaThem,
+      winUs: x.c.evaluation.winUs,
+      winThem: x.c.evaluation.winThem,
     }));
     if (trades.length === 0) {
       return Promise.resolve(
@@ -63,9 +74,11 @@ export const findTradeTargets = defineTool({
     }
     const lines = found.map(
       (x, i) =>
-        `${i + 1}. ${teamName(x.c.partner)}: give ${who(x.give)} for ${who(x.get)} — Δ us ${fmt(x.c.evaluation.deltaUs)}, them ${fmt(x.c.evaluation.deltaThem)}. ${x.c.evaluation.reasons.slice(0, 2).map((r) => nameKeys(view, r)).join(' ')}`,
+        `${i + 1}. ${teamName(x.c.partner)}: give ${who(x.give)} for ${who(x.get)} — Δ cats us ${fmt(x.c.evaluation.deltaUs)}, them ${fmt(x.c.evaluation.deltaThem)}; ΔP(win wk) us ${pts(x.c.evaluation.winUs)}, them ${pts(x.c.evaluation.winThem)} pts. ${x.c.evaluation.reasons.slice(0, 2).map((r) => nameKeys(view, r)).join(' ')}`,
     );
-    return Promise.resolve(ok({ trades }, [`Best trades found (${trades.length}):`, ...lines].join('\n')));
+    return Promise.resolve(
+      ok({ trades, objective }, [`Best trades found (${trades.length}), ranked by ${objective === 'winWeek' ? 'ΔP(win a week)' : 'Δ expected categories'}:`, ...lines].join('\n')),
+    );
   },
 });
 

@@ -108,7 +108,7 @@ export function playerRoutes(s: Services): Route[] {
       auth: 'user',
       handle: async ({ res, user }) => {
         const { view } = await s.league.forDisplay(user.id);
-        const strength = categoryStrength(view);
+        const strength = categoryStrength(view, s.store);
         const week = weekWeights(view, s.store);
         sendJson(res, 200, {
           asOf: view.snap.recordedAt,

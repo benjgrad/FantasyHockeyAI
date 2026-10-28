@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { availability } from './availability.js';
 import { cat, league, slot } from './fixtures.js';
 import {
+  clearsWhenHealthy,
   dropOrder,
   evaluateOpportunity,
   healthyGain,
+  requiredGrabGain,
   type OpportunityInput,
   type OpportunityPlayer,
 } from './opportunity.js';
+import { DEFAULT_MIN_ADD_WIN_GAIN } from './waiver.js';
 
 const settings = league({
   categories: [cat('G', 'P'), cat('A', 'P')],
@@ -201,6 +204,22 @@ describe('evaluateOpportunity — waivers', () => {
   });
 });
 
+describe('evaluateOpportunity — a claim spends waiver priority', () => {
+  it('doubles the bar for a claim while we hold a top-half priority, not for a free agent', () => {
+    const add = val('C', 3);
+    const claim = (waiverPriority: number | undefined, ownership: 'waivers' | 'freeAgent') =>
+      requiredGrabGain(
+        input({
+          candidate: { playerKey: 'k.c', valuation: add, ownership },
+          ...(waiverPriority === undefined ? {} : { waiverPriority, numTeams: 8 }),
+        }),
+      );
+    expect(claim(2, 'waivers')).toBeCloseTo(2 * claim(2, 'freeAgent'), 12);
+    expect(claim(7, 'waivers')).toBeCloseTo(claim(7, 'freeAgent'), 12);
+    expect(claim(undefined, 'waivers')).toBeCloseTo(claim(undefined, 'freeAgent'), 12);
+  });
+});
+
 describe('healthyGain', () => {
   it('ignores the candidate’s injury and the add cap', () => {
     const i = input({ addsUsed: 3 }, 4);
@@ -211,5 +230,82 @@ describe('healthyGain', () => {
     };
     expect(evaluateOpportunity(injured).grab).toBe(false);
     expect(healthyGain(injured)).toBeCloseTo(3.5, 9);
+  });
+});
+
+describe('evaluateOpportunity — on the objective, ΔP(win a week) (D-034)', () => {
+  const byDrop =
+    (d: Record<string, number>): NonNullable<OpportunityInput['winObjective']>['delta'] =>
+    (pairs) =>
+      pairs.map((p) => d[String(p.drop)] ?? 0);
+
+  it('skips a big Adj. upgrade that does not move P(win), saying so in points', () => {
+    const o = evaluateOpportunity(input({ winObjective: { delta: () => [0.01, 0.01] } }, 3));
+    expect(o.grab).toBe(false);
+    expect(o.required).toBeCloseTo(3 * DEFAULT_MIN_ADD_WIN_GAIN, 12);
+    expect(o.skip).toBe('ΔP(win a week) +1.0 pts < +3.0 pts');
+  });
+
+  it('grabs on P(win), dropping whoever costs the week least among the cheapest', () => {
+    const t = team();
+    const i = input(
+      {
+        roster: t.roster,
+        winObjective: {
+          delta: byDrop({
+            [String(t.benchC.valuation.nhlId)]: 0.01,
+            [String(t.benchD.valuation.nhlId)]: 0.05,
+          }),
+        },
+      },
+      1,
+    );
+    const o = evaluateOpportunity(i);
+    expect(o.grab).toBe(true);
+    expect(o.drop).toBe(t.benchD.playerKey);
+    expect(o.dWin).toBeCloseTo(0.05, 12);
+  });
+
+  it('tries every legal drop, not just the cheapest by Adj. (the Ovechkin case, 2026-10-23)', () => {
+    // Auto-grab offered Sergachev, the lowest preseason Adj.; the drop the week wanted, Coleman,
+    // was a starter ranked too high on Adj. to be among the four tried.
+    const t = team();
+    const i = input(
+      {
+        roster: t.roster,
+        winObjective: { delta: byDrop({ [String(t.c.valuation.nhlId)]: 0.06 }) },
+      },
+      1,
+    );
+    const o = evaluateOpportunity(i);
+    expect(o.drop).toBe(t.c.playerKey);
+    expect(o.grab).toBe(true);
+  });
+
+  it('doubles the win bar on the last add of the week', () => {
+    const o = evaluateOpportunity(
+      input({ addsUsed: 2, winObjective: { delta: (p) => p.map(() => 0.05) } }),
+    );
+    expect(o.required).toBeCloseTo(0.06, 12);
+    expect(o.grab).toBe(false);
+  });
+
+  it('judges an injured free agent healthy when deciding whether to watch him', () => {
+    const add = val('C', 3);
+    let healthy: readonly number[] | undefined;
+    const ok = clearsWhenHealthy(
+      input({
+        candidate: { playerKey: 'k.x', valuation: add, ownership: 'freeAgent', status: 'O' },
+        availability: { [add.nhlId]: hurt('O') },
+        winObjective: {
+          delta: (pairs, opts) => {
+            healthy = opts?.healthy;
+            return pairs.map(() => 0.04);
+          },
+        },
+      }),
+    );
+    expect(ok).toBe(true);
+    expect(healthy).toEqual([add.nhlId]);
   });
 });

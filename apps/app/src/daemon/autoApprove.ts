@@ -189,7 +189,11 @@ async function remind(s: Services, userIds: readonly string[], now: Date): Promi
     await s.push.notify(a.userId, {
       kind: 'approval',
       title: `Soon: ${summary}`,
-      body: `Happens at ${clockTime(a.autoApproveAt)} unless you reject — tap to review`,
+      // We never file a claim (U-22): its timeout hands it to Ben rather than making it happen.
+      body:
+        plan.payload.kind === 'waiverClaim'
+          ? `At ${clockTime(a.autoApproveAt)}, unless you reject, it's yours to file in Yahoo — tap to review`
+          : `Happens at ${clockTime(a.autoApproveAt)} unless you reject — tap to review`,
       url: `/decisions/${a.planId}`,
       planId: a.planId,
     });

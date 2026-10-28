@@ -35,6 +35,8 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getForecast',
     'proposeAddDrop',
     'proposeWaiverClaim',
+    'getStrategy',
+    'getStrategyAudit',
   ],
   'trades.system': [
     'findTradeTargets',
@@ -53,6 +55,8 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'stopWatching',
     'proposeTrade',
     'proposeTradeResponse',
+    'getStrategy',
+    'getStrategyAudit',
   ],
   'matchup.system': [
     'getMatchup',
@@ -63,6 +67,8 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getSchedule',
     'getWatchList',
     'setCategoryWeights',
+    'getStrategy',
+    'getStrategyAudit',
   ],
   'leagueReview.system': [
     'getLeagueEvents',
@@ -72,6 +78,20 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getPlayerForm',
     'getPlayerValue',
     'getWatchList',
+    'getStrategy',
+    'getStrategyAudit',
+  ],
+  'strategy.system': [
+    'getStrategy',
+    'getStrategyAudit',
+    'getMatchup',
+    'getForecast',
+    'getLeagueComparison',
+    'getLeagueEvents',
+    'findTradeTargets',
+    'getPlayerValue',
+    'getDecisions',
+    'proposeStrategy',
   ],
 };
 

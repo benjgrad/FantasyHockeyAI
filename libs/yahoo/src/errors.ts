@@ -8,6 +8,17 @@ export class YahooAuthError extends Error {
   /** Stable code the UI keys on to show "reconnect Yahoo" rather than a generic failure. */
   readonly code = 'yahoo_reconnect_required' as const;
   override readonly name = 'YahooAuthError';
+  constructor(
+    message: string,
+    /**
+     * `consent`: the session is fine but Yahoo's website sends every page to its consent screen
+     * (guce.yahoo.com) until it is accepted in a browser, seen 2026-10-17. Only Ben can accept
+     * Yahoo's terms, so it is handled like an expiry: pause, push, reconnect.
+     */
+    readonly reason: 'session' | 'consent' = 'session',
+  ) {
+    super(message);
+  }
 }
 
 export class YahooThrottledError extends Error {

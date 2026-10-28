@@ -26,7 +26,8 @@ describe('value tools (D-026)', () => {
   it('findPickups pairs free agents with droppable players, in code, against the add bar', async () => {
     const r = await findPickups.execute({ limit: 5 }, run.ctx);
     expect(r.ok).toBe(true);
-    expect(r.ok && r.summary).toMatch(/adds left; an add must gain more than/);
+    // winWeek is the default objective since D-035: upgrades clear the ΔP(win a week) bar.
+    expect(r.ok && r.summary).toMatch(/adds left; an upgrade must raise P\(win a typical week\)/);
     if (r.ok) {
       const data = r.data as { moves: { add: string; drop: string | null }[] };
       for (const m of data.moves) {
@@ -39,7 +40,7 @@ describe('value tools (D-026)', () => {
   it('player tables show both lenses side by side', async () => {
     const r = await getPlayers.execute({ playerKeys: ours.slice(0, 1) }, run.ctx);
     expect(r.ok && r.summary).toMatch(/value \(pre\) \| VORP \(pre\) \| VOLS \(ROS\) \| VOFA \| CWA \| Δ7d/);
-    const s = await searchPlayers.execute({ sort: 'cwa', limit: 3 }, run.ctx);
-    expect(s.ok && s.summary).toMatch(/by CWA, top 3/);
+    const s = await searchPlayers.execute({ sort: [{ by: 'cwa', order: 'desc' }], limit: 3 }, run.ctx);
+    expect(s.ok && s.summary).toMatch(/by CWA, .*highest first, top 3/);
   });
 });

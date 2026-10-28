@@ -259,6 +259,30 @@ describe('a move Ben makes by hand', () => {
     expect(result.card.status).toBe('dry_run');
   });
 
+  it('a claim Ben filed in Yahoo says so, and stays open until it processes (Phase 5)', async () => {
+    const { cookie, propose } = await setup({ writer: false });
+    const planId = await propose({ kind: 'waiverClaim', add: KUEMPER, drop: GUSTAVSSON });
+    const team = h.store.yahooConnections.list()[0]?.teamKey ?? '';
+    h.yahoo.txs = [
+      {
+        transactionKey: `477.l.48535.w.c.6_5336_7163`,
+        type: 'waiver',
+        timestamp: '',
+        teamKey: team,
+        players: [
+          { playerKey: KUEMPER, toTeamKey: team },
+          { playerKey: GUSTAVSSON, fromTeamKey: team },
+        ],
+        status: 'pending',
+      },
+    ];
+    const result = DecisionActionResult.parse(await (await act(cookie, planId, 'done')).json());
+    expect(result.outcome).toBe('notConfirmed');
+    expect(result.message).toMatch(/Yahoo shows your claim filed/);
+    expect(result.message).toMatch(/processes when he clears waivers/);
+    expect(result.card.status).toBe('dry_run');
+  });
+
   it('a lineup Ben set is marked executed only once a fresh roster read shows it', async () => {
     const { cookie, propose } = await setup({ writer: false });
     // MacKinnon is at C in the recorded roster, so a fresh read confirms this lineup.

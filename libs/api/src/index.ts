@@ -194,7 +194,7 @@ export const ShadowReportView = z.object({
   rows: z.array(
     z.object({
       date: z.string(),
-      decision: z.enum(['lineup', 'autoGrab', 'protected', 'trades']),
+      decision: z.enum(['lineup', 'autoGrab', 'protected', 'trades', 'waivers']),
       activeLens: z.enum(['preseason', 'rest-of-season']),
       summary: z.string(),
       outcome: z.string().optional(),
@@ -237,6 +237,12 @@ export const LeagueStatus = z.object({
   refreshing: z.boolean(),
   /** Older than the 15-minute refresh age. */
   stale: z.boolean(),
+  /** When the latest rebuild failed (the pages then show the older snapshot); null when it did not. */
+  failedAt: z.string().nullable().default(null),
+  /** Why it failed, as an error code (`yahoo_unavailable`, `yahoo_reconnect_required`). */
+  failure: z.string().nullable().default(null),
+  /** The last NHL game date the stats (and so ROS values) include. */
+  statsThrough: z.string().nullable().default(null),
 });
 export type LeagueStatus = z.infer<typeof LeagueStatus>;
 
@@ -603,13 +609,18 @@ export const PlayerCategory = z.object({
   lowerIsBetter: z.boolean(),
 });
 export const PlayerFit = z.object({
-  /** In VORP units: positive when his strengths land where our roster is weak. Null: unvalued. */
+  /**
+   * In VORP units: positive when his strengths land where our needs are. Read from the
+   * rest-of-season lens (D-040), like VOLS and CWA; `lens` says when it fell back. Null: unvalued.
+   */
   fit: z.number().nullable(),
   /**
-   * adjustedVorp + fit: value steered towards our needs (the draft board's score with need 1).
-   * What "sort by fit" ranks by, so a poor player with a good profile does not top the list.
+   * Adjusted VOLS + fit on the same lens: value steered towards our needs. What "sort by fit"
+   * ranks by, so a poor player with a good profile does not top the list.
    */
   score: z.number().nullable(),
+  /** The values fit was read from: rest of season, or preseason when that lens was unavailable. */
+  lens: z.enum(['rest-of-season', 'preseason']),
   /** The need weights `fit` was computed with (1 is neutral), by category. */
   weights: z.record(z.string(), z.number()),
   /** Our target categories (see CategoryStrength.targets). */
@@ -632,6 +643,8 @@ export const ValueNowView = z.object({
   vofaPosition: z.string().nullable(),
   vofaAgainst: RefName.nullable(),
   cwa: z.number().nullable(),
+  /** Δ P(win a typical week) against the field (D-034); 0..1 scale. */
+  dWin: z.number().nullable().optional(),
   cwaByCategory: z.record(z.string(), z.number()),
   cwaSwap: RefName.nullable(),
   weekCwa: z.number().nullable(),
@@ -756,6 +769,7 @@ export const PlayerListRow = z.object({
       vols: z.number(),
       vofa: z.number(),
       cwa: z.number().nullable(),
+      dWin: z.number().nullable().optional(),
       weekCwa: z.number().nullable(),
       delta7d: z.number().nullable(),
       luck: z.enum(['lucky', 'unlucky', 'normal', 'too small a sample']).nullable(),
@@ -780,10 +794,10 @@ export const PlayerList = z.object({
     .optional(),
 });
 export type PlayerList = z.infer<typeof PlayerList>;
-// GET /api/players?status=FA|W|ours|all&position=C&sort=fit|value|cwa|vofa|ros|cat:<CAT>&q=&limit=50
+// GET /api/players?status=FA|W|ours|all&position=C&sort=fit|value|cwa|win|vofa|ros|cat:<CAT>&q=&limit=50
 //     → PlayerList. Defaults: status=FA, sort=fit, limit=50 (max 200). `fit` sorts by score
 //     (adjustedVorp + fit), `value` by adjustedVorp (preseason), `cwa`/`vofa`/`ros` by the
-//     rest-of-season CWA, VOFA and VOLS (D-026), `cat:X` by z in X.
+//     rest-of-season CWA, VOFA and VOLS (D-026), `win` by ΔWin% (D-034), `cat:X` by z in X.
 
 export const CategoryStrengthRow = z.object({
   cat: z.string(),
@@ -814,6 +828,46 @@ export const CategoryStrength = z.object({
 });
 export type CategoryStrength = z.infer<typeof CategoryStrength>;
 // GET /api/team/categories → CategoryStrength
+
+/** One version of the season strategy (D-034): the plan every agent run and chat starts from. */
+export const SeasonStrategyVersion = z.object({
+  id: z.number(),
+  createdAt: z.string(),
+  author: z.string(),
+  stance: z.enum(['contend', 'hold', 'sell']),
+  targets: z.array(z.string()),
+  surplus: z.array(z.string()),
+  punts: z.array(z.string()),
+  principles: z.array(z.string()),
+  rationale: z.string(),
+  reviewBy: z.string().nullable(),
+  /** What differs from the version before it, e.g. "targets was SOG, A"; empty for the first. */
+  changes: z.array(z.string()),
+});
+export const StrategyAuditRow = z.object({
+  cat: z.string(),
+  /** Mean P(win this category) against the league field. */
+  pField: z.number(),
+  /** ΔP(win a week) weight, averaging 1 across categories. */
+  weight: z.number(),
+  stance: z.enum(['saturated', 'contested', 'lost']),
+});
+export const StrategyView = z.object({
+  /** Newest first; empty until an agent (or chat) records one. */
+  versions: z.array(SeasonStrategyVersion),
+  /** Code's audit of the season, recomputed now; null when it cannot be built (P9). */
+  audit: z
+    .object({
+      pWinWeek: z.number(),
+      expectedCats: z.number(),
+      categories: z.array(StrategyAuditRow),
+    })
+    .nullable(),
+  /** What waivers and trades rank by: the old measure, or P(win the week). */
+  objective: z.enum(['legacy', 'winWeek']),
+});
+export type StrategyView = z.infer<typeof StrategyView>;
+// GET /api/strategy → StrategyView (the last 10 versions)
 
 /** The players a decision names, resolved against the league index, so the card can link them. */
 export const DecisionPlayers = z.object({ players: z.array(PlayerRef) });

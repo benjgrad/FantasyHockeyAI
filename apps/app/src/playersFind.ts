@@ -28,6 +28,7 @@ export async function findOutsidePool(
   userId: string,
   view: LeagueView,
   q: ListQuery,
+  where = 'on the Players page',
 ): Promise<FindResult> {
   const name = q.q;
   if (name === undefined || name.length < MIN_QUERY || q.status === 'ours') {
@@ -57,7 +58,7 @@ export async function findOutsidePool(
       nhlTeam: h.player.nhlTeam,
     }));
   if (found.length === 0) return { found, notes: [] };
-  pin(s, userId, found, name);
+  pin(s, userId, found, name, where);
   return {
     found,
     notes: [
@@ -68,7 +69,13 @@ export async function findOutsidePool(
 }
 
 /** Follow them so the rebuild reads them, without overwriting an agent's own entry. */
-function pin(s: Services, userId: string, found: readonly Found[], name: string): void {
+function pin(
+  s: Services,
+  userId: string,
+  found: readonly Found[],
+  name: string,
+  where: string,
+): void {
   const now = s.now();
   const followed = new Set(
     s.store.watchList.active(userId, now.toISOString()).map((e) => e.playerKey),
@@ -79,7 +86,7 @@ function pin(s: Services, userId: string, found: readonly Found[], name: string)
     s.store.watchList.add({
       userId,
       playerKey: f.playerKey,
-      reason: `Searched for "${name}" on the Players page`,
+      reason: `Searched for "${name}" ${where}`,
       addedBy: 'search',
       expiresAt,
     });

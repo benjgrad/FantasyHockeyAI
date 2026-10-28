@@ -2,10 +2,10 @@ import { z } from 'zod';
 import type { Store } from '@fha/store';
 import { goalieMinimum } from '../goalieStarts.js';
 import type { LeagueView } from '../view.js';
-import { categoryValue } from '@fha/model';
+import { categoryValue, marginalWeights, starterCounts, strategyAudit } from '@fha/model';
 import { defineTool, fail, ok } from '../context.js';
 import { fmt, scoringCategories, table } from '../derive.js';
-import { currentMatchup, opponentIsDerived } from '../modelInputs.js';
+import { currentMatchup, currentSides, opponentIsDerived } from '../modelInputs.js';
 
 /** getMatchup (§12.6): this week's category projection against the opponent. */
 
@@ -22,7 +22,7 @@ function goalieMinimumLine(view: LeagueView, store: Store): string[] {
 export const getMatchup = defineTool({
   name: 'getMatchup',
   description:
-"This week's head-to-head matchup: each category's actual score so far from Yahoo's scoreboard (when read), the projected final score (actual plus the projected games not yet started), our probability of winning it, expected categories won, and the suggested weight per category.",
+"This week's head-to-head matchup: each category's actual score so far from Yahoo's scoreboard (when read), the projected final score (actual plus the projected games not yet started), our probability of winning it, expected categories won, P(win the week), and the suggested weight per category (its marginal value to P(win the week)).",
   input: z.object({ week: z.number().int().positive().optional() }),
   risk: 'read',
   execute: (input, ctx) => {
@@ -36,6 +36,13 @@ export const getMatchup = defineTool({
     if (m === undefined) return Promise.resolve(fail('No opponent is known. Call abstain.', false));
     const cats = scoringCategories(ctx.settings);
     const banked = m.banked;
+    // D-034: the suggested weight is each category's marginal ΔP(win the week), averaging 1.
+    const sides = currentSides(view);
+    const audit =
+      sides === undefined
+        ? undefined
+        : strategyAudit(sides.us, [sides.them], cats, starterCounts(ctx.settings));
+    const weights = audit === undefined ? m.plan.weights : marginalWeights(audit);
     const rows = cats.map((c) => ({
       category: c,
       ...(banked === undefined
@@ -45,7 +52,7 @@ export const getMatchup = defineTool({
       them: categoryValue(m.them, c),
       pWin: m.plan.probabilities[c] ?? 0.5,
       decided: (m.plan.probabilities[c] ?? 0.5) >= 0.995 || (m.plan.probabilities[c] ?? 0.5) <= 0.005,
-      suggestedWeight: m.plan.weights[c] ?? 1,
+      suggestedWeight: weights[c] ?? 1,
     }));
     const digits = (c: string) => (c === 'SV%' ? 3 : c === 'GAA' ? 2 : 1);
     const derived = opponentIsDerived(view);
@@ -81,7 +88,8 @@ export const getMatchup = defineTool({
               fmt(r.suggestedWeight, 1),
             ]),
           ),
-      `Expected categories won: ${fmt(m.plan.expectedWon)} of ${cats.length}.`,
+      `Expected categories won: ${fmt(m.plan.expectedWon)} of ${cats.length}.${audit === undefined ? '' : ` P(win the week): ${fmt(audit.pWinWeek)}.`}`,
+      "weight: what one starter's worth more of the category does for P(win the week), averaging 1 (D-034). Near 0 = decided either way; highest = the pivotal coin flips.",
       ...goalieMinimumLine(view, ctx.store),
     ].join('\n');
     return Promise.resolve(
@@ -95,6 +103,7 @@ export const getMatchup = defineTool({
           bankedAsOf: banked?.asOf ?? null,
           categories: rows,
           expectedWon: m.plan.expectedWon,
+          pWinWeek: audit?.pWinWeek ?? null,
         },
         summary,
       ),

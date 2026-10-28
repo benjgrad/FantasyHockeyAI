@@ -1,6 +1,6 @@
 import { YahooAuthError } from '@fha/yahoo';
 import type { Services } from '../services.js';
-import { rotationSaver, storedCredentials } from '../yahoo.js';
+import { expiryReason, rotationSaver, storedCredentials } from '../yahoo.js';
 import { errText } from './jobs.js';
 
 /**
@@ -48,13 +48,10 @@ export async function keepalive(s: Services, userId: string): Promise<KeepaliveO
     await s.yahoo.checkSite(session, conn.leagueKey, conn.teamKey, rotationSaver(deps, userId));
   } catch (err) {
     if (err instanceof YahooAuthError) {
-      s.store.yahooConnections.markStatus(
-        userId,
-        'expired',
-        'Yahoo website session expired or signed out',
-        'site',
+      s.store.yahooConnections.markStatus(userId, 'expired', expiryReason(err, 'site'), 'site');
+      s.log(
+        `daemon: keepalive for ${userId} → the website refused the session${err.reason === 'consent' ? ' (consent page)' : ''}`,
       );
-      s.log(`daemon: keepalive for ${userId} → the website refused the session`);
       return 'expired';
     }
     s.log(`daemon: keepalive for ${userId} → Yahoo unreachable (${errText(err)}); will retry`);

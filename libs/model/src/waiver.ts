@@ -19,6 +19,17 @@ import { unfilledStartingSlots } from './draft.js';
 /** §18.3 default, in VORP units. */
 export const DEFAULT_ADD_THRESHOLD = 0.5;
 /**
+ * The add floor on the objective (D-034): one point of P(win a typical week), the trade
+ * search's bar too. Scaled by add scarcity like the Adj. bar. [U] U-37.
+ */
+export const DEFAULT_MIN_ADD_WIN_GAIN = 0.01;
+/**
+ * Adds scored on the objective at most, the best by the reweighted proxy first; each is scored
+ * against every legal drop. Shortlisting pairs instead cut the pair the objective wanted before
+ * it was scored (Ovechkin for Coleman, 2026-10-23), because the proxy ranks by season gain.
+ */
+export const WIN_ADDS = 30;
+/**
  * Share of team games a goalie is assumed to start when no start share is supplied [U].
  * Deliberately a coin flip: it neither inflates nor zeroes a goalie stream.
  */
@@ -53,6 +64,21 @@ export interface WaiverInput {
   openReserveSlots?: readonly string[];
   /** Team games left in the season, the horizon for rest-of-season value. Default 82. */
   seasonGamesRemaining?: number;
+  /**
+   * Judge upgrades and IR stashes on ΔP(win a typical week) instead of Adj. (D-034). Streams
+   * keep the Adj. bar: the season view scores a one-week stream at about 0 (U-36).
+   */
+  winObjective?: WinObjective;
+}
+
+export interface WinObjective {
+  /** ΔP(win a typical week) of each pair on today's roster, in the order given. */
+  delta: (pairs: readonly { add: number; drop: number | null }[]) => readonly number[];
+  /** Floor in P(win) before scarcity; default `DEFAULT_MIN_ADD_WIN_GAIN`. */
+  minGain?: number;
+  /** Category weights for choosing which adds to score (the season's marginal weights). */
+  weights?: CategoryWeights;
+  maxAdds?: number;
 }
 
 export interface WaiverMove {
@@ -69,11 +95,15 @@ export interface WaiverMove {
   /** This week's weighted production of the add minus the drop's. */
   streamGain: number;
   reasons: string[];
+  /** ΔP(win a typical week), when the move was scored on the objective (D-034). */
+  dWin?: number;
 }
 
 export interface WaiverResult {
   /** The gain a move must exceed to be worth one of the remaining adds. */
   requiredGain: number;
+  /** With `winObjective`: the ΔP(win a week) an upgrade or stash must exceed. */
+  requiredWinGain?: number;
   /** Recommended moves, best first, using each add and each drop at most once. */
   moves: WaiverMove[];
   /** The best move that did not clear the bar, so "nothing worth it" can say by how much. */
@@ -94,11 +124,23 @@ export function requiredAddGain(input: {
   daysRemaining: number;
   addThreshold?: number;
 }): number {
-  const floor = input.addThreshold ?? DEFAULT_ADD_THRESHOLD;
+  return (input.addThreshold ?? DEFAULT_ADD_THRESHOLD) * addScarcity(input);
+}
+
+/** The bar's multiplier, `max(1, (n/r)·(d/7))`; infinite with no adds left. */
+export function addScarcity(input: {
+  addsRemaining: number;
+  addsPerWeek: number;
+  daysRemaining: number;
+}): number {
   if (input.addsRemaining <= 0) return Number.POSITIVE_INFINITY;
   const days = Math.min(DAYS_PER_WEEK, Math.max(0, input.daysRemaining));
-  const scarcity = (input.addsPerWeek / input.addsRemaining) * (days / DAYS_PER_WEEK);
-  return floor * Math.max(1, scarcity);
+  return Math.max(1, (input.addsPerWeek / input.addsRemaining) * (days / DAYS_PER_WEEK));
+}
+
+/** The ΔP(win a week) an upgrade must exceed (D-034): the floor times the same scarcity. */
+export function requiredWinGain(input: WaiverInput): number {
+  return (input.winObjective?.minGain ?? DEFAULT_MIN_ADD_WIN_GAIN) * addScarcity(input);
 }
 
 function weightedPerGame(v: Valuation, weights: CategoryWeights | undefined): number {
@@ -223,16 +265,33 @@ export function scoreIrStash(add: Valuation, input: WaiverInput): WaiverMove | u
   };
 }
 
-function rejection(m: WaiverMove, input: WaiverInput, requiredGain: number): WaiverMove {
+const pts = (x: number): string => `${x >= 0 ? '+' : '−'}${Math.abs(x * 100).toFixed(1)} pts`;
+
+/** Whether a move clears its bar, and the reason line either way. */
+interface Bar {
+  clears: (m: WaiverMove) => boolean;
+  text: (m: WaiverMove, cleared: boolean) => string;
+}
+
+function adjBar(required: number): Bar {
+  return {
+    clears: (m) => m.gain > required,
+    text: (m, cleared) =>
+      cleared
+        ? `Clears the ${required.toFixed(2)} bar for an add.`
+        : `Gain ${m.gain.toFixed(2)} does not clear the ${required.toFixed(2)} bar for an add.`,
+  };
+}
+
+function rejection(m: WaiverMove, input: WaiverInput, bar: Bar): WaiverMove {
   const why =
     input.addsRemaining <= 0
       ? 'No adds left this week.'
-      : m.gain > requiredGain
+      : bar.clears(m)
         ? 'Every remaining add is already committed to a better move.'
-        : `Gain ${m.gain.toFixed(2)} does not clear the ${requiredGain.toFixed(2)} bar for an add.`;
+        : bar.text(m, false);
   return { ...m, reasons: [...m.reasons, why] };
 }
-
 /** Every candidate move: each add/drop pair, plus an IR stash for each injured free agent. */
 function candidateMoves(input: WaiverInput): WaiverMove[] {
   const onRoster = new Set(input.roster.map((r) => r.nhlId));
@@ -244,6 +303,8 @@ function candidateMoves(input: WaiverInput): WaiverMove[] {
     if (onRoster.has(add.nhlId)) continue;
     const stash = scoreIrStash(add, input);
     if (stash) scored.push(stash);
+    // A player who is out now would hold an active spot until he is back: only a stash.
+    if (input.availability?.[add.nhlId]?.playProb === 0) continue;
     for (const drop of drops) scored.push(scoreWaiverPair(add, drop, input));
   }
   return scored.sort((a, b) => b.gain - a.gain || a.add - b.add || (a.drop ?? -1) - (b.drop ?? -1));
@@ -253,9 +314,86 @@ function candidateMoves(input: WaiverInput): WaiverMove[] {
  * §12.8: rank add/drop pairs and IR stashes, and recommend those worth a scarce add. Pure and
  * deterministic. Moves are chosen greedily best-first, each add, each drop and each open
  * reserve seat used once, up to the adds left.
+ *
+ * With `winObjective` (D-034), upgrades and stashes are scored on ΔP(win a typical week) and
+ * must clear `requiredWinGain`, best first; streams follow, on the Adj. bar as before.
  */
 export function scoreWaivers(input: WaiverInput): WaiverResult {
   const requiredGain = requiredAddGain(input);
+  const adj = adjBar(requiredGain);
+  if (input.winObjective === undefined) {
+    return { requiredGain, ...choose(candidateMoves(input), input, () => adj) };
+  }
+  const winGain = requiredWinGain(input);
+  const win: Bar = {
+    clears: (m) => (m.dWin ?? 0) > winGain,
+    text: (m, cleared) =>
+      `ΔP(win a week) ${pts(m.dWin ?? 0)} ${cleared ? 'clears' : 'does not clear'} the ${pts(winGain)} bar for an add.`,
+  };
+  const all = candidateMoves(input);
+  const upgrades = winScored(all, input, input.winObjective);
+  const streams = all.filter((m) => m.kind === 'stream' && adj.clears(m));
+  const ordered = [...upgrades, ...streams];
+  const bars = new Set(upgrades);
+  return {
+    requiredGain,
+    requiredWinGain: winGain,
+    ...choose(ordered, input, (m) => (bars.has(m) ? win : adj)),
+  };
+}
+
+/**
+ * Upgrades and stashes on the objective, best ΔP(win) first. Scoring every free agent is too
+ * slow, so the `maxAdds` best adds by a cheap proxy are scored, each against every legal drop:
+ * the proxy is the add's season worth with each category's z reweighted by the marginal
+ * weights, so an add who only pads a saturated category ranks low. The drop is the objective's
+ * choice, never the proxy's.
+ */
+function winScored(all: readonly WaiverMove[], input: WaiverInput, o: WinObjective): WaiverMove[] {
+  const byId = new Map([...input.roster, ...input.candidates].map((v) => [v.nhlId, v]));
+  const tilt = (id: number | null): number => {
+    const v = id === null ? undefined : byId.get(id);
+    if (v === undefined || o.weights === undefined) return 0;
+    const share = seasonShare(v, input);
+    return (
+      Object.entries(v.z).reduce((a, [c, z]) => a + ((o.weights?.[c] ?? 1) - 1) * z, 0) * share
+    );
+  };
+  const best = new Map<number, number>();
+  for (const m of all) {
+    const p = m.rosGain + tilt(m.add) - tilt(m.drop);
+    best.set(m.add, Math.max(best.get(m.add) ?? Number.NEGATIVE_INFINITY, p));
+  }
+  const adds = new Set(
+    [...best.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+      .slice(0, o.maxAdds ?? WIN_ADDS)
+      .map(([id]) => id),
+  );
+  const picked = all.filter((m) => adds.has(m.add));
+  const deltas = o.delta(picked.map((m) => ({ add: m.add, drop: m.drop })));
+  return picked
+    .map((m, i): WaiverMove => {
+      const dWin = deltas[i] ?? 0;
+      return {
+        ...m,
+        kind: m.kind === 'irStash' ? 'irStash' : 'upgrade',
+        gain: m.rosGain,
+        dWin,
+        reasons: [
+          ...m.reasons.filter((r) => !r.includes(' this week')),
+          `ΔP(win a typical week) ${pts(dWin)} (season gain ${fmt(m.rosGain)}).`,
+        ],
+      };
+    })
+    .sort((a, b) => (b.dWin ?? 0) - (a.dWin ?? 0) || b.gain - a.gain);
+}
+
+function choose(
+  ordered: readonly WaiverMove[],
+  input: WaiverInput,
+  barFor: (m: WaiverMove) => Bar,
+): { moves: WaiverMove[]; bestRejected?: WaiverMove } {
   const moves: WaiverMove[] = [];
   const usedAdd = new Set<number>();
   const usedDrop = new Set<number>();
@@ -263,7 +401,7 @@ export function scoreWaivers(input: WaiverInput): WaiverResult {
   const byId = new Map(input.candidates.map((c) => [c.nhlId, c]));
   let current = [...input.roster];
   let bestRejected: WaiverMove | undefined;
-  for (const m of candidateMoves(input)) {
+  for (const m of ordered) {
     if (usedAdd.has(m.add) || (m.drop !== null && usedDrop.has(m.drop))) continue;
     const add = byId.get(m.add);
     if (!add) continue;
@@ -276,18 +414,16 @@ export function scoreWaivers(input: WaiverInput): WaiverResult {
       const holes = unfilledStartingSlots(current, input.settings).length;
       if (!drop || !keepsLineupLegal(current, add, drop, input.settings, holes)) continue;
     }
-    if (m.gain > requiredGain && moves.length < input.addsRemaining) {
+    const bar = barFor(m);
+    if (bar.clears(m) && moves.length < input.addsRemaining) {
       if (m.drop === null) reserve.splice(reserve.indexOf(m.reserveSlot ?? ''), 1);
       else current = [...current.filter((r) => r.nhlId !== m.drop), add];
-      moves.push({
-        ...m,
-        reasons: [...m.reasons, `Clears the ${requiredGain.toFixed(2)} bar for an add.`],
-      });
+      moves.push({ ...m, reasons: [...m.reasons, bar.text(m, true)] });
       usedAdd.add(m.add);
       if (m.drop !== null) usedDrop.add(m.drop);
     } else {
-      bestRejected ??= rejection(m, input, requiredGain);
+      bestRejected ??= rejection(m, input, bar);
     }
   }
-  return bestRejected ? { requiredGain, moves, bestRejected } : { requiredGain, moves };
+  return bestRejected ? { moves, bestRejected } : { moves };
 }

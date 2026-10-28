@@ -1,0 +1,182 @@
+{
+  "leagueKey": "477.l.48535",
+  "name": "Method Fantasy League",
+  "numTeams": 8,
+  "scoringType": "head",
+  "categories": [
+    {
+      "statId": 1,
+      "abbr": "G",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 2,
+      "abbr": "A",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 4,
+      "abbr": "+/-",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 5,
+      "abbr": "PIM",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 8,
+      "abbr": "PPP",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 11,
+      "abbr": "SHP",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 12,
+      "abbr": "GWG",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 14,
+      "abbr": "SOG",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 31,
+      "abbr": "HIT",
+      "positionType": "P",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 19,
+      "abbr": "W",
+      "positionType": "G",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    },
+    {
+      "statId": 22,
+      "abbr": "GA",
+      "positionType": "G",
+      "higherIsBetter": false,
+      "isDisplayOnly": true,
+      "kind": "count"
+    },
+    {
+      "statId": 23,
+      "abbr": "GAA",
+      "positionType": "G",
+      "higherIsBetter": false,
+      "isDisplayOnly": false,
+      "kind": "rate"
+    },
+    {
+      "statId": 25,
+      "abbr": "SV",
+      "positionType": "G",
+      "higherIsBetter": true,
+      "isDisplayOnly": true,
+      "kind": "count"
+    },
+    {
+      "statId": 24,
+      "abbr": "SA",
+      "positionType": "G",
+      "higherIsBetter": true,
+      "isDisplayOnly": true,
+      "kind": "count"
+    },
+    {
+      "statId": 26,
+      "abbr": "SV%",
+      "positionType": "G",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "rate"
+    },
+    {
+      "statId": 27,
+      "abbr": "SHO",
+      "positionType": "G",
+      "higherIsBetter": true,
+      "isDisplayOnly": false,
+      "kind": "count"
+    }
+  ],
+  "rosterSlots": [
+    {
+      "position": "C",
+      "count": 2,
+      "isStarting": true
+    },
+    {
+      "position": "LW",
+      "count": 2,
+      "isStarting": true
+    },
+    {
+      "position": "RW",
+      "count": 2,
+      "isStarting": true
+    },
+    {
+      "position": "D",
+      "count": 4,
+      "isStarting": true
+    },
+    {
+      "position": "Util",
+      "count": 1,
+      "isStarting": true
+    },
+    {
+      "position": "G",
+      "count": 2,
+      "isStarting": true
+    },
+    {
+      "position": "BN",
+      "count": 4,
+      "isStarting": false
+    },
+    {
+      "position": "IR",
+      "count": 2,
+      "isStarting": false
+    }
+  ],
+  "usesFaab": false,
+  "draftStatus": "postdraft",
+  "source": "browser",
+  "waiverType": "R"
+}

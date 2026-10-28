@@ -4,11 +4,12 @@ import { YahooAuthError } from '@fha/yahoo';
 import { HttpError } from '../http.js';
 import type { Services } from '../services.js';
 import { userPermissions } from '../permissions.js';
-import { yahooFailure } from '../yahoo.js';
+import { CONSENT_REASON, yahooFailure } from '../yahoo.js';
 import { sweepAutoApprovals, type SweepResult } from './autoApprove.js';
 import { runAutoGrab } from './autoGrab.js';
 import { worthGrabbing } from './grabInputs.js';
 import { errText, executeJob, type JobOutcome } from './jobs.js';
+import { changedLeagues } from './pulls.js';
 import { keepalive, keepaliveDue } from './keepalive.js';
 import { acquireLock, type Lock } from './lock.js';
 import { SerialQueue } from './queue.js';
@@ -19,6 +20,7 @@ import {
   firstGameFor,
   nextSlot,
   nyDate,
+  pullSlots,
   slotsForDay,
   type DaemonJob,
   type Slot,
@@ -151,12 +153,15 @@ export class Daemon {
       .map((c) => c.userId);
   }
 
-  /** A user's slots for `date`, with the pre-game lineup from the cached schedule. */
+  /** A user's slots for `date`: the pre-game lineup from the cached schedule, and the pulls. */
   slotsFor(userId: string, date: string): Slot[] {
     const view = this.s.league.peek(userId)?.view;
     const teams = new Set(view?.roster().entries.map((e) => e.player.nhlTeam) ?? []);
     const first = view === undefined ? undefined : firstGameFor(view.snap.schedule, date, teams);
-    return slotsForDay(date, first);
+    // A pull at a job's own minute sorts first, so the job reads the fresh snapshot.
+    return [...pullSlots(date), ...slotsForDay(date, first)].sort(
+      (a, b) => a.at.getTime() - b.at.getTime(),
+    );
   }
 
   /** One scheduler pass: enqueue every slot that came due since the last pass. */
@@ -194,7 +199,8 @@ export class Daemon {
     this.s.log(`daemon: ${o.job} for ${userId} → ${o.status}: ${o.summary}`);
     if (o.status !== 'failed') return;
     if (isAuthFailure(o.error)) await this.onAuthFailure(userId, o.error);
-    else await this.notifyFailureOnce(userId, o.job, o.summary);
+    // A failed hourly pull is in `runs` and on the stale flag; the 06:00 refresh pushes (P9).
+    else if (o.job !== 'pull') await this.notifyFailureOnce(userId, o.job, o.summary);
   }
 
   /** Mark expired (if the failing layer did not) and push one reconnect notice per session. */
@@ -227,10 +233,13 @@ export class Daemon {
     if (this.s.store.kv.get(key) !== undefined) return;
     this.s.store.kv.set(key, this.now().toISOString());
     this.s.log(`daemon: Yahoo session expired for ${userId}; paused until reconnected`);
+    const consent = conn.lastError === CONSENT_REASON;
     await this.s.push.notify(userId, {
       kind: 'failed',
-      title: 'Reconnect Yahoo',
-      body: 'Your Yahoo session expired. Scheduled jobs and watchers are paused until you reconnect in Settings.',
+      title: consent ? 'Accept Yahoo’s consent page' : 'Reconnect Yahoo',
+      body: consent
+        ? 'Yahoo sends our lineup and roster changes to its consent page. Open Yahoo Fantasy in your browser, accept it, then reconnect in Settings. Jobs and watchers are paused until then.'
+        : 'Your Yahoo session expired. Scheduled jobs and watchers are paused until you reconnect in Settings.',
       url: '/settings',
     });
   }
@@ -353,6 +362,11 @@ export class Daemon {
       autoGrabWorth: (u, k) => this.autoGrabWorth(u, k),
     });
     this.lastActed = lastActed;
+    // A real change in the league is a stale snapshot: pull before the rules' jobs run (4a).
+    for (const u of changedLeagues(events)) {
+      this.s.league.invalidate(u.userId);
+      this.enqueue(u.userId, 'pull', `watcher: ${u.why}`);
+    }
     for (const d of decisions) {
       for (const a of d.actions) {
         if (a.type === 'push') await this.s.push.notify(d.event.userId, a.notice);

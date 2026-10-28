@@ -10,9 +10,10 @@ import { listNow } from './playerValueNow.js';
  * The free-agent browser: a compact, filterable list over the league index.
  *
  * Default sort is fit to our needs, the draft board's lesson: raw value picks the best player,
- * fit picks the one who wins us categories. `value` sorts by VORP net of expected time out, so
- * an injured free agent does not top the list on a season he will not play. `cat:<CAT>` sorts
- * by z in one category, already oriented so higher is better (GAA included).
+ * fit picks the one who wins us categories. `value` sorts by preseason VORP net of expected time
+ * out, so an injured free agent does not top the list on a season he will not play. `cat:<CAT>`
+ * sorts by z in one category, already oriented so higher is better (GAA included). Fit, its
+ * score, the key categories and `cat:<CAT>` read the rest-of-season lens (D-040).
  */
 export type ListStatus = PlayerList['status'];
 export interface ListQuery {
@@ -26,8 +27,8 @@ export interface ListQuery {
 export const DEFAULT_LIMIT = 50;
 export const MAX_LIMIT = 200;
 const STATUSES: readonly ListStatus[] = ['FA', 'W', 'ours', 'all'];
-/** fit and value are preseason-lens sorts; cwa, vofa and ros the rest-of-season ones (D-026). */
-const NAMED_SORTS: readonly string[] = ['fit', 'value', 'cwa', 'vofa', 'ros'];
+/** value is the one preseason-lens sort; fit, cwa, win, vofa, ros and cat:<CAT> are rest of season (D-026, D-034, D-040). */
+const NAMED_SORTS: readonly string[] = ['fit', 'value', 'cwa', 'win', 'vofa', 'ros'];
 
 function bad(message: string): HttpError {
   return new HttpError(400, 'invalid_request', message);
@@ -88,7 +89,7 @@ function rowFor(
   const a = availabilityOf(c.view, p);
   const adjusted = adjustedVorpOf(c.view, p);
   const fit = fitOf(c, p);
-  const zs = Object.entries(v?.z ?? {})
+  const zs = Object.entries(c.strength.lens.view.valuation(p.playerKey)?.z ?? {})
     .map(([cat, z]) => ({ cat, z: Math.round(z * 100) / 100 }))
     .sort((x, y) => y.z - x.z);
   const keyCats = zs.slice(0, 3);
@@ -118,9 +119,10 @@ function keyOf(row: PlayerListRow, c: CardContext, sort: string): number | null 
   if (sort === 'fit') return row.score;
   if (sort === 'value') return row.adjustedVorp;
   if (sort === 'cwa') return row.now?.cwa ?? null;
+  if (sort === 'win') return row.now?.dWin ?? null;
   if (sort === 'vofa') return row.now?.vofa ?? null;
   if (sort === 'ros') return row.now?.vols ?? null;
-  return c.view.valuation(row.playerKey)?.z[sort.slice(4)] ?? null;
+  return c.strength.lens.view.valuation(row.playerKey)?.z[sort.slice(4)] ?? null;
 }
 
 export function listPlayers(c: CardContext, q: ListQuery): PlayerList {

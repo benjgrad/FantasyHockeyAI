@@ -1,4 +1,4 @@
-import { findTradeTargets, type TradeCandidate } from '@fha/model';
+import { findTradeTargets, type TradeCandidate, type TradeObjective } from '@fha/model';
 import { scoringCategories } from './derive.js';
 import { SEASON_WEEKS, modelInputs, seasonHorizonGames, weeksRemaining } from './modelInputs.js';
 import type { LeagueView } from './view.js';
@@ -14,6 +14,7 @@ export function searchTrades(
   only: readonly string[],
   maxPerSide: 1 | 2,
   minTradeGain?: number,
+  objective: TradeObjective = 'expectedCats',
 ): TradeCandidate[] {
   const m = modelInputs(view);
   const partners = Object.fromEntries(
@@ -34,6 +35,7 @@ export function searchTrades(
     only,
     maxPerSide,
     top: Number.MAX_SAFE_INTEGER,
+    objective,
     ...(minTradeGain === undefined ? {} : { minTradeGain }),
   });
 }

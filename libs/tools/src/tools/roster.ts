@@ -14,7 +14,9 @@ import {
 import { solveOurLineup } from '../lineupSolve.js';
 import { lensesFor } from '../lensSwitch.js';
 import { goalieStartsFor } from '../goalieStarts.js';
-import { coveredText, lineupCoveredBy } from '../openDecisions.js';
+import { pendingClaimLines } from '../claims.js';
+import { asOfLine } from '../freshness.js';
+import { coveredText, lineupCoveredBy, openDecisions } from '../openDecisions.js';
 import { valueNowFor } from './value.js';
 
 /** Read tools over our own roster: who is where, who plays, and what the solver would do. */
@@ -55,8 +57,10 @@ export const getRoster = defineTool({
         label: label(player),
       };
     });
+    // Claims filed in Yahoo are not on the roster until they process: say so under it.
+    const claims = pendingClaimLines(ctx.view, openDecisions(ctx.store, ctx.now));
     const summary =
-      `Our roster on ${date}:\n` +
+      `Our roster on ${date}:\n${asOfLine(ctx.view)}\n` +
       table(
         ['playerKey', 'player', 'slot', 'status', 'availability', 'game', 'locked', 'perGame', 'VOFA', 'CWA'],
         rows.map((r) => [
@@ -71,7 +75,8 @@ export const getRoster = defineTool({
           fmt(r.vofa),
           fmt(r.cwa, 3),
         ]),
-      );
+      ) +
+      claims.map((l) => `\n${l}`).join('');
     return Promise.resolve(ok({ date, players: rows }, summary));
   },
 });

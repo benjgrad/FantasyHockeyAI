@@ -96,22 +96,37 @@ export function PlayerCardView({ card }: { card: PlayerCardT }) {
   );
 }
 
+/**
+ * Worth after expected time out, on the rest-of-season lens when the card has it (D-040); the
+ * preseason figures only where it does not, labelled so, and otherwise as a footnote.
+ */
 function ValueRow({ card }: { card: PlayerCardT }) {
   const v = card.value;
+  const now = card.now;
   return (
-    <div className="grid grid-cols-4 gap-1.5 text-sm">
-      <Stat label="VORP (pre)" value={v ? v.vorp.toFixed(2) : '—'} tip="vorp" />
-      <Stat label="pre, after injury" value={v ? v.adjustedVorp.toFixed(2) : '—'} tip="adjusted" />
-      <Stat
-        label="proj GP"
-        value={v ? v.gp.toFixed(0) : '—'}
-        hint="Rest-of-season games, net of time out"
-      />
-      <Stat
-        label="this week"
-        value={`${card.schedule.gamesThisWeek} gm`}
-        hint={card.schedule.gameToday ? `Today ${card.schedule.gameToday}` : 'No game today'}
-      />
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-3 gap-1.5 text-sm">
+        {now ? (
+          <Stat label="Adj. (rest of season)" value={now.adjusted.toFixed(2)} tip="adjusted" />
+        ) : (
+          <Stat label="Adj. (pre)" value={v ? v.adjustedVorp.toFixed(2) : '—'} tip="adjusted" />
+        )}
+        <Stat
+          label="proj GP"
+          value={v ? v.gp.toFixed(0) : '—'}
+          hint="Rest-of-season games, net of time out"
+        />
+        <Stat
+          label="this week"
+          value={`${card.schedule.gamesThisWeek} gm`}
+          hint={card.schedule.gameToday ? `Today ${card.schedule.gameToday}` : 'No game today'}
+        />
+      </div>
+      {now && v ? (
+        <div className="text-2xs text-mut">
+          Preseason: VORP {v.vorp.toFixed(2)}, {v.adjustedVorp.toFixed(2)} after injury
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -121,7 +136,8 @@ function FitLine({ card }: { card: PlayerCardT }) {
   return (
     <div className="rounded-lg bg-well px-2 py-1.5 text-sm">
       <span className="text-mut">
-        <StatTip k="fit">Fit to our needs</StatTip>{' '}
+        <StatTip k="fit">Fit to our needs</StatTip>
+        {card.fit.lens === 'preseason' ? ' (preseason values)' : ''}{' '}
       </span>
       <b className={fit === null ? '' : fit >= 0 ? 'text-good' : 'text-bad'}>{signed(fit)}</b>
       {score !== null ? <span className="text-mut"> · score {score.toFixed(2)}</span> : null}

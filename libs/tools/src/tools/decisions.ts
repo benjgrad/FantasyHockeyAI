@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineTool, fail, ok } from '../context.js';
-import { decisionLine, decisionState, openDecisions, recentlySettled } from '../openDecisions.js';
+import { decisionLine, openDecisions, recentlySettled, stateIn } from '../openDecisions.js';
 
 /**
  * Read what is already filed: open decisions and those settled in the last day, or one plan in
@@ -30,7 +30,7 @@ export const getDecisions = defineTool({
         decisionLine(view, store, d),
         `Full id: ${d.plan.planId}. Kind: ${d.kind}. Filed ${d.createdAt} by ${d.plan.agent}.`,
         `Rationale: ${d.rationale}`,
-        `State: ${decisionState(store, d)}.`,
+        `State: ${stateIn(view, store, d)}.`,
       ];
       return Promise.resolve(
         ok({ decisions: [{ planId: d.plan.planId, kind: d.kind, status: d.status, payload: d.plan.payload }] }, lines.join('\n')),

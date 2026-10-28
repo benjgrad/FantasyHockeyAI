@@ -13,6 +13,7 @@ import {
   NotificationPrefs,
   PermissionsView,
   ShadowReportView,
+  StrategyView,
   ActivityView,
   PlayerRef,
   PushOk,
@@ -31,6 +32,7 @@ const f: FetchLike = (input, init) => fetch(input, init);
 export type MeT = z.infer<typeof Me>;
 export type DecisionCardT = z.infer<typeof DecisionCard>;
 export type TeamViewT = z.infer<typeof TeamView>;
+export type StrategyViewT = z.infer<typeof StrategyView>;
 export type PlayerRefT = z.infer<typeof PlayerRef>;
 export type PermissionsViewT = z.infer<typeof PermissionsView>;
 export type NotificationPrefsT = z.infer<typeof NotificationPrefs>;
@@ -76,6 +78,7 @@ export const api = {
     requestJson(f, `/api/players/search?q=${encodeURIComponent(q)}`, PlayerSearch),
 
   team: () => requestJson(f, '/api/team', TeamView),
+  strategy: () => requestJson(f, '/api/strategy', StrategyView),
   leagueStatus: () => requestJson(f, '/api/league/status', LeagueStatus),
   refreshTeam: () => requestJson(f, '/api/team/refresh', TeamView, { method: 'POST' }),
 

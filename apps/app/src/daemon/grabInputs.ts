@@ -1,5 +1,6 @@
 import { weeklyAddCap, type Permissions } from '@fha/core';
 import {
+  clearsWhenHealthy,
   healthyGain,
   isOut,
   type OpportunityCandidate,
@@ -12,7 +13,11 @@ import {
   gateStateFor,
   lensesFor,
   modelInputs,
+  objectiveOf,
+  openReserveSeats,
+  pairWinDeltas,
   type LeagueView,
+  type Objective,
 } from '@fha/tools';
 
 /**
@@ -25,33 +30,24 @@ export type GrabBase = Omit<OpportunityInput, 'candidate'>;
 /** Injured free agents watched for their return, at most. */
 export const WATCHED_INJURED = 25;
 
-const RESERVE = ['IR', 'IR+', 'NA'];
 const DAY_MS = 86_400_000;
 
 function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / DAY_MS);
 }
 
-function openReserveSeats(view: LeagueView): string[] {
-  const used = new Map<string, number>();
-  for (const e of view.roster().entries) used.set(e.slot, (used.get(e.slot) ?? 0) + 1);
-  return view.settings.rosterSlots
-    .filter((s) => RESERVE.includes(s.position))
-    .flatMap((s) =>
-      Array.from({ length: Math.max(0, s.count - (used.get(s.position) ?? 0)) }, () => s.position),
-    );
-}
-
 /**
  * Everything but the candidate: our roster, the week, the caps and the no-drop lists. `values`
  * is the view whose valuations are used: the lens Ben chose for auto-grab (D-026), by default the
- * one `lensesFor` picks; `view` stays the base for rosters, the gate and the week.
+ * one `lensesFor` picks; `view` stays the base for rosters, the gate and the week. On the
+ * `winWeek` objective (D-034) the grab is judged on ΔP(win a typical week) on that lens.
  */
 export function grabBase(
   view: LeagueView,
   store: Store,
   perms: Permissions,
   values: LeagueView = grabValues(view, store, perms),
+  objective: Objective = objectiveOf(store),
 ): GrabBase {
   const m = modelInputs(values);
   const roster: OpportunityPlayer[] = [];
@@ -83,8 +79,19 @@ export function grabBase(
     protectedKeys: gateStateFor(view, store, perms).protectedKeys,
     ask: perms.players.ask,
     openReserveSlots: openReserveSeats(view),
+    ...(() => {
+      const priority = view.waiverPriority();
+      return priority === undefined
+        ? {}
+        : { waiverPriority: priority, numTeams: view.settings.numTeams };
+    })(),
+    ...(objective === 'winWeek'
+      ? { winObjective: { delta: (pairs, opts) => pairWinDeltas(values, pairs, opts) } }
+      : {}),
   };
 }
+
+const OBJECTIVES: readonly Objective[] = ['legacy', 'winWeek'];
 
 /** The view auto-grab values players on: the lens chosen in permissions (D-026). */
 export function grabValues(view: LeagueView, store: Store, perms: Permissions): LeagueView {
@@ -105,7 +112,10 @@ export function candidateFor(
   return { playerKey, valuation, status: player.status, ...ownership };
 }
 
-/** Pre-check on the cached view: healthy, would he clear the bar? */
+/**
+ * Pre-check on the cached view: healthy, would he clear the bar? On either objective, so the
+ * one in shadow still gets evaluated (and its disagreements recorded) before the switch.
+ */
 export function worthGrabbing(
   view: LeagueView,
   store: Store,
@@ -113,9 +123,12 @@ export function worthGrabbing(
   playerKey: string,
 ): boolean {
   if (!perms.autoGrab.enabled || view.ownerOf(playerKey) === view.teamKey) return false;
-  const candidate = candidateFor(grabValues(view, store, perms), playerKey);
+  const values = grabValues(view, store, perms);
+  const candidate = candidateFor(values, playerKey);
   if (candidate === undefined) return false;
-  return healthyGain({ ...grabBase(view, store, perms), candidate }) > perms.autoGrab.minGain;
+  return OBJECTIVES.some((o) =>
+    clearsWhenHealthy({ ...grabBase(view, store, perms, values, o), candidate }),
+  );
 }
 
 /**
@@ -125,14 +138,16 @@ export function worthGrabbing(
 export function injuredTargets(view: LeagueView, store: Store, perms: Permissions): string[] {
   if (!perms.autoGrab.enabled) return [];
   const values = grabValues(view, store, perms);
-  const base = grabBase(view, store, perms, values);
+  // Ranked on the Adj. gain, kept if either objective would grab him healthy (see worthGrabbing).
+  const [legacy, win] = OBJECTIVES.map((o) => grabBase(view, store, perms, values, o));
   return view.snap.players
     .filter((p) => view.isFreeAgent(p.playerKey) && isOut(p.status))
     .flatMap((p) => {
       const candidate = candidateFor(values, p.playerKey);
-      if (candidate === undefined) return [];
-      const gain = healthyGain({ ...base, candidate });
-      return gain > perms.autoGrab.minGain ? [{ key: p.playerKey, gain }] : [];
+      if (candidate === undefined || legacy === undefined || win === undefined) return [];
+      const a = { ...legacy, candidate };
+      const keep = clearsWhenHealthy(a) || clearsWhenHealthy({ ...win, candidate });
+      return keep ? [{ key: p.playerKey, gain: healthyGain(a) }] : [];
     })
     .sort((a, b) => b.gain - a.gain || a.key.localeCompare(b.key))
     .slice(0, WATCHED_INJURED)

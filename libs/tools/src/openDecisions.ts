@@ -1,5 +1,6 @@
 import { describePlan } from '@fha/pipeline';
 import type { DecisionRecord, Store } from '@fha/store';
+import { filedClaimState } from './claims.js';
 import { newYorkDate, newYorkDayStart } from './validationContext.js';
 import type { LeagueView } from './view.js';
 
@@ -72,8 +73,10 @@ export function decisionState(store: Store, d: DecisionRecord): string {
   switch (d.status) {
     case 'pending': {
       const at = store.approvals.get(d.plan.planId)?.autoApproveAt;
-      return at === undefined
-        ? "waiting for Ben's approval"
+      if (at === undefined) return "waiting for Ben's approval";
+      // A claim is never filed by us (U-22): the timeout approves it and hands it to Ben.
+      return d.plan.payload.kind === 'waiverClaim'
+        ? `waiting for Ben's approval; at ${clock(at)} ET, unless he rejects it, it is handed to Ben to file in Yahoo (we cannot file claims)`
         : `waiting for Ben's approval; goes ahead on its own at ${clock(at)} ET unless he rejects it`;
     }
     case 'approved':
@@ -98,10 +101,21 @@ export function decisionState(store: Store, d: DecisionRecord): string {
   }
 }
 
-/** One line: short id, the card's sentence (with names), and its state. */
+const OPEN_STATES: readonly string[] = ['pending', 'approved', 'dry_run', 'unverified'];
+
+/**
+ * One line: short id, the card's sentence (with names), and its state. An open claim whose
+ * Yahoo claim is already filed reads as filed (Phase 5), not as waiting on Ben.
+ */
 export function decisionLine(view: LeagueView, store: Store, d: DecisionRecord): string {
   const name = (k: string) => view.player(k)?.name ?? k;
-  return `${d.plan.planId.slice(0, 8)} · ${describePlan(d.plan, name)} · ${decisionState(store, d)}`;
+  return `${d.plan.planId.slice(0, 8)} · ${describePlan(d.plan, name)} · ${stateIn(view, store, d)}`;
+}
+
+/** {@link decisionState}, with what Yahoo shows: an open claim already filed there says so. */
+export function stateIn(view: LeagueView, store: Store, d: DecisionRecord): string {
+  const filed = OPEN_STATES.includes(d.status) ? filedClaimState(view, d.plan) : undefined;
+  return filed ?? decisionState(store, d);
 }
 
 /**

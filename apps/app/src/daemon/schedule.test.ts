@@ -38,12 +38,15 @@ describe('New York time', () => {
 });
 
 describe('season schedule (§14.2)', () => {
-  it('Monday: stats, refresh, matchup, league review, waivers, digest, two lineups', () => {
+  it('Monday: stats, re-seed, refresh, archive, matchup, league review, strategy, waivers, digest, two lineups', () => {
     expect(jobs('2026-10-05')).toEqual([
       'stats@09:30',
+      'reseed@09:45',
       'refresh@10:00',
+      'archive@10:10',
       'matchup@10:30',
       'leagueReview@11:00',
+      'strategy@11:15',
       'waivers@12:00',
       'digest@13:00',
       'lineup@14:00',
@@ -56,6 +59,7 @@ describe('season schedule (§14.2)', () => {
     expect(jobs('2026-10-08')).toContain('matchup@10:30');
     const tuesday = jobs('2026-10-06');
     expect(tuesday.some((j) => j.startsWith('trades') || j.startsWith('matchup'))).toBe(false);
+    expect(tuesday.some((j) => j.startsWith('reseed'))).toBe(false);
   });
 
   it('adds a lineup run 45 minutes before the first game', () => {

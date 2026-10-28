@@ -38,7 +38,7 @@ export interface YahooWebAdapterOptions {
   /** Today's roster date (New York). An add can land today or, once games lock, tomorrow. */
   today?: () => string;
   /** Called when Yahoo says the session is dead, so the connection can be marked expired. */
-  onAuthExpired?: () => void;
+  onAuthExpired?: (err: YahooAuthError) => void;
 }
 
 export class YahooWebAdapter implements ExecutionAdapter {
@@ -149,7 +149,7 @@ export class YahooWebAdapter implements ExecutionAdapter {
     }
     if (err instanceof NotObservedError) return this.byHand(plan, err.message);
     if (err instanceof YahooAuthError) {
-      this.o.onAuthExpired?.();
+      this.o.onAuthExpired?.(err);
       return { status: 'failed', detail: `${err.message} Nothing was sent.` };
     }
     // Everything else is thrown before the POST: nothing reached Yahoo.

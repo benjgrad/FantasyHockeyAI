@@ -45,6 +45,13 @@ export const AGENT_CONFIGS = {
     maxIterations: 6,
     maxTokens: 3_000,
   },
+  /** The weekly retro and season strategy (D-034): reads the audit, writes only the strategy. */
+  strategy: {
+    name: 'strategy',
+    promptId: 'strategy.system',
+    maxIterations: 8,
+    maxTokens: 3_000,
+  },
 } as const satisfies Record<string, ToolAgentConfig>;
 
 export type SeasonAgentName = keyof typeof AGENT_CONFIGS;

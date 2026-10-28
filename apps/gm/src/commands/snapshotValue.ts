@@ -19,6 +19,12 @@ import { buildPlayerMap } from '@fha/model';
 export interface Ranking {
   valuations: readonly Valuation[];
   projections: readonly Projection[];
+  /**
+   * Every projected NHL player, not only the mapped pool the valuations cover: the name join's
+   * candidates. A player joined outside the pool gets his NHL id and no value here; the app fills
+   * his value from his game logs (D-035). Absent, the join falls back to the valuations.
+   */
+  candidates?: readonly { nhlId: number; name: string; team: string; position: string }[];
 }
 
 export interface ValuedPlayers {
@@ -45,7 +51,7 @@ export function valueLivePlayers(
   }
 
   const taken = new Set(map.values());
-  const candidates = ranking.valuations
+  const candidates = (ranking.candidates ?? ranking.valuations)
     .filter((v) => !taken.has(v.nhlId))
     .map((v) => ({ nhlId: v.nhlId, name: v.name, team: v.team, position: v.position }));
   const joined = buildPlayerMap(

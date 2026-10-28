@@ -104,4 +104,34 @@ describe('league freshness', () => {
     await league.get(userId);
     expect(league.status(userId).stale).toBe(false);
   });
+
+  it('a failed rebuild serves the old snapshot marked stale, and says so until a read succeeds', async () => {
+    h = await startHarness();
+    const cookie = await connected(h);
+    const userId = h.store.yahooConnections.list()[0]?.userId ?? '';
+    const league = h.app.services.league;
+    const first = await league.get(userId);
+    expect(first.view.freshness.stale).toBeUndefined();
+    expect(first.view.freshness.builtAt).toBe(new Date(first.builtAt).toISOString());
+
+    h.clock.now = new Date(h.clock.now.getTime() + 60_000);
+    h.yahoo.down = true;
+    const served = await league.get(userId, { refresh: true });
+    expect(served.builtAt).toBe(first.builtAt);
+    expect(served.view.freshness.stale).toEqual({
+      failedAt: h.clock.now.toISOString(),
+      reason: 'yahoo_unavailable',
+    });
+    expect(league.lastFailure(userId)?.at).toBe(h.clock.now.toISOString());
+    expect(await status(cookie)).toMatchObject({
+      failedAt: h.clock.now.toISOString(),
+      failure: 'yahoo_unavailable',
+    });
+
+    h.yahoo.down = false;
+    const back = await league.get(userId, { refresh: true });
+    expect(back.view.freshness.stale).toBeUndefined();
+    expect(league.lastFailure(userId)).toBeUndefined();
+    expect((await status(cookie)).failedAt).toBeNull();
+  });
 });

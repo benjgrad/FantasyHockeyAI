@@ -7,6 +7,7 @@ import { getLeagueContext, getPlayers, getTeamRoster, searchPlayers } from './to
 import { getLeagueEvents } from './tools/leagueEvents.js';
 import { getLeagueComparison } from './tools/leagueCompare.js';
 import { getMatchup } from './tools/matchup.js';
+import { getMatchupHistory } from './tools/history.js';
 import { proposeAddDrop, proposeLineup, proposeWaiverClaim } from './tools/proposeRoster.js';
 import { proposeTrade, proposeTradeResponse } from './tools/proposeTrade.js';
 import { getLineupSuggestion, getRoster, getRosterHealth } from './tools/roster.js';
@@ -15,6 +16,7 @@ import { evaluateTrade, getPendingTrades } from './tools/trades.js';
 import { findPickups, getPlayerValue } from './tools/value.js';
 import { getWatchList, stopWatching, watchPlayers } from './tools/watch.js';
 import { findTradeTargets } from './tools/tradeTargets.js';
+import { getStrategy, getStrategyAudit, proposeStrategy } from './tools/strategy.js';
 
 /** Every tool, by name. Names are the contract the prompts are written against. */
 export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
@@ -30,6 +32,7 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     getGoalieStarts,
     getNews,
     getMatchup,
+    getMatchupHistory,
     getLeagueComparison,
     getLeagueEvents,
     getDecisions,
@@ -44,12 +47,15 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     getPendingTrades,
     evaluateTrade,
     findTradeTargets,
+    getStrategyAudit,
+    getStrategy,
     proposeLineup,
     proposeAddDrop,
     proposeWaiverClaim,
     proposeTrade,
     proposeTradeResponse,
     setCategoryWeights,
+    proposeStrategy,
     abstain,
     askBen,
   ].map((t) => [t.name, t as AnyTool]),
@@ -58,6 +64,8 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
 const CONTROL = ['abstain', 'askBen'];
 /** Every agent that can propose, or that reports on the league, sees what is already filed. */
 const FILED = 'getDecisions';
+/** The season strategy and its audit (D-034): every agent that weighs categories reads both. */
+const STRATEGY = ['getStrategy', 'getStrategyAudit'];
 
 /**
  * Allow-lists per agent (§13, plus the control tools every agent can end a run with). The GM
@@ -102,12 +110,14 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'stopWatching',
     'proposeAddDrop',
     'proposeWaiverClaim',
+    ...STRATEGY,
     FILED,
     ...CONTROL,
   ],
   matchup: [
     'getLeagueContext',
     'getMatchup',
+    'getMatchupHistory',
     'getGoalieStarts',
     'getForecast',
     'getPlayerForm',
@@ -115,6 +125,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'getSchedule',
     'getWatchList',
     'setCategoryWeights',
+    ...STRATEGY,
     FILED,
     ...CONTROL,
   ],
@@ -125,6 +136,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'getPlayers',
     'getPendingTrades',
     'getLeagueComparison',
+    'getMatchupHistory',
     'findTradeTargets',
     'evaluateTrade',
     'getPlayerValue',
@@ -136,6 +148,7 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'stopWatching',
     'proposeTrade',
     'proposeTradeResponse',
+    ...STRATEGY,
     FILED,
     ...CONTROL,
   ],
@@ -144,11 +157,28 @@ export const AGENT_TOOLS: Readonly<Record<AgentName, readonly string[]>> = {
     'getLeagueContext',
     'getLeagueEvents',
     'getMatchup',
+    'getMatchupHistory',
     'getRosterHealth',
     'getNews',
     'getPlayerForm',
     'getPlayerValue',
     'getWatchList',
+    ...STRATEGY,
+    FILED,
+    ...CONTROL,
+  ],
+  // The weekly retro and strategy job (D-034): reads everything, writes only the strategy.
+  strategy: [
+    'getLeagueContext',
+    'getMatchup',
+    'getMatchupHistory',
+    'getLeagueComparison',
+    'getLeagueEvents',
+    'getForecast',
+    'getPlayerValue',
+    'findTradeTargets',
+    'proposeStrategy',
+    ...STRATEGY,
     FILED,
     ...CONTROL,
   ],

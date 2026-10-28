@@ -13,6 +13,7 @@ import {
   targetsFor,
   type StrengthRow,
 } from './playersStrength.js';
+import { openStore } from '@fha/store';
 import { FIXTURE, START } from './testing.js';
 
 /** Cards, comparisons and category strength over the real scrubbed 2026-09-29 league. */
@@ -207,6 +208,50 @@ describe('category strength', () => {
     const full = base.valuation(jarvis.playerKey)?.z['SHP'] ?? 0;
     const share = seasonShare(base, jarvis);
     expect(shp(healthy) - shp(base)).toBeCloseTo(full * (1 - share), 1);
+  });
+
+  it("reads the rest-of-season lens with the store: a hot season lifts our rank's z (D-040)", () => {
+    const ours = base
+      .roster()
+      .entries.find((e) => e.player.positionType === 'P' && e.player.nhlId !== undefined)?.player;
+    if (ours?.nhlId === undefined) throw new Error('fixture needs a mapped skater of ours');
+    const store = openStore(':memory:');
+    store.nhlGames.upsert({
+      skaters: Array.from({ length: 9 }, (_, i) => ({
+        nhlId: ours.nhlId ?? 0,
+        gameId: 900 + i,
+        gameDate: `2026-10-0${i + 1}`,
+        season: '20262027',
+        name: ours.name,
+        position: 'C',
+        team: 'NJD',
+        opponent: 'PHI',
+        home: true,
+        g: 2,
+        a: 2,
+        pts: 4,
+        pm: 2,
+        pim: 2,
+        ppp: 2,
+        shp: 0,
+        gwg: 1,
+        sog: 9,
+        hit: 4,
+        blk: 1,
+        fow: 5,
+        toiS: 1300,
+      })),
+      goalies: [],
+    });
+    const later = edited((snap) => {
+      snap.date = '2026-10-10';
+    });
+    const sog = (st: ReturnType<typeof categoryStrength>) =>
+      st.categories.find((r) => r.cat === 'SOG')?.z ?? NaN;
+    const now = categoryStrength(later, store);
+    expect(now.lens.name).toBe('rest-of-season');
+    expect(sog(now)).toBeGreaterThan(sog(categoryStrength(edited(() => undefined))));
+    expect(categoryStrength(base).lens.name).toBe('preseason');
   });
 
   it('labels by league rank, saturated past the cap', () => {

@@ -12,6 +12,8 @@ export * from './repos/nhlGames.js';
 export * from './repos/valuationHistory.js';
 export * from './repos/lensShadow.js';
 export * from './repos/watchList.js';
+export * from './repos/seasonStrategy.js';
+export * from './repos/matchupArchive.js';
 export * from './repos/users.js';
 export * from './repos/yahoo.js';
 export * from './repos/permissions.js';

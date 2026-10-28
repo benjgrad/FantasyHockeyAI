@@ -32,7 +32,18 @@ export interface RunContext {
   log?: (event: ToolEvent) => void;
   /** A line for the user's Background activity chat (D-027/D-028), when the app records one. */
   activity?: (text: string) => void;
+  /**
+   * A live Yahoo name search for players outside the snapshot's pool (D-032), when the app
+   * provides one. Hits are followed so the next rebuild reads and values them; their keys are
+   * not in the view yet, so tools name them but never hand out their keys (P3).
+   */
+  searchYahoo?: (name: string) => Promise<YahooSearchResult>;
   state: RunState;
+}
+
+export interface YahooSearchResult {
+  found: { playerKey: string; name: string; nhlTeam: string }[];
+  notes: string[];
 }
 
 export interface ToolEvent {

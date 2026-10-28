@@ -7,6 +7,7 @@ import { Freshness, refreshLeagueQueries } from '../league/Freshness';
 import { TeamSwitch } from '../league/TeamSwitch';
 import { PlayerLink } from '../players/PlayerLink';
 import { StrengthCard } from '../players/StrengthCard';
+import { StrategyCard } from '../team/StrategyCard';
 import { StatTip } from '../components/StatTip';
 import { availabilityTone, groupRoster, type Group, type RosterRowT } from '../team/roster';
 import { fmtStat, shareOf } from '../team/week';
@@ -96,6 +97,7 @@ function TeamBody({ view }: { view: TeamView }) {
         ) : null,
       )}
       {view.categories.length > 0 ? <Categories view={view} /> : null}
+      <StrategyCard />
       <StrengthCard />
     </>
   );

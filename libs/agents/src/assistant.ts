@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ANSWER_STOPS, type AnyToolSpec, type LoopResult, type ToolResult } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
-import { decisionsBlock, newRunState, toolsFor, type RunContext } from '@fha/tools';
+import { decisionsBlock, newRunState, strategyBlock, toolsFor, type RunContext } from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { SPECIALIST_JOBS, type JobName, type JobResult } from './gm.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
@@ -32,7 +32,7 @@ export const ASSISTANT_MAX_TOKENS = 3_000;
 export const SPECIALIST_TIMEOUT_MS = 5 * 60_000;
 
 /** The agents whose tools the assistant borrows. */
-const BORROWED_FROM = ['lineup', 'waivers', 'trades', 'matchup'] as const;
+const BORROWED_FROM = ['lineup', 'waivers', 'trades', 'matchup', 'strategy'] as const;
 /**
  * How an *agent* ends a scheduled run, or a job a specialist owns. In a chat Ben is present, so
  * "abstain" and "ask Ben" mean nothing; the week's category weights belong to the matchup agent.
@@ -249,7 +249,10 @@ interface TurnState {
 async function loop(deps: AssistantDeps, turn: AssistantTurn, t: TurnState): Promise<LoopResult> {
   const permissions = deps.permissions();
   const system = renderPrompt(deps.prompts, ASSISTANT_PROMPT_ID, {
-    leagueContext: buildLeagueContext(deps.settings, permissions, deps.view, nyDate(deps.now)),
+    leagueContext: [
+      buildLeagueContext(deps.settings, permissions, deps.view, nyDate(deps.now)),
+      strategyBlock(deps.view, deps.store),
+    ].join('\n\n'),
   });
   const ctx: AssistantContext = {
     runId: t.runId,
@@ -263,6 +266,7 @@ async function loop(deps: AssistantDeps, turn: AssistantTurn, t: TurnState): Pro
     ...(deps.userId === undefined ? {} : { userId: deps.userId }),
     submit: deps.submit,
     ...(deps.log === undefined ? {} : { log: deps.log }),
+    ...(deps.searchYahoo === undefined ? {} : { searchYahoo: deps.searchYahoo }),
     ...(deps.activity === undefined ? {} : { activity: deps.activity }),
     state: t.state,
     emit: turn.emit,

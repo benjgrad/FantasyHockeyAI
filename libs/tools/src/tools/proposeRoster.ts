@@ -5,6 +5,7 @@ import { DATE_RE, dateProblem, nameKeys } from '../derive.js';
 import { solveOurLineup, type LineupOverride } from '../lineupSolve.js';
 import { lensesFor, recordShadow } from '../lensSwitch.js';
 import { goalieStartsFor } from '../goalieStarts.js';
+import { claimText } from '../claims.js';
 import { coveredText, lineupCoveredBy } from '../openDecisions.js';
 import { resolvePlayers } from '../resolve.js';
 import { rejectAttempt, submitProposal, type ProposalResult } from '../submit.js';
@@ -16,6 +17,13 @@ import { rejectAttempt, submitProposal, type ProposalResult } from '../submit.js
  */
 
 const Reason = z.string().min(1).describe('Why, citing the tool figures behind it.');
+
+/**
+ * What a claim is, said with every claim result (U-22): agents told Ben a claim "goes through
+ * after 60 minutes unless you reject it", but no claim is ever filed by us.
+ */
+const CLAIM_NOTE =
+  'About claims: we never file one. Once approved (by Ben, or by his timeout), it is handed to Ben, and Ben files it in Yahoo; it processes when he clears waivers. Say "proposed" or "handed to Ben", never "it goes through on its own".';
 
 export const proposeLineup = defineTool({
   name: 'proposeLineup',
@@ -108,7 +116,7 @@ export const proposeAddDrop = defineTool({
 export const proposeWaiverClaim = defineTool({
   name: 'proposeWaiverClaim',
   description:
-    'Propose a waiver claim on a player on waivers (status W), optionally dropping one of ours. Spends waiver priority. For free agents (status FA) use proposeAddDrop instead.',
+    'Propose a waiver claim on a player on waivers (status W), optionally dropping one of ours. We cannot file claims: once approved, the claim is handed to Ben to file in Yahoo, and it processes when the player clears waivers. A contested claim spends waiver priority. For free agents (status FA) use proposeAddDrop instead.',
   input: z.object({
     add: z.string().describe('playerKey of the player on waivers'),
     drop: z.string().optional().describe('playerKey of one of our players from getRoster'),
@@ -119,11 +127,19 @@ export const proposeWaiverClaim = defineTool({
     const keys = [input.add, input.drop].filter((k): k is string => k !== undefined);
     const r = resolvePlayers(ctx.view, keys);
     if (!r.ok) return rejectAttempt(ctx, 'waiverClaim', [r.error]);
-    return submitProposal(ctx, 'proposeWaiverClaim', input.reason, {
+    // Ben already filed a claim on him in Yahoo (the snapshot shows it pending): a second one
+    // is a duplicate whatever its drop, and no edit can fix that.
+    const filed = ctx.view.claimFiledFor(input.add);
+    if (filed !== undefined) {
+      const why = `A claim is already filed in Yahoo: ${claimText(ctx.view, filed)}. It processes when he clears waivers; there is nothing to propose.`;
+      return rejectAttempt(ctx, 'waiverClaim', [why], { terminal: true });
+    }
+    const res = await submitProposal(ctx, 'proposeWaiverClaim', input.reason, {
       kind: 'waiverClaim',
       add: input.add,
       ...(input.drop === undefined ? {} : { drop: input.drop }),
     });
+    return res.ok ? { ...res, summary: `${res.summary ?? ''} ${CLAIM_NOTE}` } : res;
   },
 });
 

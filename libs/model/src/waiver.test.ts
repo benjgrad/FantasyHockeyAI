@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { cat, league, slot } from './fixtures.js';
 import { availability } from './availability.js';
 import {
+  DEFAULT_MIN_ADD_WIN_GAIN,
   type WaiverInput,
   requiredAddGain,
+  requiredWinGain,
   scoreIrStash,
   scoreWaiverPair,
   scoreWaivers,
@@ -264,5 +266,144 @@ describe('scoreWaivers — availability (draft-night flaw 4)', () => {
     );
     expect(m.reasons.join(' ')).toContain('IR seat is open');
     expect(t.roster).toHaveLength(4);
+  });
+});
+
+describe('scoreWaivers — on the objective, ΔP(win a week) (D-034)', () => {
+  const winOn = (dWin: Record<number, number>): WaiverInput['winObjective'] => ({
+    delta: (pairs) => pairs.map((p) => dWin[p.add] ?? 0),
+  });
+
+  it('scales the win bar by add scarcity like the Adj. bar', () => {
+    const at = (addsRemaining: number) =>
+      requiredWinGain(base({ addsRemaining, winObjective: winOn({}) }));
+    expect(at(3)).toBeCloseTo(DEFAULT_MIN_ADD_WIN_GAIN, 12);
+    expect(at(1)).toBeCloseTo(3 * DEFAULT_MIN_ADD_WIN_GAIN, 12);
+  });
+
+  it('takes the shooter the Adj. bar hides and skips the grinder that pads a won category', () => {
+    const t = team();
+    // The grinder clears the Adj. bar by a mile but moves P(win) not at all; the shooter is
+    // under the Adj. bar but wins weeks.
+    const grinder = val('C', { vorp: 3, perGame: 0.2, team: 'IDLE' });
+    const shooter = val('C', { vorp: 1.2, perGame: 0.2, team: 'IDLE' });
+    const input = base({
+      roster: t.roster,
+      droppable: [t.benchC.nhlId],
+      candidates: [grinder, shooter],
+    });
+    expect(scoreWaivers(input).moves[0]?.add).toBe(grinder.nhlId);
+    const win = scoreWaivers({
+      ...input,
+      winObjective: winOn({ [grinder.nhlId]: 0, [shooter.nhlId]: 0.03 }),
+    });
+    expect(win.requiredWinGain).toBeCloseTo(0.01, 12);
+    expect(win.moves.map((m) => m.add)).toEqual([shooter.nhlId]);
+    expect(win.moves[0]?.dWin).toBeCloseTo(0.03, 12);
+    expect(win.moves[0]?.reasons.at(-1)).toMatch(/\+3\.0 pts clears the \+1\.0 pts bar/);
+  });
+
+  it('says by how much the best upgrade missed the win bar', () => {
+    const t = team();
+    const fa = val('C', { vorp: 3, perGame: 0.2, team: 'IDLE' });
+    const res = scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId],
+        candidates: [fa],
+        winObjective: winOn({ [fa.nhlId]: 0.004 }),
+      }),
+    );
+    expect(res.moves).toEqual([]);
+    expect(res.bestRejected?.reasons.at(-1)).toMatch(/\+0\.4 pts does not clear the \+1\.0 pts/);
+  });
+
+  it('keeps the Adj. bar for streams, which the season view scores at about 0', () => {
+    const t = team();
+    const stream = val('C', { vorp: 0.8, perGame: 0.5, team: 'BUSY' });
+    const res = scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId],
+        candidates: [stream],
+        winObjective: winOn({}),
+      }),
+    );
+    expect(res.moves.map((m) => [m.add, m.kind])).toEqual([[stream.nhlId, 'stream']]);
+  });
+
+  it('scores every drop for each shortlisted add, so the best pair is never cut early', () => {
+    // The Ovechkin case (2026-10-23): the add paired with the cheapest-Adj. drop ranks first by
+    // season gain, and the pair the objective prefers ranks low on it. Both must be scored.
+    const t = team();
+    const fa = val('C', { vorp: 1.2 });
+    const res = scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId, t.c.nhlId],
+        candidates: [fa],
+        winObjective: {
+          delta: (pairs) => pairs.map((p) => (p.drop === t.c.nhlId ? 0.05 : 0)),
+          maxAdds: 1,
+        },
+      }),
+    );
+    expect(res.moves[0]?.drop).toBe(t.c.nhlId);
+  });
+
+  it('scores only the best adds by the reweighted proxy', () => {
+    const t = team();
+    const hits = val('C', { vorp: 2, z: { G: 0, A: 4 } });
+    const goals = val('C', { vorp: 1.5, z: { G: 4, A: 0 } });
+    const seen: number[] = [];
+    scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId],
+        candidates: [hits, goals],
+        winObjective: {
+          delta: (pairs) => {
+            seen.push(...pairs.map((p) => p.add));
+            return pairs.map(() => 0);
+          },
+          weights: { G: 2, A: 0 },
+          maxAdds: 1,
+        },
+      }),
+    );
+    expect(seen).toEqual([goals.nhlId]);
+  });
+});
+
+describe('scoreWaivers — an injured add (the Shesterkin case, 2026-10-21)', () => {
+  const out = () => availability({ status: 'IR-LT', now: '2026-10-21', horizonGames: 70 });
+
+  it('never pairs an add who is out with a drop: he would hold an active spot for weeks', () => {
+    const t = team();
+    const hurt = val('G', { vorp: 6 });
+    const res = scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId],
+        candidates: [hurt],
+        availability: { [hurt.nhlId]: out() },
+      }),
+    );
+    expect(res.moves).toEqual([]);
+  });
+
+  it('still offers him as an IR stash when a reserve seat is open', () => {
+    const t = team();
+    const hurt = val('G', { vorp: 6 });
+    const res = scoreWaivers(
+      base({
+        roster: t.roster,
+        droppable: [t.benchC.nhlId],
+        candidates: [hurt],
+        availability: { [hurt.nhlId]: out() },
+        openReserveSlots: ['IR'],
+      }),
+    );
+    expect(res.moves.map((m) => m.kind)).toEqual(['irStash']);
   });
 });

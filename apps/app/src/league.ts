@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { LeagueSnapshot, type LeagueSettings } from '@fha/core';
 import type { ScheduleDay } from '@fha/nhl';
 import type { Store } from '@fha/store';
-import { LeagueView } from '@fha/tools';
+import { LeagueView, seasonOf } from '@fha/tools';
 import { HttpError } from './http.js';
 import { buildSnapshot } from './snapshot.js';
 import type { Valuate } from './valuations.js';
@@ -35,7 +35,9 @@ import {
  * snapshot and refreshes in the background. Agents and writes use `get`, which waits for fresh
  * data. A Yahoo auth failure marks
  * the connection expired and surfaces as 409 `yahoo_reconnect_required`; any other failure
- * serves the last snapshot if there is one (P9) and otherwise a 502.
+ * serves the last snapshot if there is one (P9) and otherwise a 502. A served fallback is marked
+ * stale on its view (`view.freshness.stale`), so every agent and tool says so, and the failure
+ * shows in `status` until a rebuild succeeds (4b).
  */
 export const MAX_AGE_MS = 15 * 60 * 1000;
 
@@ -47,6 +49,16 @@ export interface LeagueState {
   /** Epoch ms the snapshot was recorded. */
   builtAt: number;
   teamName: string | undefined;
+}
+
+/** `GET /api/league/status` (libs/api `LeagueStatus`). */
+export interface LeagueStatusInfo {
+  asOf: string | null;
+  refreshing: boolean;
+  stale: boolean;
+  failedAt: string | null;
+  failure: string | null;
+  statsThrough: string | null;
 }
 
 export interface LeagueDeps {
@@ -77,8 +89,15 @@ export class LeagueService {
    */
   private readonly dirty = new Map<string, number>();
   private serial = 0;
+  /** The latest failed rebuild per user, cleared by the next one that succeeds. */
+  private readonly failures = new Map<string, { at: string; reason: string }>();
 
   constructor(private readonly d: LeagueDeps) {}
+
+  /** When and why the latest rebuild failed, if the latest one did. */
+  lastFailure(userId: string): { at: string; reason: string } | undefined {
+    return this.failures.get(userId);
+  }
 
   /** The cached state without touching Yahoo, for display-only lookups (names, team name). */
   peek(userId: string): LeagueState | undefined {
@@ -107,13 +126,17 @@ export class LeagueService {
     return cached;
   }
 
-  /** How fresh the page's data is, and whether a rebuild is running. */
-  status(userId: string): { asOf: string | null; refreshing: boolean; stale: boolean } {
+  /** How fresh the page's data is, whether a rebuild is running, and whether the last failed. */
+  status(userId: string): LeagueStatusInfo {
     const cached = this.peek(userId);
+    const failed = this.failures.get(userId);
     return {
       asOf: cached === undefined ? null : new Date(cached.builtAt).toISOString(),
       refreshing: this.building.has(userId),
       stale: this.isStale(userId, cached),
+      failedAt: failed?.at ?? null,
+      failure: failed?.reason ?? null,
+      statsThrough: cached?.view.freshness.statsThrough ?? null,
     };
   }
 
@@ -187,16 +210,35 @@ export class LeagueService {
       const snapshot = LeagueSnapshot.parse(built.snapshot);
       this.d.store.yahooConnections.markStatus(userId, 'connected');
       this.save(userId, snapshot, built.settings);
-      const state = toState(snapshot, built.settings, now.getTime());
+      const state = toState(snapshot, built.settings, now.getTime(), this.statsThrough(now));
       this.cache.set(userId, state);
+      this.failures.delete(userId);
       // Fresh only if nothing changed after this rebuild began reading Yahoo.
       if ((this.dirty.get(userId) ?? 0) <= since) this.dirty.delete(userId);
       return state;
     } catch (err) {
       const failure = yahooFailure(this.d.store, userId, err);
       this.d.log(`league ${userId}: rebuild failed (${errName(err)} → ${failure.code})`);
-      if (failure.code !== 'yahoo_reconnect_required' && stale !== undefined) return stale;
+      const failedAt = now.toISOString();
+      this.failures.set(userId, { at: failedAt, reason: failure.code });
+      if (failure.code !== 'yahoo_reconnect_required' && stale !== undefined) {
+        // P9, said out loud: the agents and tools read this and warn that the data is old.
+        stale.view.freshness = {
+          ...stale.view.freshness,
+          stale: { failedAt, reason: failure.code },
+        };
+        return stale;
+      }
       throw failure;
+    }
+  }
+
+  /** The last NHL game date in the stats store (D-025), for the as-of line; absent on error. */
+  private statsThrough(now: Date): string | undefined {
+    try {
+      return this.d.store.nhlGames.lastDate(seasonOf(newYorkDate(now)));
+    } catch {
+      return undefined;
     }
   }
 
@@ -232,16 +274,27 @@ export class LeagueService {
         JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf-8')),
       );
       const at = Date.parse(snap.recordedAt);
-      return toState(snap, settings, Number.isNaN(at) ? statSync(file).mtimeMs : at);
+      const builtAt = Number.isNaN(at) ? statSync(file).mtimeMs : at;
+      return toState(snap, settings, builtAt, this.statsThrough(this.d.now()));
     } catch {
       return undefined;
     }
   }
 }
 
-function toState(snap: LeagueSnapshot, settings: LeagueSettings, builtAt: number): LeagueState {
+function toState(
+  snap: LeagueSnapshot,
+  settings: LeagueSettings,
+  builtAt: number,
+  statsThrough: string | undefined,
+): LeagueState {
+  const view = new LeagueView(snap, settings);
+  view.freshness = {
+    builtAt: new Date(builtAt).toISOString(),
+    ...(statsThrough === undefined ? {} : { statsThrough }),
+  };
   return {
-    view: new LeagueView(snap, settings),
+    view,
     settings,
     leagueKey: snap.leagueKey,
     teamKey: snap.teamKey,

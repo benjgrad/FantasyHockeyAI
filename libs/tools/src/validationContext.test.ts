@@ -56,6 +56,20 @@ describe('validationContextFor.conflicting', () => {
     expect(ctx.conflicting([keyA], undefined, plan({ kind: 'addDrop', drop: keyA }))).toEqual([]);
   });
 
+  it("a pending waiver claim never blocks today's lineup of the player it would drop", () => {
+    // 2026-10-24: the open Ovechkin claim (dropping Coleman, clears Monday) refused every lineup
+    // run all day. A claim changes the roster only when it processes; until then he plays.
+    const store = openStore(':memory:');
+    const claim = plan({ kind: 'waiverClaim', add: keyB, drop: keyA });
+    store.decisions.insert(claim, { status: 'pending' });
+    const ctx = validationContextFor(view, store, MOCK_NOW);
+    const lineup = plan({ kind: 'lineup', date: today, moves: [{ playerKey: keyA, slot: 'BN' }] });
+    expect(ctx.conflicting([keyA], lineup.planId, lineup)).toEqual([]);
+    // It still blocks a second roster move on the same players.
+    const drop = plan({ kind: 'addDrop', drop: keyA });
+    expect(ctx.conflicting([keyA], drop.planId, drop)).toEqual([claim.planId]);
+  });
+
   it('a lineup already set blocks nothing; a roster move blocks anything touching its players', () => {
     const store = openStore(':memory:');
     const done = plan({ kind: 'lineup', date: today, moves: [{ playerKey: keyA, slot: 'BN' }] });
