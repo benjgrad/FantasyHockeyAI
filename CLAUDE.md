@@ -24,6 +24,8 @@ and update the roadmap's unknowns register.
 TypeScript (strict, ESM/NodeNext, ES2022), npm workspaces (no Nx), Vitest with TDD, zod, SQLite
 (better-sqlite3), `@anthropic-ai/sdk`. Files under ~400 lines, functions under ~60.
 `npm run validate` (format, lint, type-check, test, build) must pass before a commit.
+CI runs `scripts/ci.sh` (the same gates plus the deploy kit's tests) on every PR. **A merge to
+`main` deploys itself to gradyserver** (`docs/setup/deploy.md`).
 
 ## Design principles (rationale in §2 of the spec)
 - **P1** The LLM decides *intent*; deterministic code produces *values* and executes.

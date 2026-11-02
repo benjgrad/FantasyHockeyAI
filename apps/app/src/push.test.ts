@@ -157,6 +157,8 @@ describe('config', () => {
     expect(c.dbPath).toBe('/repo/data/fha.sqlite');
     expect(c.anthropicApiKey).toBeUndefined();
     expect(c.vapid).toBeUndefined();
+    expect(c.gitSha).toBe('unknown');
+    expect(loadConfig({ ...env, FHA_GIT_SHA: 'abc123' }, '/repo').gitSha).toBe('abc123');
   });
 
   it('fails fast, naming the variable', () => {

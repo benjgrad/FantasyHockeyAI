@@ -53,6 +53,8 @@ export interface AppConfig {
   daemon: boolean;
   /** The single-instance lock the daemon holds (§3.2). */
   lockPath: string;
+  /** The commit this process runs (`FHA_GIT_SHA`, set by deploy/fha-app.sh); `/api/health` says it. */
+  gitSha: string;
 }
 
 const Env = z.object({
@@ -83,6 +85,7 @@ const Env = z.object({
   FHA_VALUATION_SNAPSHOT: z.string().optional(),
   FHA_DAEMON: z.enum(['0', '1', '']).default('0'),
   FHA_LOCK_FILE: z.string().default('data/fha.lock'),
+  FHA_GIT_SHA: z.string().default('unknown'),
 });
 
 const VapidFile = z.object({
@@ -135,6 +138,7 @@ export function loadConfig(
       e.FHA_VALUATION_SNAPSHOT === undefined ? undefined : at(e.FHA_VALUATION_SNAPSHOT),
     daemon: e.FHA_DAEMON === '1',
     lockPath: at(e.FHA_LOCK_FILE),
+    gitSha: e.FHA_GIT_SHA === '' ? 'unknown' : e.FHA_GIT_SHA,
   };
 }
 
