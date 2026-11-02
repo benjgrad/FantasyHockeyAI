@@ -77,11 +77,12 @@ export function fitLens(view: LeagueView, store?: Store): { view: LeagueView; na
 const cache = new WeakMap<LeagueView, Record<string, number>>();
 
 /**
- * The need weights fit is computed with (1 is neutral). With the store, the season's marginal
- * ΔP(win a week) weights against the league (D-034); without it, or if that audit cannot be
- * built, the roster-only need weights of the draft, over the lens's z (P9).
+ * Code's need weights (1 is neutral), before the season strategy's intent: with the store, the
+ * season's marginal ΔP(win a week) weights against the league (D-034); without it, or if that
+ * audit cannot be built, the roster-only need weights of the draft, over the lens's z (P9).
+ * Fit itself uses `needWeights` (`categoryPolicy.ts`), these with the strategy laid over them.
  */
-export function needWeights(view: LeagueView, store?: Store): Record<string, number> {
+export function codeNeedWeights(view: LeagueView, store?: Store): Record<string, number> {
   const hit = store === undefined ? undefined : cache.get(view);
   if (hit !== undefined) return hit;
   const lens = fitLens(view, store);

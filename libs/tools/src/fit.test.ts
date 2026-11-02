@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { SkaterGame } from '@fha/nhl';
 import { openStore } from '@fha/store';
-import { fitLens, needWeights, playerFit } from './fit.js';
+import { needWeights } from './categoryPolicy.js';
+import { fitLens, playerFit } from './fit.js';
 import { mockView } from './testing.js';
 
 const hot = (nhlId: number, name: string, i: number): SkaterGame => ({
