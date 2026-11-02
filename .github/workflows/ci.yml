@@ -1,12 +1,12 @@
-# CI/CD (D-042). Every PR runs the gates; every push to main runs them again and, if they pass,
+# CI/CD (D-043). Every PR runs the gates; every push to main runs them again and, if they pass,
 # deploys that commit to gradyserver with deploy/ci-deploy.sh, on a self-hosted runner on
 # gradyserver itself: nothing connects in, and no deploy credential exists. Runbook:
 # docs/setup/deploy.md. Modelled on benjgrad/conductor's ci.yml.
 #
 # The gates are scripts/ci.sh, the same script run locally, so CI and a laptop never disagree on
-# what "green" means. A private repo on the free plan can't require a check or protect main:
-# `needs: gates` is the gate, structurally, and the runner's job-started hook refuses any job that
-# isn't this deploy job from main (deploy/runner-job-started.sh).
+# what "green" means. `needs: gates` is the gate, structurally, and the runner's job-started hook
+# refuses any job that isn't this deploy job from main (deploy/runner-job-started.sh). The repo
+# is public, so any branch protection is a layer on top of these, never a replacement (U-50).
 name: ci
 
 on:

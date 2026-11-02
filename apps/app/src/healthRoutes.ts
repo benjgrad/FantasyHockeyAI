@@ -3,7 +3,7 @@ import type { Route } from './router.js';
 import type { Services } from './services.js';
 
 /**
- * The deploy's health and smoke check (D-042): `deploy/ci-deploy.sh` waits for this to name the
+ * The deploy's health and smoke check (D-043): `deploy/ci-deploy.sh` waits for this to name the
  * commit it just released. Public, so it says only that the process is up and which commit it
  * runs: no daemon, Yahoo or user state.
  */

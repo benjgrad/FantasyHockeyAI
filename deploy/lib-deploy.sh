@@ -119,30 +119,45 @@ health_sha() { # health_sha <base-url>: the sha /api/health reports, if it repor
     sed -n 's/.*"ok":true.*"sha":"\([^"]*\)".*/\1/p'
 }
 
-wait_health() { # wait_health <sha>: the local app reports <sha>, within DEPLOY_HEALTH_TIMEOUT
-  local found="" deadline=$((SECONDS + DEPLOY_HEALTH_TIMEOUT))
-  step "waiting for fha-app to report ${1:0:7}"
+# A sha from before D-043 has no /api/health. Rolling back to one must still be checkable.
+has_health() { git -C "$FHA_PROD" cat-file -e "$1:apps/app/src/healthRoutes.ts" 2>/dev/null; }
+
+serves() { # serves <base-url> <sha>: the app behind <base-url> is <sha>, or (before D-043) is up
+  if has_health "$2"; then
+    [[ "$(health_sha "$1" || true)" == "$2" ]]
+  else
+    # Weaker: the page answers. `systemctl restart` returned only after the old process stopped,
+    # so whatever answers now is the restarted one.
+    [[ "$(curl -sS -o /dev/null --max-time 10 -w '%{http_code}' "$1/" 2>/dev/null </dev/null || true)" == 200 ]]
+  fi
+}
+
+what() { # what <sha>: what serves() checks, for the log
+  if has_health "$1"; then echo "/api/health reporting ${1:0:7}"; else echo "/ answering 200 (${1:0:7} predates /api/health)"; fi
+}
+
+wait_health() { # wait_health <sha>: the local app is <sha>, within DEPLOY_HEALTH_TIMEOUT
+  local deadline=$((SECONDS + DEPLOY_HEALTH_TIMEOUT))
+  step "waiting for fha-app: $(what "$1")"
   while ((SECONDS < deadline)); do
-    found="$(health_sha "http://127.0.0.1:$FHA_APP_PORT" || true)"
-    [[ "$found" == "$1" ]] && return 0
+    serves "http://127.0.0.1:$FHA_APP_PORT" "$1" && return 0
     sleep 2
   done
-  echo "!!> expected /api/health to report $1; last saw '${found:-nothing}'" >&2
+  echo "!!> fha-app never showed $(what "$1") (last /api/health: '$(health_sha "http://127.0.0.1:$FHA_APP_PORT" || true)')" >&2
   return 1
 }
 
 DRILL_PENDING=0
 [[ "${DEPLOY_DRILL:-}" == 1 ]] && DRILL_PENDING=1
-smoke() { # smoke <sha>: the public URL, through nginx, reports <sha>
-  local base="$SMOKE_URL" found
+smoke() { # smoke <sha>: the public URL, through nginx, is <sha>
+  local base="$SMOKE_URL"
   if [[ "$DRILL_PENDING" == 1 ]]; then
     DRILL_PENDING=0
     step "drill: failing this smoke test on purpose"
     base="http://127.0.0.1:9"
   fi
-  found="$(health_sha "$base" || true)"
-  [[ "$found" == "$1" ]] && return 0
-  echo "!!> smoke: $base/api/health reported '${found:-nothing}', not $1" >&2
+  serves "$base" "$1" && return 0
+  echo "!!> smoke: $base did not show $(what "$1")" >&2
   return 1
 }
 

@@ -2,10 +2,11 @@
 # Job-started hook of the FantasyHockeyAI runner on gradyserver (docs/setup/deploy.md). The runner
 # runs it before every job, from its own directory, and fails the job when it exits non-zero.
 #
-# Why: a private repo on the free plan can't protect main or limit an environment to it, so any
-# branch could edit ci.yml to send a job to this runner, which runs as bengrady4 next to the live
-# database and Yahoo session. This hook is the gate GitHub can't give us: only the `deploy` job of
-# ci.yml, run from main by a push or a manual dispatch, gets to run here.
+# Why: the repo is public, so any branch, or a fork's PR once approved, can edit ci.yml to send a
+# job to this runner, which runs as bengrady4 next to the live database and Yahoo session. Branch
+# protection and environment rules live in GitHub's settings, where a mistake is silent; this hook
+# is the gate on the box: only the `deploy` job of ci.yml, run from main by a push or a manual
+# dispatch, gets to run here.
 #
 # Installed as a COPY outside every checkout (~/actions-runner-fha/job-started.sh), never
 # referenced from the repo, so a branch can't rewrite the gate it is checked by. After changing

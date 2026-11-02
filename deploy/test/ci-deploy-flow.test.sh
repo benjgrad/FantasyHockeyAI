@@ -44,24 +44,37 @@ case "$*" in
 esac
 exit 0
 SYSTEMCTL
-# Fake curl: /api/health answers with the live sha (nothing on :9, the drill; the public URL fails
-# when FAKE_SMOKE_FAIL=1). Anything else is the Discord webhook: keeps the payload, says 204.
+# Fake curl. The Discord webhook (discord.invalid) keeps the payload and says 204. Otherwise it is
+# the app at the live sha: /api/health names it if that sha has the route (D-043), else 404s, and
+# `/` answers 200 with -w. Nothing listens on :9 (the drill); the public URL fails when
+# FAKE_SMOKE_FAIL=1; nothing answers while no sha is live.
 cat >"$T/bin/curl" <<'CURL'
 #!/usr/bin/env bash
 url="${*: -1}"
-if [[ "$url" == */api/health ]]; then
-  echo "curl $url" >>"$FAKE_STATE/calls"
-  [[ "$url" == *:9/* ]] && exit 7
-  [[ "$url" == https://* && "${FAKE_SMOKE_FAIL:-}" == 1 ]] && exit 22
-  [[ -f "$FAKE_STATE/live" ]] || exit 7
-  printf '{"ok":true,"sha":"%s"}' "$(cat "$FAKE_STATE/live")"
+if [[ "$url" == *discord.invalid* ]]; then
+  while [[ $# -gt 0 ]]; do
+    [[ "$1" == -d ]] && printf '%s\n' "$2" >>"$FAKE_STATE/alerts"
+    shift
+  done
+  printf 204
   exit 0
 fi
-while [[ $# -gt 0 ]]; do
-  [[ "$1" == -d ]] && printf '%s\n' "$2" >>"$FAKE_STATE/alerts"
-  shift
-done
-printf 204
+echo "curl $url" >>"$FAKE_STATE/calls"
+down() {
+  [[ "$url" == */api/health ]] || printf 000
+  exit 7
+}
+[[ "$url" == *:9/* ]] && down
+[[ "$url" == https://* && "${FAKE_SMOKE_FAIL:-}" == 1 ]] && down
+[[ -f "$FAKE_STATE/live" ]] || down
+live="$(cat "$FAKE_STATE/live")"
+if [[ "$url" == */api/health ]]; then
+  git -C "$FHA_PROD" cat-file -e "$live:apps/app/src/healthRoutes.ts" 2>/dev/null || exit 22
+  printf '{"ok":true,"sha":"%s"}' "$live"
+else
+  printf 200
+fi
+exit 0
 CURL
 chmod +x "$T/bin/npm" "$T/bin/systemctl" "$T/bin/curl"
 
@@ -72,12 +85,15 @@ echo 1 >"$T/repo/libs/store/src/migrations/001.ts"
 g() { git -C "$T/repo" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false "$@"; }
 g init -q -b main
 commit() { # commit <message> [file]: changes `marker`, or the given file
+  mkdir -p "$(dirname "$T/repo/${2:-marker}")"
   echo "$1" >"$T/repo/${2:-marker}"
   g add -A
   g commit -q -m "$1"
   g rev-parse HEAD
 }
-sha1="$(commit one)"
+# sha0 predates /api/health; sha1 adds it, and is what production runs.
+sha0="$(commit zero)"
+sha1="$(commit one apps/app/src/healthRoutes.ts)"
 
 # Production: a clone on main, with a live database and node_modules, running sha1.
 PROD="$T/prod"
@@ -153,6 +169,21 @@ check "rollback by dispatch exits 0 (got $CODE)" test "$CODE" -eq 0
 check "rollback by dispatch: $sha3 live, main moved back" live "$sha3"
 deploy "$sha4"
 check "and forward again (got $CODE)" live "$sha4"
+
+# 4b. A rollback to a sha from before /api/health: checked by `/` answering instead.
+deploy "$sha0"
+check "rollback before D-043 exits 0 (got $CODE)" test "$CODE" -eq 0
+check "rollback before D-043: $sha0 live" live "$sha0"
+check "rollback before D-043: says how it checked" has "$OUT" 'predates /api/health'
+check "rollback before D-043: smokes the public page" called '^curl https://hockey\.gradyserver\.com/$'
+check "rollback before D-043: no alert" no_alert
+deploy "$sha4" FAKE_BOOT_FAIL="$sha4"
+check "a failed deploy from a pre-D-043 sha rolls back to it (got $CODE)" live "$sha0"
+check "and the rollback is reported as working" alerted 'Deploy failed: rolled back'
+deploy "$sha0" FAKE_BOOT_FAIL="$sha0"
+check "a pre-D-043 sha that doesn't come up fails (got $CODE)" test "$CODE" -eq 1
+deploy "$sha4"
+check "and forward again to $sha4 (got $CODE)" live "$sha4"
 
 # 5. Refusals change nothing and send an amber "did not run".
 echo edited >"$PROD/marker"

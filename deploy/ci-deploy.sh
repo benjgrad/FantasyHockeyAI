@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI's deploy (D-042, docs/setup/deploy.md): runs ON gradyserver, in the FHA runner's checkout, as
+# CI's deploy (D-043, docs/setup/deploy.md): runs ON gradyserver, in the FHA runner's checkout, as
 # bengrady4. Modelled on benjgrad/conductor's ci-deploy.sh, but in place: production is the
 # checkout the systemd units run from (FHA_PROD), on branch main, with its data/ beside the code.
 #

@@ -9,7 +9,7 @@ afterEach(async () => {
   await h.close();
 });
 
-describe('/api/health (the deploy smoke test, D-042)', () => {
+describe('/api/health (the deploy smoke test, D-043)', () => {
   it('answers without a session: ok and the running git sha, nothing else', async () => {
     const res = await call(h, '/api/health', { sameOrigin: false });
     expect(res.status).toBe(200);

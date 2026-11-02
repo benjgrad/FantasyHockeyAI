@@ -1,4 +1,4 @@
-# Deploying Hockey GM: CI/CD (D-042)
+# Deploying Hockey GM: CI/CD (D-043)
 
 Every PR runs the gates. Every merge to `main` runs them again and, if they pass, deploys that
 commit to gradyserver, with an automatic rollback and a Discord alert if the deploy fails. This
@@ -82,15 +82,24 @@ same sha, and an amber alert marked *TEST* arrives. Production ends where it sta
 
 ## Why the runner can't be used from a branch
 
-On a private repo on the free plan, GitHub can't protect `main`, require a check, or limit an
-environment to `main` [U: verified for conductor, not yet for this repo]. Any branch could edit
-`ci.yml` to send a job to this runner, which runs as `bengrady4` beside the live database and the
+The repo is **public** [V 2026-11-02: `gh api repos/benjgrad/FantasyHockeyAI` says
+`visibility: public`], and `main` is not protected yet (U-50). Any branch, or a fork's PR once its
+run is approved, could edit `ci.yml` to send a job to this runner, which runs as `bengrady4` beside the live database and the
 Yahoo session. So the gate is on the box: the runner's **job-started hook**
 ([`runner-job-started.sh`](../../deploy/runner-job-started.sh)) runs before every job and fails it
 unless it is the `deploy` job of `ci.yml@refs/heads/main`, started by a push or a dispatch. It is
 installed as a **copy** in the runner's directory, never run from a checkout, so a branch can't
 rewrite the gate it is checked by. The `gates` job never runs here, so PR code never executes on
 gradyserver.
+
+Because the repo is public, GitHub's own settings can add layers behind the hook. These are Ben's
+to apply, in the repo's settings; none of them replace the hook:
+
+- **Actions → Fork pull request workflows:** require approval for *all outside collaborators*
+  (today: first-time contributors only), so no fork's code runs in CI unseen.
+- **Environments → `gradyserver`** (it appears after the first deploy job): deployment branches
+  limited to `main`.
+- **Branches → `main`:** require the `gates` check to pass before merging.
 
 ## One-time setup (Ben, on gradyserver)
 
@@ -99,40 +108,39 @@ Until the runner exists, deploy jobs wait in "queued" forever. That is harmless;
 The runner is a `bengrady4` systemd user service in its own directory, next to conductor's
 `~/actions-runner-conductor`. A runner registered to a repo only serves that repo.
 
-```bash
-mkdir ~/actions-runner-fha && cd ~/actions-runner-fha
-# actions-runner-linux-x64-<version>.tar.gz from github.com/actions/runner/releases; check its sha256
-tar xzf runner.tar.gz && rm runner.tar.gz
-install -m 755 ~/Documents/Projects/FantasyHockeyAI/deploy/runner-job-started.sh job-started.sh
-./config.sh --unattended --url https://github.com/benjgrad/FantasyHockeyAI \
-  --name gradyserver-fha --labels gradyserver-fha \
-  --token "$(gh api -X POST repos/benjgrad/FantasyHockeyAI/actions/runners/registration-token --jq .token)"
-echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=$HOME/actions-runner-fha/job-started.sh" >> .env
-cat > ~/.config/systemd/user/actions-runner-fha.service <<'EOF'
-[Unit]
-Description=GitHub Actions runner for benjgrad/FantasyHockeyAI (deploy job only; job-started.sh refuses anything else)
-[Service]
-WorkingDirectory=%h/actions-runner-fha
-ExecStart=%h/actions-runner-fha/run.sh
-Restart=always
-[Install]
-WantedBy=default.target
-EOF
-systemctl --user daemon-reload && systemctl --user enable --now actions-runner-fha
+**Run [`deploy/setup-runner.sh`](../../deploy/setup-runner.sh)** on gradyserver as `bengrady4`, from an
+up-to-date checkout of `main` (the production one). Before this change has merged, you can run it
+from the PR branch's checkout. It installs that branch's hook, which main doesn't have yet, and
+asks you to rerun it from `main` after the merge. Once main has the hook, a checkout whose copy
+differs from main's is refused.
 
-# Alerts: the same maintenance-channel webhook conductor uses.
-umask 077; echo 'DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/…' > ~/.config/fha/deploy.env
+```bash
+cd ~/Documents/Projects/FantasyHockeyAI && git pull --ff-only
+deploy/setup-runner.sh   # asks for the Discord webhook (hidden input; Enter skips)
 ```
+
+It needs `gh` signed in with admin on the repo. It is safe to rerun, and every step skips what
+is already done. It:
+
+1. downloads the latest `actions-runner-linux-x64` into `~/actions-runner-fha` and checks the
+   tarball's sha256 against the release notes;
+2. installs `runner-job-started.sh` as a copy, `~/actions-runner-fha/job-started.sh`, sets
+   `ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`, and checks the hook refuses a job;
+3. registers the runner as `gradyserver-fha` with label `gradyserver-fha`;
+4. writes, enables and (re)starts `~/.config/systemd/user/actions-runner-fha.service`, and warns
+   if linger is off;
+5. writes `~/.config/fha/deploy.env` (mode 600) with the Discord webhook (the maintenance
+   channel conductor uses), or skips it;
+6. waits for GitHub to show the runner `online`, and checks U-50 (`branches/main/protection`).
 
 Then:
 
 1. Run a drill once the first CI deploy has landed.
-2. Note that a sha from before D-042 has no `/api/health`. Rolling back to one always reports
-   *rollback failed*, even when the old code is up. Check `systemctl --user status fha-app`
-   by hand.
+2. A sha from before D-043 has no `/api/health`. Deploying or rolling back to one is checked
+   by `/` answering 200 instead: weaker, but it shows the restarted app is serving.
 
-After changing `runner-job-started.sh`, copy it again:
-`install -m 755 deploy/runner-job-started.sh ~/actions-runner-fha/job-started.sh`. Health:
+After changing `runner-job-started.sh` (and merging it), rerun `deploy/setup-runner.sh`. It
+copies the hook again and restarts the runner. Health:
 `systemctl --user status actions-runner-fha`, and `gh api repos/benjgrad/FantasyHockeyAI/actions/runners`
 should show it `online`.
 
