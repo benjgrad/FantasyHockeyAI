@@ -1,6 +1,13 @@
 import { addsRemaining, createAgent, runJob, type JobName, type ToolNote } from '@fha/agents';
 import { activityConversationId, recordReply, recordTrigger, triggerText } from '../activity.js';
-import { auditWeek, ingestDaily, recordValuationDay, type LeagueView } from '@fha/tools';
+import {
+  auditWeek,
+  currentStrategy,
+  ingestDaily,
+  recordValuationDay,
+  weekOverlay,
+  type LeagueView,
+} from '@fha/tools';
 import { marginalWeights } from '@fha/model';
 import type { RunStatus } from '@fha/store';
 import { agentDepsFor, llmFor } from '../chatRuntime.js';
@@ -256,10 +263,10 @@ export function writeCodeWeights(store: Services['store'], view: LeagueView): vo
   try {
     const week = auditWeek(view, store);
     if (week === undefined) return;
-    const strategy = store.seasonStrategy.current(view.snap.leagueKey);
+    const strategy = currentStrategy(view, store);
     store.strategy.set(
       view.snap.week,
-      marginalWeights(week.audit, strategy === undefined ? {} : { punts: strategy.punts }),
+      weekOverlay(marginalWeights(week.audit), { punts: strategy?.punts ?? [] }),
       `code (D-034): each category's ΔP(win the week) against ${week.against[0]?.name ?? 'the opponent'} per starter's worth, averaging 1${strategy === undefined || strategy.punts.length === 0 ? '' : `; punts ${strategy.punts.join(', ')} from strategy v${String(strategy.id)}`}`,
     );
   } catch {

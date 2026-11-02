@@ -116,6 +116,10 @@ export function playerRoutes(s: Services): Route[] {
           categories: strength.categories,
           weights: strength.weights,
           targets: strength.targets,
+          surplus: strength.surplus,
+          punts: strength.punts,
+          source: strength.source,
+          disagreements: strength.disagreements,
           weekWeights: week.weights,
           weekWeightsSource: week.source,
         });

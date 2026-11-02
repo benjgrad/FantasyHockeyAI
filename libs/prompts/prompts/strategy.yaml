@@ -48,6 +48,9 @@ strategy.system:
     - surplus: saturated categories, to trade from.
     - punts: only when a category is lost and the audit shows chasing it costs more than it buys.
       A punt takes that category's weight to 0 for every agent, so be sure.
+    These lists are what the whole app works toward, not just a note: every player's fit, the
+    player cards' "Our targets" and the Players page's fit sort weight targets at least 1.2,
+    surplus at most 1 and punts at 0. So name in targets every category you mean to buy.
     - principles: one to five short rules other agents can follow without re-deriving them, e.g.
       "No adds for HIT or PIM alone", "Trade from HIT/PIM surplus for SOG or W". Consider games
       volume too: if we play fewer games than our opponents most weeks, say why (goalies holding
