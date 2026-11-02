@@ -357,6 +357,7 @@ export async function startHarness(
     valuationSnapshot: FIXTURE,
     daemon: false,
     lockPath: join(dir, 'fha.lock'),
+    gitSha: 'test-sha',
   };
   const app = createApp(
     {

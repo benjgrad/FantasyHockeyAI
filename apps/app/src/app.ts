@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { authRoutes } from './authRoutes.js';
+import { healthRoutes } from './healthRoutes.js';
 import { completionNotice } from './chatNotice.js';
 import { chatRoutes } from './chatRoutes.js';
 import { ChatTurns } from './chatTurns.js';
@@ -118,6 +119,7 @@ export function buildServices(deps: AppDeps, opts: AppOptions = {}): Services {
 export function createApp(deps: AppDeps, opts: AppOptions = {}): App {
   const services = buildServices(deps, opts);
   const router = new Router().add(
+    ...healthRoutes(services),
     ...authRoutes(services),
     ...settingsRoutes(services),
     ...teamRoutes(services),

@@ -11,6 +11,9 @@ for v in FHA_PUBLIC_URL FHA_SECRET_KEY FHA_ALLOWED_SUBS; do
   [ -n "${!v:-}" ] || { echo "FATAL: $v not set (see ~/.config/fha/app.env)" >&2; exit 78; }
 done
 cd "$REPO"
+# The commit this process runs: /api/health reports it, and deploy/ci-deploy.sh waits for it.
+FHA_GIT_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+export FHA_GIT_SHA
 [ -f apps/app/client/dist/index.html ] || echo "WARN: client not built (apps/app/client/dist); only the API will work" >&2
-echo "=== fha-app starting $(date -Is) ==="
+echo "=== fha-app starting $(date -Is) at ${FHA_GIT_SHA:0:7} ==="
 exec npx tsx apps/app/src/main.ts

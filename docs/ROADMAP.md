@@ -85,6 +85,14 @@ keep the tool results of the last three answers. Waivers and trades get more too
 - **Still Ben's:** whether chat should think harder or run on Opus (Q-011); restart `fha-app`
   to load the new prompts and migration 013.
 
+**CI/CD (D-042, 2026-11-02):** every PR runs `scripts/ci.sh` on GitHub's machines. Every merge to
+`main` runs it again and then deploys itself to gradyserver: production's `main` fast-forwards,
+the app rebuilds and restarts, `/api/health` must name the new sha, and a failure rolls back with
+a Discord alert. Runbook: `docs/setup/deploy.md`.
+- **Still Ben's:** the one-time setup there. Register the `gradyserver-fha` runner with its
+  job-started hook, add `~/.config/fha/deploy.env` with the Discord webhook, then run a drill.
+  Until the runner exists, deploy jobs sit queued and deploys stay manual.
+
 **Blocking on Ben:** a Yahoo network capture of one add+drop, pure drop and claim (U-12; a
 plain add was captured 2026-09-29, a lineup edit 2026-10-01); a domain and sudo for nginx; approval to add an OIDC client to personal-os; a dedicated
 Anthropic key for the agents.
@@ -197,6 +205,7 @@ first use and update the row.
 
 | ID | Claim | Spec | How to verify | Status |
 |---|---|---|---|---|
+| **U-50** | GitHub can't protect `main`, require a check or limit an environment to `main` on this private repo (free plan), so the runner's job-started hook is the only gate on the deploy runner | D-042, `docs/setup/deploy.md` | `gh api repos/benjgrad/FantasyHockeyAI/branches/main/protection`: a `403 Upgrade to GitHub Pro` confirms it | UNVERIFIED — verified for conductor on 2026-10-29, not for this repo. The hook is installed either way |
 | **U-49** | Whether a lineup seat can be reused on the same day after its player's game ends (bench him once his game is over, start a later player in that seat, and both count) | D-041, U-09 | Try it once on a light day with a player whose game is final, then read the day's counted lines in the archive (`getMatchupHistory` with the week) | UNVERIFIED — Ben asked on 10-25 and 10-26; the concepts primer tells the agents to say it is unverified. Yahoo locks each player at his own game start (U-09) |
 | **U-33** | The variance model's σ per category is right for a whole week (Poisson counts, PIM dispersion 2, +/- 1 per skater-game, independent players) | D-034, §12.6 | Fit the (us − them) spread per category from the season's scoreboards; set `sdOverride` | UNVERIFIED — nothing learns σ yet. The marginal weights (D-034) and every P(win) depend on it: too small a σ makes a category look decided too early |
 | **U-34** | One starter's worth (a counting category's weekly total over its seats; .010 SV% / 0.25 GAA for one goalie) is the right step for the marginal weights | D-034 | Compare the weights' ranking with what actually moved weekly outcomes (retro) | UNVERIFIED — a design choice; the ranking matters more than the scale, and the weights are renormalised to average 1 |
@@ -298,6 +307,37 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-042 — 2026-11-02 — CI/CD: gates on every PR, and main deploys itself to gradyserver
+
+**Why.** Ben asked for the approach used for benjgrad/conductor. Until now a deploy was a hand-run
+pull, build and `fha-app` restart. The roadmap shows code merged days before it ran (D-032 waited
+from 10-06 to 10-09), and nothing ran `validate` except the author.
+
+**Decided:**
+- **`.github/workflows/ci.yml`, two jobs, as in conductor.**
+  - `gates` runs `scripts/ci.sh` on `ubuntu-latest` for every PR, every push to `main` and every
+    dispatch. The steps are `npm ci`, the `validate` steps one by one, and the deploy kit's tests.
+    It never calls a model.
+  - `deploy` needs `gates`, runs only for `main` on a push or a dispatch, and runs on a
+    self-hosted runner on gradyserver (`gradyserver-fha`). It takes one deploy at a time and
+    deploys only main's current head. The token is read-only, and there are no secrets and no ssh.
+  - A dispatch with `sha` is a rollback; `drill` proves the rollback path.
+- **The runner's job-started hook is the gate.** `deploy/runner-job-started.sh` is installed as a
+  copy outside the repo, and refuses every job except that one (U-50).
+- **In place, not conductor's `releases/<sha>`.** The units and `data/` live in the production
+  checkout, so `deploy/ci-deploy.sh`:
+  - moves that checkout's `main` (fast-forward, or `reset --keep` for a rollback);
+  - refuses a checkout that is off `main`, has tracked edits or has diverged;
+  - backs up `data/fha.sqlite` first when migrations changed;
+  - runs `npm ci` only when the lockfile changed, builds, and restarts `fha-app` (and `fha-web`
+    if it runs);
+  - waits for `/api/health` to name the sha, then smokes the public URL;
+  - rolls back on any failure. Discord alerts go out on failure only.
+- **`GET /api/health`**, public, returns `{ok, sha}` and nothing else. `deploy/fha-app.sh` sets
+  `FHA_GIT_SHA` from the checkout.
+- **Not done:** `eval:smoke` in the gates. It joins `scripts/ci.sh` when the scenario runner
+  exists (M9, §20.12).
 
 ### D-041 — 2026-11-02 — The agents reason before they recommend, know the hockey ideas Ben keeps raising, and remember what he teaches
 

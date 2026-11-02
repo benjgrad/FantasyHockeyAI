@@ -1527,7 +1527,10 @@ Backtests replay history day by day against **hindsight** outcomes, and compare 
   - totals: cost, tokens, duration.
 - **Reports:** a markdown summary is printed and saved beside it. `npm run eval:compare -- <a.json> <b.json>` shows the differences in pass rates,
   scores and cost between two runs.
-- **CI stages:**
+- **CI stages:** the gates run from `scripts/ci.sh`, through `.github/workflows/ci.yml` (D-042,
+  `docs/setup/deploy.md`): format, lint, type-check, the deploy kit, the unit tests and the
+  build. **The eval stages below are not in CI yet**: they join `scripts/ci.sh` when the runner
+  exists.
   - **Every PR:** `eval:smoke`, meaning all cases with `llm: scripted`, plus the structural validators and deterministic scorers. It must pass 100%, takes seconds and costs nothing.
   - **A PR touching `libs/prompts/**`, `apps/gm/src/agents/**`, `libs/tools/**` or `libs/pipeline/**`:** `eval:agent` runs the affected agents' suites with real LLMs at their configured tier. It must meet every threshold, and the results file must be committed next to the prompt version bump (§17).
   - **Nightly:** the full suite with `runs: 20` for gate cases, plus the lineup and draft backtests. A regression opens an issue with the compare report.
