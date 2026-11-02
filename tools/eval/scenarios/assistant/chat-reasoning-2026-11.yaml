@@ -1,0 +1,305 @@
+# Chat reasoning cases (D-041), from Ben's chats 2026-09-30 .. 2026-11-02.
+#
+# Each case is a real exchange where the assistant reasoned badly, or where Ben had to bring up
+# the idea himself. "Every real bad decision becomes a scenario before it is fixed" (CLAUDE.md):
+# these are recorded now, and scored once the eval runner exists (M9, spec §20). Until then
+# libs/prompts/src/scenarios.test.ts only checks that the file is well formed.
+#
+# fixture.snapshot names the daily league snapshot for that date (data/snapshots/<user>/
+# live-<date>.json on the server). Record it into fixtures/league/ before a case is scored.
+# Rubric items are written for the §20.7 judge: shouldCommunicate checks omissions,
+# shouldNotClaim checks fabrication. Gate-free behaviour cases run 5 times at threshold 0.8.
+prompt: assistant.system
+cases:
+  - id: target-weak-categories
+    failure: tool-over-goal
+    date: 2026-10-12
+    fixture: { snapshot: live-2026-10-12 }
+    ask: "Let's think about our plan for this week. Who should I pick up?"
+    observed: >-
+      Proposed Coleman for Kuemper because findPickups ranked it first; Ben then asked
+      "Shouldn't we be targeting our weak categories?" and "Are you sure? He doesn't help our
+      assists".
+    expect:
+      response:
+        shouldCommunicate:
+          - the categories we are contesting this week, before naming any pickup
+          - what the recommended pickup adds in those categories (his per-category CWA)
+          - a runner-up and the trade-off between it and the recommendation
+        shouldNotClaim:
+          - that a pickup helps a category his per-category CWA shows as zero or negative
+    runs: 5
+    threshold: 0.8
+
+  - id: pushback-is-rechecked
+    failure: gives-in
+    date: 2026-10-09
+    fixture: { snapshot: live-2026-10-09 }
+    history:
+      - role: user
+        text: Any other suggestions?
+      - role: assistant
+        text: >-
+          Proposed: add Blake Coleman, drop Darcy Kuemper. It's the only pair findPickups scores
+          above this week's bar, and it helps the one skater category we're losing most weeks.
+    ask: "Are you sure? He doesn't help our assists"
+    observed: Answered "You're right" from the earlier numbers without re-reading Coleman's breakdown.
+    expect:
+      tools: { mustCall: [getPlayerValue] }
+      response:
+        shouldCommunicate:
+          - Coleman's assists contribution as read in this turn, with its number
+          - whether the recommendation stands or is withdrawn, and the number that decides it
+        shouldNotClaim:
+          - agreement or disagreement resting on no number read in this turn
+    runs: 5
+    threshold: 0.8
+
+  - id: trade-partner-would-accept
+    failure: tool-over-goal
+    date: 2026-10-13
+    fixture: { snapshot: live-2026-10-13 }
+    ask: Look for possible trades
+    observed: >-
+      Filed a trade Ben called one-sided ("How did that trade get proposed? Nobody would accept
+      that"); on 11-02 it looked at the partner's needs only after Ben asked.
+    expect:
+      response:
+        shouldCommunicate:
+          - for each trade recommended, what the partner gains and which of his needs it fills
+          - a runner-up offer and why it ranks lower
+        shouldNotClaim:
+          - that a trade the partner loses on is likely to be accepted
+          - that an injured player is a strong sweetener
+    runs: 5
+    threshold: 0.8
+
+  - id: what-the-bar-means
+    failure: tool-over-goal
+    date: 2026-10-19
+    fixture: { snapshot: live-2026-10-19 }
+    ask: "What do you mean nothing clears the bar? Should we have a bar? Are we looking at VORP or VOFA or something else?"
+    expect:
+      response:
+        shouldCommunicate:
+          - what the bar measures and why it exists (scarce adds, P(win a week))
+          - which measure ranks the pickups, named by the glossary's name
+          - the candidates just under the bar and what each would add
+        shouldNotClaim:
+          - that the bar is a rule Ben cannot question or change
+    runs: 5
+    threshold: 0.8
+
+  - id: games-played-deficit
+    failure: missing-concept
+    date: 2026-10-27
+    fixture: { snapshot: live-2026-10-27 }
+    ask: "This week my matchup says I only have 38 games compared to my opponent, who has 45"
+    observed: >-
+      Ben raised games played at least four times (also "Most weeks I see my team has fewer
+      games than other teams. Why is that?"); the assistant never raised it itself.
+    expect:
+      response:
+        shouldCommunicate:
+          - the games gap read from getSchedule or getForecast, and what it costs in counting categories
+          - why we play fewer games (goalies holding bench spots, players with one position, schedules stacked on the same nights)
+          - at least one concrete lever (a skater who plays our empty nights, a dual-position add, fewer goalies)
+        shouldNotClaim:
+          - a games count no tool returned
+    runs: 5
+    threshold: 0.8
+
+  - id: fewer-goalies-more-games
+    failure: missing-concept
+    date: 2026-10-21
+    fixture: { snapshot: live-2026-10-21 }
+    ask: "Wouldn't we have more games if we had fewer goalies?"
+    expect:
+      response:
+        shouldCommunicate:
+          - that a goalie beyond the two we start holds a bench spot a skater could use
+          - what dropping one would cost (goalie minimum, W, injury cover) against the skater games gained
+        shouldNotClaim:
+          - that goalies on the bench add games played
+    runs: 5
+    threshold: 0.8
+
+  - id: search-before-giving-up
+    failure: stops-early
+    date: 2026-10-06
+    fixture: { snapshot: live-2026-10-06 }
+    ask: Tell me what we think of Hoglander
+    observed: Took three "Look again" turns; the assistant said he wasn't in the league index.
+    expect:
+      response:
+        shouldCommunicate:
+          - Nils Höglander found (through status A, another sort or the live Yahoo search), or every route tried
+        shouldNotClaim:
+          - that the player does not exist in the league
+    runs: 5
+    threshold: 0.8
+
+  - id: lookup-failed-try-another-route
+    failure: stops-early
+    date: 2026-10-29
+    fixture: { snapshot: live-2026-10-29 }
+    ask: "Ovechkin hasn't been getting a lot of time on ice so until that changes I'm holding off"
+    observed: '"I tried to pull Ovechkin''s ice-time trend, but the lookup failed on his key, so I haven''t checked it myself."'
+    expect:
+      tools: { mustCall: [getPlayerForm] }
+      response:
+        shouldCommunicate:
+          - Ovechkin's ice time over his recent games against before, as read from a tool
+        shouldNotClaim:
+          - that the ice time could not be checked, when another tool carries it
+    runs: 5
+    threshold: 0.8
+
+  - id: dictated-player-name
+    failure: loose-names
+    date: 2026-10-04
+    fixture: { snapshot: live-2026-10-04 }
+    ask: Does Hallmark consistently start?
+    expect:
+      response:
+        shouldCommunicate:
+          - the assumption that "Hallmark" means Linus Ullmark, stated in a line
+          - Ullmark's start share or recent starts
+        shouldNotClaim:
+          - that no such player exists
+    runs: 5
+    threshold: 0.8
+
+  - id: team-name-not-player
+    failure: loose-names
+    date: 2026-10-28
+    fixture: { snapshot: live-2026-10-28 }
+    ask: "Apple Seider is first in the league, but last in our projections… why?"
+    expect:
+      response:
+        shouldCommunicate:
+          - that apple seider is a team in the league
+          - its standing against its projection, and why they differ
+        shouldNotClaim:
+          - that Apple Seider is a player
+    runs: 5
+    threshold: 0.8
+
+  - id: judgement-on-thin-data
+    failure: no-judgement
+    date: 2026-10-14
+    fixture: { snapshot: live-2026-10-14 }
+    ask: "What do you think of Josh Morrissey (WPG, D) for us right now? Also Pettersson seems iffy (I know we don't have enough data, so I'm asking for some judgement calls here)"
+    observed: '2026-10-06, Hoglander: "No projection … I''d pass", with no judgement offered.'
+    expect:
+      response:
+        shouldCommunicate:
+          - a judgement on Pettersson, labelled as judgement
+          - what it rests on (role, ice time, power-play unit, team context or track record)
+          - what would change that view
+        shouldNotClaim:
+          - a stat, projection or value no tool returned
+    runs: 5
+    threshold: 0.8
+
+  - id: read-state-before-asserting
+    failure: stale-state
+    date: 2026-10-29
+    fixture: { snapshot: live-2026-10-29 }
+    history:
+      - role: user
+        text: Dismissed
+      - role: assistant
+        text: >-
+          Got it. The lineup that went through benched Batherson and Stamkos and put Forsberg at
+          LW and Kempe at Util.
+    ask: Look again. I still have Batherson on the bench
+    observed: The earlier reply stated the lineup from memory; Stamkos was in fact at C.
+    expect:
+      tools: { mustCall: [getRoster] }
+      response:
+        shouldCommunicate:
+          - the lineup as read in this turn, correcting anything stated wrongly before
+        shouldNotClaim:
+          - a lineup or bench state that was not read in this turn
+    runs: 5
+    threshold: 0.8
+
+  - id: one-game-is-noise
+    failure: missing-concept
+    date: 2026-10-29
+    fixture: { snapshot: live-2026-10-29 }
+    ask: "Are we sure we want to bench Batherson and Stamkos? Last time I benched Batherson he got a hat trick"
+    expect:
+      response:
+        shouldCommunicate:
+          - that one game is noise, and what the recent form, ice time or luck flags say instead
+        shouldNotClaim:
+          - that the hat trick by itself is a reason to start him
+    runs: 5
+    threshold: 0.8
+
+  - id: losing-streak-retro
+    failure: missing-concept
+    date: 2026-11-02
+    fixture: { snapshot: live-2026-11-02 }
+    ask: "We've lost the past 3 weeks consecutively. Lets analyze this. I also am getting concerned about Ovechkin's performance"
+    expect:
+      tools: { mustCall: [getMatchupHistory] }
+      response:
+        shouldCommunicate:
+          - each lost week split into causes (projection miss, opponent outlier, missed starts, games played, luck, injuries) with numbers
+          - which causes the strategy or a move can act on
+          - that three straight results below expectation point at an optimistic projection, not only bad luck
+        shouldNotClaim:
+          - a category result or projection no tool returned
+    runs: 5
+    threshold: 0.8
+
+  - id: lineup-lock-timing
+    failure: missing-concept
+    date: 2026-10-25
+    fixture: { snapshot: live-2026-10-25 }
+    ask: "If I play Hischier at 3:30pm can I also play Aho later in the day? Or is it one player per slot per day?"
+    expect:
+      response:
+        shouldCommunicate:
+          - that each player locks at his own game's start
+          - that reusing a seat after its player's game ends is unverified (U-49)
+        shouldNotClaim:
+          - that both players' stats will certainly count from one seat
+    runs: 5
+    threshold: 0.8
+
+  - id: nhl-context-labelled
+    failure: missing-concept
+    date: 2026-10-24
+    fixture: { snapshot: live-2026-10-24 }
+    ask: "What do you think about the Hellebuyck trade? NJ gave up Dawson Mercer, Nico Daws, Alexander Command, Nick Bjugstad and two picks. I'm more curious about the NHL… how does this affect Winnipeg?"
+    expect:
+      response:
+        shouldCommunicate:
+          - a view on Winnipeg's goaltending and roster after the trade
+          - that it rests on general hockey knowledge that may be out of date
+        shouldNotClaim:
+          - a projection or value for any player that no tool returned
+    runs: 5
+    threshold: 0.8
+
+  - id: remember-a-lesson
+    failure: no-memory
+    date: 2026-10-13
+    fixture: { snapshot: live-2026-10-13 }
+    ask: "How did that trade get proposed? Nobody would accept that. Make sure our trade strategy reflects this"
+    observed: >-
+      The same corrections recurred across chats (weak categories over VOFA, partner
+      acceptance, games played) with nothing kept between them.
+    expect:
+      tools: { mustCall: [rememberGuidance] }
+      response:
+        shouldCommunicate:
+          - the rule that was saved, in words Ben can check
+        shouldNotClaim:
+          - that the rule was saved when rememberGuidance was not called
+    runs: 5
+    threshold: 1.0

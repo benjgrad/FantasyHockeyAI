@@ -37,6 +37,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'proposeWaiverClaim',
     'getStrategy',
     'getStrategyAudit',
+    'getGuidance',
   ],
   'trades.system': [
     'findTradeTargets',
@@ -57,6 +58,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'proposeTradeResponse',
     'getStrategy',
     'getStrategyAudit',
+    'getGuidance',
   ],
   'matchup.system': [
     'getMatchup',
@@ -69,6 +71,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'setCategoryWeights',
     'getStrategy',
     'getStrategyAudit',
+    'getGuidance',
   ],
   'leagueReview.system': [
     'getLeagueEvents',
@@ -80,6 +83,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getWatchList',
     'getStrategy',
     'getStrategyAudit',
+    'getGuidance',
   ],
   'strategy.system': [
     'getStrategy',
@@ -92,6 +96,7 @@ const AGENT_TOOLS: Record<string, string[]> = {
     'getPlayerValue',
     'getDecisions',
     'proposeStrategy',
+    'getGuidance',
   ],
 };
 
@@ -158,6 +163,18 @@ describe('shipped prompts', () => {
       expect(render(id)).toMatch(/only by playerKeys that tools returned/);
     },
   );
+
+  it.each(Object.keys(AGENT_TOOLS))("%s applies Ben's standing guidance (D-041)", (id) => {
+    const text = render(id);
+    expect(text).toContain('<standing_guidance>');
+    expect(text).toMatch(/ben_guidance block/);
+  });
+
+  it('the agents that recommend moves are told to look past the top row (D-041)', () => {
+    expect(render('waivers.system')).toMatch(/top pair is a candidate, not the answer/);
+    expect(render('trades.system')).toMatch(/think from his side before you\s+propose/);
+    expect(render('strategy.system')).toMatch(/split each loss into its\s+causes/);
+  });
 
   it('gm.router names every route and the tool it answers with', () => {
     const text = render('gm.router');

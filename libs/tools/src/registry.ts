@@ -17,6 +17,7 @@ import { findPickups, getPlayerValue } from './tools/value.js';
 import { getWatchList, stopWatching, watchPlayers } from './tools/watch.js';
 import { findTradeTargets } from './tools/tradeTargets.js';
 import { getStrategy, getStrategyAudit, proposeStrategy } from './tools/strategy.js';
+import { forgetGuidance, getGuidance, rememberGuidance } from './tools/guidance.js';
 
 /** Every tool, by name. Names are the contract the prompts are written against. */
 export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
@@ -49,6 +50,7 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     findTradeTargets,
     getStrategyAudit,
     getStrategy,
+    getGuidance,
     proposeLineup,
     proposeAddDrop,
     proposeWaiverClaim,
@@ -56,6 +58,8 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
     proposeTradeResponse,
     setCategoryWeights,
     proposeStrategy,
+    rememberGuidance,
+    forgetGuidance,
     abstain,
     askBen,
   ].map((t) => [t.name, t as AnyTool]),
@@ -64,8 +68,11 @@ export const ALL_TOOLS: Readonly<Record<string, AnyTool>> = Object.fromEntries(
 const CONTROL = ['abstain', 'askBen'];
 /** Every agent that can propose, or that reports on the league, sees what is already filed. */
 const FILED = 'getDecisions';
-/** The season strategy and its audit (D-034): every agent that weighs categories reads both. */
-const STRATEGY = ['getStrategy', 'getStrategyAudit'];
+/**
+ * The season strategy and its audit (D-034), and Ben's standing guidance (D-041): every agent
+ * that weighs categories reads all three. Only the chat writes guidance (`CHAT_ONLY_TOOLS`).
+ */
+const STRATEGY = ['getStrategy', 'getStrategyAudit', 'getGuidance'];
 
 /**
  * Allow-lists per agent (§13, plus the control tools every agent can end a run with). The GM

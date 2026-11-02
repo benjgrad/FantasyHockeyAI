@@ -65,21 +65,48 @@ export function storedError(
   return parsed.success ? parsed.data.error : undefined;
 }
 
-/** One assistant turn as the model will see it next time: its notes, then what it said. */
-function replayAssistant(m: Message): string {
+/**
+ * Assistant turns, counted from the newest, whose replay keeps each tool's short result (D-041).
+ * Without them a follow-up ("look again", "why Hischier?") had lost the numbers the last answer
+ * rested on. Older turns keep tool names only: their numbers are stale and would grow every request.
+ */
+export const DETAILED_TURNS = 3;
+
+/** "Tools called: …" plus, for a recent turn, what each tool was asked and answered. */
+function toolLines(tools: readonly ToolNote[], at: string | undefined): string[] {
+  if (tools.length === 0) return [];
+  const names = `Tools called: ${tools.map((t) => `${t.name} (${t.ok ? 'ok' : 'error'})`).join(', ')}.`;
+  if (at === undefined) return [names];
+  const shown = tools.filter((t) => t.detail !== undefined);
+  if (shown.length === 0) return [names];
+  const when = at === '' ? 'from that turn' : `as of ${at.slice(0, 16)}Z`;
+  return [
+    names,
+    `What they returned (${when}; re-read before acting on any of it):`,
+    ...shown.map(
+      (t) =>
+        `- ${t.name}${t.input === undefined ? '' : ` [${t.input}]`}${t.ok ? '' : ' (error)'}: ${t.detail ?? ''}`,
+    ),
+  ];
+}
+
+/**
+ * One assistant turn as the model will see it next time: its notes, then what it said.
+ * `detailedAt` is set for the most recent turns: their tool results are replayed, stamped with
+ * when they were read.
+ */
+function replayAssistant(m: Message, detailedAt?: string): string {
   const parsed = StoredAssistantMessage.safeParse(m.content);
   if (!parsed.success) return '';
   const { text, tools, error } = parsed.data;
-  const notes: string[] = [];
-  if (tools.length > 0) {
-    notes.push(
-      `Tools called: ${tools.map((t) => `${t.name} (${t.ok ? 'ok' : 'error'})`).join(', ')}.`,
-    );
-  }
+  const lines = toolLines(tools, detailedAt);
+  const notes: string[] = [...lines];
   if (m.planIds.length > 0) notes.push(`Proposals made: ${m.planIds.join(', ')}.`);
   if (error !== undefined)
     notes.push(`This turn failed (${error.code}); the reply was not finished.`);
-  const head = notes.length === 0 ? '' : `<turn_notes>${notes.join(' ')}</turn_notes>\n`;
+  // A list of results reads as lines; names alone stay one sentence, as before.
+  const sep = lines.length > 1 ? '\n' : ' ';
+  const head = notes.length === 0 ? '' : `<turn_notes>${notes.join(sep)}</turn_notes>\n`;
   return `${head}${text}`.trim();
 }
 
@@ -90,9 +117,18 @@ function replayAssistant(m: Message): string {
  */
 export function replayHistory(stored: readonly Message[]): BaseParams['messages'][number][] {
   const out: { role: 'user' | 'assistant'; content: string }[] = [];
+  const detailed = new Set(
+    stored
+      .filter((m) => m.role === 'assistant')
+      .slice(-DETAILED_TURNS)
+      .map((m) => m.id),
+  );
   for (const m of stored) {
     if (m.role !== 'user' && m.role !== 'assistant') continue;
-    const raw = m.role === 'user' ? storedText(m) : replayAssistant(m);
+    const raw =
+      m.role === 'user'
+        ? storedText(m)
+        : replayAssistant(m, detailed.has(m.id) ? m.createdAt : undefined);
     // A background trigger is not something Ben said: say so to the model.
     const text =
       m.role === 'user' && raw !== '' && storedSource(m) === 'background'

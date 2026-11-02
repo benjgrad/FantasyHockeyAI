@@ -1,7 +1,17 @@
 import { z } from 'zod';
 import { ANSWER_STOPS, type AnyToolSpec, type LoopResult, type ToolResult } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
-import { decisionsBlock, newRunState, strategyBlock, toolsFor, type RunContext } from '@fha/tools';
+import { isToolEnabled } from '@fha/core';
+import {
+  ALL_TOOLS,
+  CHAT_ONLY_TOOLS,
+  decisionsBlock,
+  guidanceBlock,
+  newRunState,
+  strategyBlock,
+  toolsFor,
+  type RunContext,
+} from '@fha/tools';
 import type { AgentDeps } from './deps.js';
 import { SPECIALIST_JOBS, type JobName, type JobResult } from './gm.js';
 import { buildLeagueContext, nyDate } from './leagueContext.js';
@@ -187,12 +197,22 @@ export function observed(tool: ChatTool): ChatTool {
   };
 }
 
-/** The tools the assistant is shown this turn, filtered by Ben's permissions (P2). */
+/**
+ * The tools the assistant is shown this turn, filtered by Ben's permissions (P2): the agents'
+ * tools, `runSpecialist`, and the guidance writers (D-041), which only the chat holds because Ben
+ * is there to say what should last.
+ */
 export function assistantTools(permissions: Parameters<typeof toolsFor>[1]): ChatTool[] {
   const byName = new Map<string, ChatTool>();
   for (const agent of BORROWED_FROM) {
     for (const tool of toolsFor(agent, permissions)) {
       if (!NOT_FOR_CHAT.has(tool.name)) byName.set(tool.name, tool as ChatTool);
+    }
+  }
+  for (const name of CHAT_ONLY_TOOLS) {
+    const tool = ALL_TOOLS[name];
+    if (tool !== undefined && isToolEnabled(permissions, name)) {
+      byName.set(name, tool as ChatTool);
     }
   }
   byName.set(runSpecialistTool.name, runSpecialistTool);
@@ -252,7 +272,10 @@ async function loop(deps: AssistantDeps, turn: AssistantTurn, t: TurnState): Pro
     leagueContext: [
       buildLeagueContext(deps.settings, permissions, deps.view, nyDate(deps.now)),
       strategyBlock(deps.view, deps.store),
-    ].join('\n\n'),
+      guidanceBlock(deps.view, deps.store),
+    ]
+      .filter((x) => x !== '')
+      .join('\n\n'),
   });
   const ctx: AssistantContext = {
     runId: t.runId,
@@ -268,6 +291,7 @@ async function loop(deps: AssistantDeps, turn: AssistantTurn, t: TurnState): Pro
     ...(deps.log === undefined ? {} : { log: deps.log }),
     ...(deps.searchYahoo === undefined ? {} : { searchYahoo: deps.searchYahoo }),
     ...(deps.activity === undefined ? {} : { activity: deps.activity }),
+    conversationId: turn.conversationId,
     state: t.state,
     emit: turn.emit,
     runSpecialist: deps.runSpecialist,

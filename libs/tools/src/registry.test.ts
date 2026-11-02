@@ -3,6 +3,7 @@ import { AGENT_NAMES } from '@fha/core';
 import { zodToJsonSchema } from '@fha/llm';
 import { ALL_TOOLS, AGENT_TOOLS, toolsFor } from './registry.js';
 import { validationContextFor } from './validationContext.js';
+import { CHAT_ONLY_TOOLS } from './tools/guidance.js';
 import { mockPermissions, mockView, MOCK_NOW } from './testing.js';
 import { openStore } from '@fha/store';
 
@@ -36,6 +37,16 @@ describe('registry', () => {
     expect(AGENT_TOOLS.leagueReview.filter((n) => ALL_TOOLS[n]?.risk !== 'read')).toEqual([]);
   });
 
+  it("scheduled agents read Ben's guidance but never write it: the writers are chat-only (D-041)", () => {
+    expect(ALL_TOOLS['getGuidance']?.risk).toBe('read');
+    for (const agent of ['waivers', 'trades', 'matchup', 'leagueReview', 'strategy'] as const) {
+      expect(AGENT_TOOLS[agent], agent).toContain('getGuidance');
+    }
+    for (const agent of AGENT_NAMES) {
+      for (const writer of CHAT_ONLY_TOOLS) expect(AGENT_TOOLS[agent], agent).not.toContain(writer);
+    }
+  });
+
   it('a tool switched off in permissions is not shown to the model (P2)', () => {
     const perms = mockPermissions({ tools: { proposeTrade: false } });
     const names = toolsFor('trades', perms).map((t) => t.name);
@@ -52,19 +63,22 @@ describe('registry', () => {
     }
   });
 
-  it('only propose tools, setCategoryWeights and the watch-list writers carry propose risk', () => {
-    // proposeStrategy writes the season plan (D-034), never a roster.
+  it('only propose tools, setCategoryWeights and the watch-list and guidance writers carry propose risk', () => {
+    // proposeStrategy writes the season plan (D-034) and the guidance tools Ben's lessons
+    // (D-041); neither touches a roster.
     const propose = Object.values(ALL_TOOLS)
       .filter((t) => t.risk === 'propose')
       .map((t) => t.name)
       .sort();
     expect(propose).toEqual([
+      'forgetGuidance',
       'proposeAddDrop',
       'proposeLineup',
       'proposeStrategy',
       'proposeTrade',
       'proposeTradeResponse',
       'proposeWaiverClaim',
+      'rememberGuidance',
       'setCategoryWeights',
       'stopWatching',
       'watchPlayers',

@@ -65,6 +65,29 @@ describe('assistant prompt', () => {
     expect(text).toContain('only by playerKeys that tools returned');
     expect(text).toContain('<league_context>\n<ctx>\n</league_context>');
   });
+
+  it('asks it to think a question through, use judgement and keep what Ben teaches (D-041)', () => {
+    const text = renderPrompt(testPrompts(), ASSISTANT_PROMPT_ID, { leagueContext: '<ctx>' });
+    expect(text).toContain('<thinking_it_through>');
+    expect(text).toMatch(/A tool's top row is a candidate, not the answer/);
+    expect(text).toMatch(/When Ben pushes back, check his specific point with a tool/);
+    expect(text).toMatch(/judgement call where the data is thin/);
+    expect(text).toContain('<looking_back>');
+    expect(text).toContain('<standing_guidance>');
+    expect(text).toContain('rememberGuidance');
+    expect(text).toContain('forgetGuidance');
+    // The old blanket rule read as "no opinion without a projection"; inventing stays forbidden.
+    expect(text).not.toMatch(/don't calculate values yourself/);
+    expect(text).toMatch(/never invent a stat, a projection or a value/);
+  });
+
+  it('every chat starts from the hockey-concepts primer in its league context', async () => {
+    const h = harness([say('Fine.')]);
+    await h.turn('how are we doing?');
+    const system = (h.fake.bodies[0]?.system as { text: string }[])[0]?.text ?? '';
+    expect(system).toContain('Hockey concepts to reason with:');
+    expect(system).toMatch(/goalie beyond the two we start/);
+  });
 });
 
 describe('assistant tools', () => {
@@ -76,6 +99,18 @@ describe('assistant tools', () => {
     expect(names).not.toContain('abstain');
     expect(names).not.toContain('askBen');
     expect(names).not.toContain('setCategoryWeights');
+  });
+
+  it('holds the guidance writers, which no scheduled agent has, unless switched off (D-041)', () => {
+    const names = assistantTools(mockPermissions()).map((t) => t.name);
+    expect(names).toEqual(
+      expect.arrayContaining(['rememberGuidance', 'forgetGuidance', 'getGuidance']),
+    );
+    const off = assistantTools(mockPermissions({ tools: { rememberGuidance: false } })).map(
+      (t) => t.name,
+    );
+    expect(off).not.toContain('rememberGuidance');
+    expect(off).toContain('forgetGuidance');
   });
 
   it('a tool switched off in permissions is not offered (P2)', () => {
@@ -154,6 +189,25 @@ describe('runAssistantTurn', () => {
     expect(toolNames(second)).toContain('runSpecialist');
   });
 
+  it("remembers a lesson Ben teaches, and the next turn's system prompt carries it (D-041)", async () => {
+    const rule = 'A trade has to be one the partner would plausibly accept.';
+    const h = harness([
+      call('rememberGuidance', { text: rule, why: 'Ben: nobody would accept that' }),
+      say('Saved: trades must work for the partner too.'),
+      say('Noted.'),
+    ]);
+    await h.turn('How did that trade get proposed? Nobody would accept that');
+    const [g] = h.store.guidance.active(h.deps.view.snap.leagueKey);
+    expect(g).toMatchObject({ text: rule, source: 'chat', conversationId: h.conversation.id });
+    const first = (h.fake.bodies[0]?.system as { text: string }[])[0]?.text ?? '';
+    expect(first).not.toContain('<ben_guidance>');
+
+    await h.turn('ok');
+    const next = (h.fake.bodies[2]?.system as { text: string }[])[0]?.text ?? '';
+    expect(next).toContain('<ben_guidance>');
+    expect(next).toContain(rule);
+  });
+
   it('runSpecialist delegates the job with Ben’s note and reports its outcome', async () => {
     const h = harness([
       call('runSpecialist', { job: 'lineup', note: 'set it, Makar is sick' }),
@@ -229,6 +283,48 @@ describe('replayHistory', () => {
         content: '<turn_notes>Tools called: getRoster (ok). Proposals made: p1.</turn_notes>\nok',
       },
     ]);
+  });
+});
+
+describe('replayHistory: recent turns keep their tool results (D-041)', () => {
+  const user = (id: number) => ({
+    id,
+    conversationId: 'c',
+    role: 'user' as const,
+    content: { text: `q${String(id)}` },
+    planIds: [],
+    createdAt: '2026-11-02T14:00:00.000Z',
+  });
+  const answer = (id: number) => ({
+    id,
+    conversationId: 'c',
+    role: 'assistant' as const,
+    content: {
+      text: `a${String(id)}`,
+      tools: [
+        {
+          name: 'getPlayerForm',
+          ok: true,
+          input: 'player: Ovechkin',
+          detail: `TOI 13.5 #${String(id)}`,
+        },
+      ],
+    },
+    planIds: [],
+    createdAt: `2026-11-02T14:${String(10 + id)}:00.000Z`,
+  });
+
+  it('replays what each tool returned for the last three answers, and only names before that', () => {
+    const stored = [1, 2, 3, 4, 5, 6, 7, 8].map((i) => (i % 2 === 1 ? user(i) : answer(i)));
+    const out = replayHistory(stored);
+    const answers = out.filter((m) => m.role === 'assistant').map((m) => String(m.content));
+    expect(answers).toHaveLength(4);
+    expect(answers[0]).toBe('<turn_notes>Tools called: getPlayerForm (ok).</turn_notes>\na2');
+    for (const [i, a] of answers.slice(1).entries()) {
+      const id = String(4 + 2 * i);
+      expect(a).toContain(`as of 2026-11-02T14:${String(14 + 2 * i)}Z; re-read before acting`);
+      expect(a).toContain(`- getPlayerForm [player: Ovechkin]: TOI 13.5 #${id}`);
+    }
   });
 });
 

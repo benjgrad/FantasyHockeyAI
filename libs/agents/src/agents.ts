@@ -32,11 +32,13 @@ export const AGENT_CONFIGS = {
   waivers: {
     name: 'waivers',
     promptId: 'waivers.system',
-    maxIterations: 10,
+    // D-041: 1 of 27 runs (Oct 2–Nov 2) used the whole budget of 10 and answered without tools.
+    maxIterations: 12,
     maxTokens: 3_000,
     jobFacts: addsRemainingFact,
   },
-  trades: { name: 'trades', promptId: 'trades.system', maxIterations: 12, maxTokens: 4_000 },
+  // D-041: 1 of 4 runs used all 12 rounds and another used 10; the search fans out per partner.
+  trades: { name: 'trades', promptId: 'trades.system', maxIterations: 14, maxTokens: 4_000 },
   matchup: { name: 'matchup', promptId: 'matchup.system', maxIterations: 5, maxTokens: 2_000 },
   /** The weekly league-changes analysis: reads events, writes a digest, proposes nothing. */
   leagueReview: {
