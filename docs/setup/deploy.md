@@ -99,30 +99,27 @@ Until the runner exists, deploy jobs wait in "queued" forever. That is harmless;
 The runner is a `bengrady4` systemd user service in its own directory, next to conductor's
 `~/actions-runner-conductor`. A runner registered to a repo only serves that repo.
 
-```bash
-mkdir ~/actions-runner-fha && cd ~/actions-runner-fha
-# actions-runner-linux-x64-<version>.tar.gz from github.com/actions/runner/releases; check its sha256
-tar xzf runner.tar.gz && rm runner.tar.gz
-install -m 755 ~/Documents/Projects/FantasyHockeyAI/deploy/runner-job-started.sh job-started.sh
-./config.sh --unattended --url https://github.com/benjgrad/FantasyHockeyAI \
-  --name gradyserver-fha --labels gradyserver-fha \
-  --token "$(gh api -X POST repos/benjgrad/FantasyHockeyAI/actions/runners/registration-token --jq .token)"
-echo "ACTIONS_RUNNER_HOOK_JOB_STARTED=$HOME/actions-runner-fha/job-started.sh" >> .env
-cat > ~/.config/systemd/user/actions-runner-fha.service <<'EOF'
-[Unit]
-Description=GitHub Actions runner for benjgrad/FantasyHockeyAI (deploy job only; job-started.sh refuses anything else)
-[Service]
-WorkingDirectory=%h/actions-runner-fha
-ExecStart=%h/actions-runner-fha/run.sh
-Restart=always
-[Install]
-WantedBy=default.target
-EOF
-systemctl --user daemon-reload && systemctl --user enable --now actions-runner-fha
+**Run [`deploy/setup-runner.sh`](../../deploy/setup-runner.sh)** on gradyserver as `bengrady4`, from a
+checkout on `main` (the production one, once this has merged):
 
-# Alerts: the same maintenance-channel webhook conductor uses.
-umask 077; echo 'DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/…' > ~/.config/fha/deploy.env
+```bash
+cd ~/Documents/Projects/FantasyHockeyAI && git pull --ff-only
+deploy/setup-runner.sh   # asks for the Discord webhook (hidden input; Enter skips)
 ```
+
+It needs `gh` signed in with admin on the repo. It is safe to rerun, and every step skips what
+is already done. It:
+
+1. downloads the latest `actions-runner-linux-x64` into `~/actions-runner-fha` and checks the
+   tarball's sha256 against the release notes;
+2. installs `runner-job-started.sh` as a copy, `~/actions-runner-fha/job-started.sh`, sets
+   `ACTIONS_RUNNER_HOOK_JOB_STARTED` in the runner's `.env`, and checks the hook refuses a job;
+3. registers the runner as `gradyserver-fha` with label `gradyserver-fha`;
+4. writes, enables and (re)starts `~/.config/systemd/user/actions-runner-fha.service`, and warns
+   if linger is off;
+5. writes `~/.config/fha/deploy.env` (mode 600) with the Discord webhook (the maintenance
+   channel conductor uses), or skips it;
+6. waits for GitHub to show the runner `online`, and checks U-50 (`branches/main/protection`).
 
 Then:
 
@@ -131,8 +128,8 @@ Then:
    *rollback failed*, even when the old code is up. Check `systemctl --user status fha-app`
    by hand.
 
-After changing `runner-job-started.sh`, copy it again:
-`install -m 755 deploy/runner-job-started.sh ~/actions-runner-fha/job-started.sh`. Health:
+After changing `runner-job-started.sh` (and merging it), rerun `deploy/setup-runner.sh`. It
+copies the hook again and restarts the runner. Health:
 `systemctl --user status actions-runner-fha`, and `gh api repos/benjgrad/FantasyHockeyAI/actions/runners`
 should show it `online`.
 

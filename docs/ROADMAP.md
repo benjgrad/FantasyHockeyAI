@@ -89,8 +89,9 @@ keep the tool results of the last three answers. Waivers and trades get more too
 `main` runs it again and then deploys itself to gradyserver: production's `main` fast-forwards,
 the app rebuilds and restarts, `/api/health` must name the new sha, and a failure rolls back with
 a Discord alert. Runbook: `docs/setup/deploy.md`.
-- **Still Ben's:** the one-time setup there. Register the `gradyserver-fha` runner with its
-  job-started hook, add `~/.config/fha/deploy.env` with the Discord webhook, then run a drill.
+- **Still Ben's:** run `deploy/setup-runner.sh` on gradyserver once. It registers the
+  `gradyserver-fha` runner with its job-started hook, writes `~/.config/fha/deploy.env` with
+  the Discord webhook, and checks U-50. Then run a drill.
   Until the runner exists, deploy jobs sit queued and deploys stay manual.
 
 **Blocking on Ben:** a Yahoo network capture of one add+drop, pure drop and claim (U-12; a
