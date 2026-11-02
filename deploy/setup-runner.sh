@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup of the self-hosted GitHub Actions runner that deploys Hockey GM (D-042,
+# One-time setup of the self-hosted GitHub Actions runner that deploys Hockey GM (D-043,
 # docs/setup/deploy.md). Run it by hand on gradyserver, as bengrady4 (not root), from an
 # up-to-date checkout of main (the production one is fine). Before the CI/CD change has merged,
 # run it from that branch's checkout instead: it installs the branch's hook, and says to rerun
@@ -21,8 +21,7 @@
 #   4. installs and starts the systemd user service actions-runner-fha;
 #   5. writes ~/.config/fha/deploy.env (mode 600) with the Discord webhook for failure alerts.
 #      It takes DISCORD_WEBHOOK_URL from the environment, else asks, and Enter skips it;
-#   6. waits for GitHub to show the runner online, and checks U-50 (no branch protection on the
-#      free plan).
+#   6. waits for GitHub to show the runner online, and reports whether main is protected (U-50).
 #
 # Needs: gh signed in with admin on the repo, curl, tar, sha256sum, systemctl --user.
 # Env: RUNNER_VERSION (latest), RUNNER_DIR (~/actions-runner-fha), DISCORD_WEBHOOK_URL.
@@ -183,11 +182,11 @@ else
   warn "GitHub shows $NAME as '${status:-missing}' after 30s: journalctl --user -u $UNIT -n 50"
 fi
 
-# U-50: the free plan can't protect main, which is why the hook is the gate.
+# U-50: the repo is public, so GitHub can protect main; the hook is the gate either way.
 if protection="$(gh api "repos/$SLUG/branches/main/protection" 2>&1)"; then
-  echo "U-50: main HAS branch protection; update the U-50 row in docs/ROADMAP.md"
-elif grep -q 'Upgrade to GitHub Pro' <<<"$protection"; then
-  echo "U-50 verified: GitHub can't protect main here (403 Upgrade to GitHub Pro); the hook is the gate"
+  echo "main is protected (U-50)"
+elif grep -q 'Branch not protected' <<<"$protection"; then
+  warn "main is not protected: consider protecting it (docs/setup/deploy.md, U-50)"
 else
   echo "U-50: protection check said: $(head -n 1 <<<"$protection")"
 fi

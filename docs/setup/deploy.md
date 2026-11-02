@@ -1,4 +1,4 @@
-# Deploying Hockey GM: CI/CD (D-042)
+# Deploying Hockey GM: CI/CD (D-043)
 
 Every PR runs the gates. Every merge to `main` runs them again and, if they pass, deploys that
 commit to gradyserver, with an automatic rollback and a Discord alert if the deploy fails. This
@@ -82,15 +82,24 @@ same sha, and an amber alert marked *TEST* arrives. Production ends where it sta
 
 ## Why the runner can't be used from a branch
 
-On a private repo on the free plan, GitHub can't protect `main`, require a check, or limit an
-environment to `main` [U: verified for conductor, not yet for this repo]. Any branch could edit
-`ci.yml` to send a job to this runner, which runs as `bengrady4` beside the live database and the
+The repo is **public** [V 2026-11-02: `gh api repos/benjgrad/FantasyHockeyAI` says
+`visibility: public`], and `main` is not protected yet (U-50). Any branch, or a fork's PR once its
+run is approved, could edit `ci.yml` to send a job to this runner, which runs as `bengrady4` beside the live database and the
 Yahoo session. So the gate is on the box: the runner's **job-started hook**
 ([`runner-job-started.sh`](../../deploy/runner-job-started.sh)) runs before every job and fails it
 unless it is the `deploy` job of `ci.yml@refs/heads/main`, started by a push or a dispatch. It is
 installed as a **copy** in the runner's directory, never run from a checkout, so a branch can't
 rewrite the gate it is checked by. The `gates` job never runs here, so PR code never executes on
 gradyserver.
+
+Because the repo is public, GitHub's own settings can add layers behind the hook. These are Ben's
+to apply, in the repo's settings; none of them replace the hook:
+
+- **Actions → Fork pull request workflows:** require approval for *all outside collaborators*
+  (today: first-time contributors only), so no fork's code runs in CI unseen.
+- **Environments → `gradyserver`** (it appears after the first deploy job): deployment branches
+  limited to `main`.
+- **Branches → `main`:** require the `gates` check to pass before merging.
 
 ## One-time setup (Ben, on gradyserver)
 
@@ -127,7 +136,7 @@ is already done. It:
 Then:
 
 1. Run a drill once the first CI deploy has landed.
-2. A sha from before D-042 has no `/api/health`. Deploying or rolling back to one is checked
+2. A sha from before D-043 has no `/api/health`. Deploying or rolling back to one is checked
    by `/` answering 200 instead: weaker, but it shows the restarted app is serving.
 
 After changing `runner-job-started.sh` (and merging it), rerun `deploy/setup-runner.sh`. It

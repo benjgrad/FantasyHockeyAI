@@ -65,9 +65,8 @@ export class CookieTransport implements YahooTransport {
   private async fetchOnce(path: string): Promise<unknown> {
     const wait = this.last + this.minIntervalMs - this.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    this.last = this.now();
     const url = readUrl(path);
-    const res = await this.fetchImpl(url, {
+    const init: RequestInit = {
       method: 'GET',
       headers: {
         accept: 'application/json',
@@ -77,7 +76,11 @@ export class CookieTransport implements YahooTransport {
         'user-agent': UA,
       },
       signal: AbortSignal.timeout(this.timeoutMs),
-    });
+    };
+    // Stamped right as the request leaves, so the spacing holds between sends, not between
+    // the work before them.
+    this.last = this.now();
+    const res = await this.fetchImpl(url, init);
     keepCookies(this.session, res, url, this.now() / 1000, this.opts.onCookies);
     const text = await res.text();
     return interpret(res.status, res.ok, text, path);

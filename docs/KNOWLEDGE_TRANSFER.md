@@ -1540,7 +1540,7 @@ Backtests replay history day by day against **hindsight** outcomes, and compare 
   - totals: cost, tokens, duration.
 - **Reports:** a markdown summary is printed and saved beside it. `npm run eval:compare -- <a.json> <b.json>` shows the differences in pass rates,
   scores and cost between two runs.
-- **CI stages:** the gates run from `scripts/ci.sh`, through `.github/workflows/ci.yml` (D-042,
+- **CI stages:** the gates run from `scripts/ci.sh`, through `.github/workflows/ci.yml` (D-043,
   `docs/setup/deploy.md`): format, lint, type-check, the deploy kit, the unit tests and the
   build. **The eval stages below are not in CI yet**: they join `scripts/ci.sh` when the runner
   exists.

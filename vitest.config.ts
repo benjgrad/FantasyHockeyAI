@@ -14,6 +14,9 @@ export default defineConfig({
   },
   test: {
     include: ['{libs,apps}/**/src/**/*.test.ts'],
+    // CI's 2-core runner (and a busy gradyserver) can push a cold first call past vitest's 5 s
+    // default: apps/mcp's first tools/call loads the mock snapshot. A real hang still fails.
+    testTimeout: 15_000,
     coverage: {
       provider: 'v8',
       include: ['libs/model/src/**', 'libs/core/src/**'],

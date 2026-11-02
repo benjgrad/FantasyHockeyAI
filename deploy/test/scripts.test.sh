@@ -34,6 +34,16 @@ check "setup-runner.sh: prints usage" has "$out" '^usage: '
 check "setup-runner.sh installs the hook from this repo" grep -qF 'HOOK_SRC="$HERE/runner-job-started.sh"' "$KIT/setup-runner.sh"
 check "setup-runner.sh registers the label the workflow targets" grep -qE '^NAME=gradyserver-fha$' "$KIT/setup-runner.sh"
 
+# Runs without shellcheck, so a laptop catches what failed main's first CI run: a comment that
+# starts with the linter's name after a command is read as a directive and is a parse error
+# (SC1126), which fails CI's shellcheck step but nothing local. The pattern is built in two
+# parts so this line doesn't match itself.
+directive="#[[:space:]]*""shellcheck"
+for f in "${ci[@]}" "$KIT"/test/*.sh; do
+  check "no trailing directive comment in ${f#"$REPO"/}" \
+    lacks "$(cat "$f")" "^[[:space:]]*[^#[:space:]].*${directive}"
+done
+
 if command -v shellcheck >/dev/null; then
   for f in "${ci[@]}" "$KIT"/test/*.sh; do
     # Not `check`: a failure prints shellcheck's findings, so a CI log says what to fix.

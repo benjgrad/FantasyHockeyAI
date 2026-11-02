@@ -13,7 +13,7 @@ step "format";           npm run format:check
 step "lint";             npm run lint
 step "type-check";       npm run type-check
 step "typecheck client"; npm run typecheck:client
-step "deploy kit";       bash deploy/test/run.sh   # shellcheck only if installed
+step "deploy kit";       bash deploy/test/run.sh   # lints shell scripts when the linter is installed
 step "test";             npm test
 step "build";            npm run build
 step "build client";     npm run build:client

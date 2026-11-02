@@ -91,14 +91,23 @@ keep the tool results of the last three answers. Waivers and trades get more too
 - **Still Ben's:** whether chat should think harder or run on Opus (Q-011); restart `fha-app`
   to load the new prompts and migration 013.
 
-**CI/CD (D-042, 2026-11-02):** every PR runs `scripts/ci.sh` on GitHub's machines. Every merge to
+**CI/CD (D-043, 2026-11-02):** every PR runs `scripts/ci.sh` on GitHub's machines. Every merge to
 `main` runs it again and then deploys itself to gradyserver: production's `main` fast-forwards,
 the app rebuilds and restarts, `/api/health` must name the new sha, and a failure rolls back with
 a Discord alert. Runbook: `docs/setup/deploy.md`.
+- **State 2026-11-02:** not working end to end yet. Main's first run (after PR #3) went red in
+  the gates: a trailing comment starting with the linter's name broke shellcheck's parse of
+  `scripts/ci.sh` (SC1126). Laptops skip shellcheck, so nothing local caught it.
+  `scripts.test.sh` now checks for that without shellcheck. Two timing tests that flaked under
+  load are fixed too. The deploy job has never run, because the runner isn't registered (0
+  runners on the repo).
 - **Still Ben's:** run `deploy/setup-runner.sh` on gradyserver once. It registers the
   `gradyserver-fha` runner with its job-started hook, writes `~/.config/fha/deploy.env` with
-  the Discord webhook, and checks U-50. Then run a drill.
+  the Discord webhook, and reports whether `main` is protected. Then run a drill.
   Until the runner exists, deploy jobs sit queued and deploys stay manual.
+- **Ben's, optional:** the repo is public (U-50 falsified), so GitHub's settings can back up the
+  hook: protect `main` with the `gates` check, limit the `gradyserver` environment to `main`, and
+  require fork-PR approval for all outside collaborators (runbook).
 
 **Blocking on Ben:** a Yahoo network capture of one add+drop, pure drop and claim (U-12; a
 plain add was captured 2026-09-29, a lineup edit 2026-10-01); a domain and sudo for nginx; approval to add an OIDC client to personal-os; a dedicated
@@ -212,7 +221,7 @@ first use and update the row.
 
 | ID | Claim | Spec | How to verify | Status |
 |---|---|---|---|---|
-| **U-50** | GitHub can't protect `main`, require a check or limit an environment to `main` on this private repo (free plan), so the runner's job-started hook is the only gate on the deploy runner | D-042, `docs/setup/deploy.md` | `gh api repos/benjgrad/FantasyHockeyAI/branches/main/protection`: a `403 Upgrade to GitHub Pro` confirms it | UNVERIFIED — verified for conductor on 2026-10-29, not for this repo. The hook is installed either way |
+| **U-50** | ~~GitHub can't protect `main` or limit an environment to it on this private repo (free plan)~~ **FALSIFIED 2026-11-02:** the repo is public, so GitHub can protect `main`, require the `gates` check and limit the `gradyserver` environment to `main`; none of it is set yet | D-043, `docs/setup/deploy.md` | `gh api repos/benjgrad/FantasyHockeyAI` → `visibility: public`; `…/branches/main/protection` → `404 Branch not protected` (not the free plan's `403 Upgrade to GitHub Pro`); fork-PR approval is `first_time_contributors` | [V] 2026-11-02. The job-started hook stays the gate; the settings are Ben's to add (runbook §Why the runner can't be used from a branch) |
 | **U-49** | Whether a lineup seat can be reused on the same day after its player's game ends (bench him once his game is over, start a later player in that seat, and both count) | D-041, U-09 | Try it once on a light day with a player whose game is final, then read the day's counted lines in the archive (`getMatchupHistory` with the week) | UNVERIFIED — Ben asked on 10-25 and 10-26; the concepts primer tells the agents to say it is unverified. Yahoo locks each player at his own game start (U-09) |
 | **U-33** | The variance model's σ per category is right for a whole week (Poisson counts, PIM dispersion 2, +/- 1 per skater-game, independent players) | D-034, §12.6 | Fit the (us − them) spread per category from the season's scoreboards; set `sdOverride` | UNVERIFIED — nothing learns σ yet. The marginal weights (D-034) and every P(win) depend on it: too small a σ makes a category look decided too early |
 | **U-34** | One starter's worth (a counting category's weekly total over its seats; .010 SV% / 0.25 GAA for one goalie) is the right step for the marginal weights | D-034 | Compare the weights' ranking with what actually moved weekly outcomes (retro) | UNVERIFIED — a design choice; the ranking matters more than the scale, and the weights are renormalised to average 1 |
@@ -315,7 +324,7 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
 
-### D-042 — 2026-11-02 — CI/CD: gates on every PR, and main deploys itself to gradyserver
+### D-043 — 2026-11-02 — CI/CD: gates on every PR, and main deploys itself to gradyserver
 
 **Why.** Ben asked for the approach used for benjgrad/conductor. Until now a deploy was a hand-run
 pull, build and `fha-app` restart. The roadmap shows code merged days before it ran (D-032 waited

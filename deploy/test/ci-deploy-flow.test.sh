@@ -45,7 +45,7 @@ esac
 exit 0
 SYSTEMCTL
 # Fake curl. The Discord webhook (discord.invalid) keeps the payload and says 204. Otherwise it is
-# the app at the live sha: /api/health names it if that sha has the route (D-042), else 404s, and
+# the app at the live sha: /api/health names it if that sha has the route (D-043), else 404s, and
 # `/` answers 200 with -w. Nothing listens on :9 (the drill); the public URL fails when
 # FAKE_SMOKE_FAIL=1; nothing answers while no sha is live.
 cat >"$T/bin/curl" <<'CURL'
@@ -172,16 +172,16 @@ check "and forward again (got $CODE)" live "$sha4"
 
 # 4b. A rollback to a sha from before /api/health: checked by `/` answering instead.
 deploy "$sha0"
-check "rollback before D-042 exits 0 (got $CODE)" test "$CODE" -eq 0
-check "rollback before D-042: $sha0 live" live "$sha0"
-check "rollback before D-042: says how it checked" has "$OUT" 'predates /api/health'
-check "rollback before D-042: smokes the public page" called '^curl https://hockey\.gradyserver\.com/$'
-check "rollback before D-042: no alert" no_alert
+check "rollback before D-043 exits 0 (got $CODE)" test "$CODE" -eq 0
+check "rollback before D-043: $sha0 live" live "$sha0"
+check "rollback before D-043: says how it checked" has "$OUT" 'predates /api/health'
+check "rollback before D-043: smokes the public page" called '^curl https://hockey\.gradyserver\.com/$'
+check "rollback before D-043: no alert" no_alert
 deploy "$sha4" FAKE_BOOT_FAIL="$sha4"
-check "a failed deploy from a pre-D-042 sha rolls back to it (got $CODE)" live "$sha0"
+check "a failed deploy from a pre-D-043 sha rolls back to it (got $CODE)" live "$sha0"
 check "and the rollback is reported as working" alerted 'Deploy failed: rolled back'
 deploy "$sha0" FAKE_BOOT_FAIL="$sha0"
-check "a pre-D-042 sha that doesn't come up fails (got $CODE)" test "$CODE" -eq 1
+check "a pre-D-043 sha that doesn't come up fails (got $CODE)" test "$CODE" -eq 1
 deploy "$sha4"
 check "and forward again to $sha4 (got $CODE)" live "$sha4"
 

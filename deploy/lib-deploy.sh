@@ -119,10 +119,10 @@ health_sha() { # health_sha <base-url>: the sha /api/health reports, if it repor
     sed -n 's/.*"ok":true.*"sha":"\([^"]*\)".*/\1/p'
 }
 
-# A sha from before D-042 has no /api/health. Rolling back to one must still be checkable.
+# A sha from before D-043 has no /api/health. Rolling back to one must still be checkable.
 has_health() { git -C "$FHA_PROD" cat-file -e "$1:apps/app/src/healthRoutes.ts" 2>/dev/null; }
 
-serves() { # serves <base-url> <sha>: the app behind <base-url> is <sha>, or (before D-042) is up
+serves() { # serves <base-url> <sha>: the app behind <base-url> is <sha>, or (before D-043) is up
   if has_health "$2"; then
     [[ "$(health_sha "$1" || true)" == "$2" ]]
   else
