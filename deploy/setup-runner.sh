@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # One-time setup of the self-hosted GitHub Actions runner that deploys Hockey GM (D-042,
-# docs/setup/deploy.md). Run it by hand on gradyserver, as bengrady4 (not root), from a checkout
-# on main (the production one is fine):
+# docs/setup/deploy.md). Run it by hand on gradyserver, as bengrady4 (not root), from an
+# up-to-date checkout of main (the production one is fine). Before the CI/CD change has merged,
+# run it from that branch's checkout instead: it installs the branch's hook, and says to rerun
+# from main after the merge.
 #
 #   deploy/setup-runner.sh
 #
@@ -53,10 +55,17 @@ for tool in gh curl tar sha256sum systemctl git; do
   command -v "$tool" >/dev/null || die "$tool is not installed"
 done
 gh auth status >/dev/null 2>&1 || die "gh is not signed in: run 'gh auth login' first"
-branch="$(git -C "$HERE/.." symbolic-ref --short -q HEAD || true)"
-[[ "$branch" == main ]] ||
-  die "run this from a checkout on main (this one is on '${branch:-a detached HEAD}'): the hook it installs must be main's"
 [[ -f "$HOOK_SRC" ]] || die "$HOOK_SRC is missing"
+# The hook installed must be main's. Before the CI/CD change merges, main has none, so this
+# branch's copy is installed (rerun from main after the merge). After it, a copy that differs
+# from main's is refused: a branch must not choose the gate it will be checked by.
+git -C "$HERE/.." fetch -q origin main 2>/dev/null || warn "could not fetch origin/main; comparing with the last fetched copy"
+main_hook="$(git -C "$HERE/.." show origin/main:deploy/runner-job-started.sh 2>/dev/null || true)"
+if [[ -z "$main_hook" ]]; then
+  warn "main has no deploy/runner-job-started.sh yet (CI/CD not merged): installing this checkout's copy. Rerun this script from main once it has merged."
+elif [[ "$main_hook" != "$(cat "$HOOK_SRC")" ]]; then
+  die "this checkout's runner-job-started.sh differs from origin/main's: run this from an up-to-date main (git pull --ff-only)"
+fi
 
 # ---------------------------------------------------------------- 1. the runner
 step "1/6 runner binaries in $RUNNER_DIR"

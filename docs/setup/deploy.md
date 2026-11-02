@@ -99,8 +99,11 @@ Until the runner exists, deploy jobs wait in "queued" forever. That is harmless;
 The runner is a `bengrady4` systemd user service in its own directory, next to conductor's
 `~/actions-runner-conductor`. A runner registered to a repo only serves that repo.
 
-**Run [`deploy/setup-runner.sh`](../../deploy/setup-runner.sh)** on gradyserver as `bengrady4`, from a
-checkout on `main` (the production one, once this has merged):
+**Run [`deploy/setup-runner.sh`](../../deploy/setup-runner.sh)** on gradyserver as `bengrady4`, from an
+up-to-date checkout of `main` (the production one). Before this change has merged, you can run it
+from the PR branch's checkout. It installs that branch's hook, which main doesn't have yet, and
+asks you to rerun it from `main` after the merge. Once main has the hook, a checkout whose copy
+differs from main's is refused.
 
 ```bash
 cd ~/Documents/Projects/FantasyHockeyAI && git pull --ff-only
@@ -124,9 +127,8 @@ is already done. It:
 Then:
 
 1. Run a drill once the first CI deploy has landed.
-2. Note that a sha from before D-042 has no `/api/health`. Rolling back to one always reports
-   *rollback failed*, even when the old code is up. Check `systemctl --user status fha-app`
-   by hand.
+2. A sha from before D-042 has no `/api/health`. Deploying or rolling back to one is checked
+   by `/` answering 200 instead: weaker, but it shows the restarted app is serving.
 
 After changing `runner-job-started.sh` (and merging it), rerun `deploy/setup-runner.sh`. It
 copies the hook again and restarts the runner. Health:
