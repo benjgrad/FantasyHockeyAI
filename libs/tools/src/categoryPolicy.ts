@@ -6,7 +6,7 @@ import { seasonAuditOn } from './seasonAudit.js';
 import type { LeagueView } from './view.js';
 
 /**
- * The category policy (D-041): what we want from each scored category, in one place. Code's
+ * The category policy (D-042): what we want from each scored category, in one place. Code's
  * weights are the measurement (P1, D-034); the stored season strategy is the intent, laid over
  * them by one deterministic rule (`applyStrategy`). Every preference surface (fit and its score,
  * targets and target hits, the strength panel, the fit sorts, the week's punts) reads this, so

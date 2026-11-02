@@ -22,7 +22,7 @@ import {
  * share of the rest of the season he is expected to be available for: a player out four months
  * is not holding up our SHP. Ranking every team the same way turns the sum into something
  * readable ("7th of 8 in A"). Targets, surplus, punts and the weights every card's `fit` is
- * computed with all come from the category policy (D-041: the season strategy over code's
+ * computed with all come from the category policy (D-042: the season strategy over code's
  * weights), so the panel, the cards and the Team page's strategy cannot disagree.
  */
 export type StrengthLabel = 'weak' | 'average' | 'strong' | 'saturated';
@@ -115,7 +115,7 @@ const cache = new WeakMap<LeagueView, { strategyId: number | null; strength: Str
  * Our strength per scored category, weakest first. Each roster's z comes from the
  * rest-of-season lens when the store is given (D-040), so a team's rank moves with the season's
  * games; without it, the preseason values. Weights, targets, surplus and punts are the category
- * policy's (D-041). Cached per view and strategy version, so a new version shows at once.
+ * policy's (D-042). Cached per view and strategy version, so a new version shows at once.
  */
 export function categoryStrength(view: LeagueView, store?: Store): Strength {
   const policy = categoryPolicy(view, store);

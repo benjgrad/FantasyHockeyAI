@@ -1,7 +1,7 @@
 import type { PolicySource } from '@fha/api';
 
 /**
- * How a category's role in the season strategy looks everywhere (D-041): the Team page's plan,
+ * How a category's role in the season strategy looks everywhere (D-042): the Team page's plan,
  * the strength panel and the player card show buy / trade from / punt the same way.
  */
 export const ROLE_TONE = {

@@ -7,7 +7,7 @@ import { strengthBar } from './helpers';
 /**
  * Category strength, weakest first: the draft board panel Ben used most, because it says what
  * to target. Each bar is our roster's summed z (injuries discounted), with our league rank.
- * Buy / trade from / punt are the season strategy's (D-041), the same the Team page shows.
+ * Buy / trade from / punt are the season strategy's (D-042), the same the Team page shows.
  */
 const LABEL_TONE: Record<StrengthT['categories'][number]['label'], string> = {
   weak: 'text-bad',

@@ -240,7 +240,7 @@ describe('player routes over HTTP', () => {
     );
     expect(stored).toMatchObject({ weekWeightsSource: 'stored', weekWeights: { A: 1.5 } });
     expect(stored.source).toEqual({ kind: 'audit' });
-    // D-041: a recorded strategy is what the panel targets, trades from and punts.
+    // D-042: a recorded strategy is what the panel targets, trades from and punts.
     const v = h.store.seasonStrategy.add({
       leagueKey: view.snap.leagueKey,
       author: 'ben (chat)',

@@ -5,7 +5,7 @@ import { auditWeek, LeagueView, MOCK_SETTINGS } from '@fha/tools';
 import { FIXTURE } from '../testing.js';
 import { writeCodeWeights } from './jobs.js';
 
-/** The week's code weights take the strategy's punts, and nothing else of it (D-034, D-041). */
+/** The week's code weights take the strategy's punts, and nothing else of it (D-034, D-042). */
 describe('writeCodeWeights', () => {
   it('stores the week’s ΔP(win) weights with the punts at 0, as before the policy module', () => {
     const view = LeagueView.fromFile(FIXTURE, MOCK_SETTINGS);

@@ -609,7 +609,7 @@ export const PlayerCategory = z.object({
   lowerIsBetter: z.boolean(),
 });
 /**
- * Where our targets, surplus and punts came from (D-041): the stored season strategy version, or,
+ * Where our targets, surplus and punts came from (D-042): the stored season strategy version, or,
  * with none recorded, code's own audit (named so, P9).
  */
 export const PolicySource = z.discriminatedUnion('kind', [
@@ -829,7 +829,7 @@ export const CategoryStrengthRow = z.object({
   label: z.enum(['weak', 'average', 'strong', 'saturated']),
   /** This week's matchup win probability, when the matchup can be projected. */
   winProb: z.number().nullable(),
-  /** The need weight `fit` uses for this category (1 neutral), the strategy applied (D-041). */
+  /** The need weight `fit` uses for this category (1 neutral), the strategy applied (D-042). */
   weight: z.number(),
   /** Code's weight before the strategy. */
   codeWeight: z.number(),

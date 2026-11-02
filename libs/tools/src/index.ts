@@ -41,6 +41,7 @@ export * from './gateState.js';
 export * from './shadowReport.js';
 export * from './tools/watch.js';
 export * from './tools/strategy.js';
+export * from './tools/guidance.js';
 export * from './goalieStarts.js';
 export * from './freshness.js';
 export * from './claims.js';

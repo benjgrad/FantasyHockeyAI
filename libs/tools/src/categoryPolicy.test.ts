@@ -26,7 +26,7 @@ const strategyFor = (view: LeagueView, over: Partial<SeasonStrategyInsert> = {})
   ...over,
 });
 
-describe('applyStrategy: the one rule laying intent over code’s weights (D-041)', () => {
+describe('applyStrategy: the one rule laying intent over code’s weights (D-042)', () => {
   const base = { SOG: 0.9, A: 1.6, HIT: 1.3, PIM: 0.2, SHP: 1.1, G: 1 };
 
   it('punts to 0, floors targets at 1.2, caps surplus at 1, leaves the rest alone', () => {

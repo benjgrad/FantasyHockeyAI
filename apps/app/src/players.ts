@@ -114,7 +114,7 @@ function categoriesOf(c: CardContext, p: Player, gp: number | null): PlayerCard[
   });
 }
 
-/** His fit to our needs: the category policy's lens, weights and targets, as the strength panel's (D-041). */
+/** His fit to our needs: the category policy's lens, weights and targets, as the strength panel's (D-042). */
 export function fitOf(c: CardContext, p: Player): PlayerCard['fit'] {
   const { weights, targets, surplus, punts, source, lens } = c.strength;
   const f = playerFit(lens, weights, p);

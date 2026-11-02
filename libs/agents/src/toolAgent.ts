@@ -5,6 +5,7 @@ import type { LlmClient } from '@fha/llm';
 import { renderPrompt } from '@fha/prompts';
 import {
   decisionsBlock,
+  guidanceBlock,
   newRunState,
   strategyBlock,
   toolsFor,
@@ -93,6 +94,7 @@ export class ToolAgent implements Agent {
       leagueContext: [
         buildLeagueContext(deps.settings, permissions, deps.view, today),
         strategyBlock(deps.view, deps.store),
+        guidanceBlock(deps.view, deps.store),
         decisionsBlock(deps.view, deps.store, req.context.now),
       ]
         .filter((x) => x !== '')
@@ -110,7 +112,6 @@ export class ToolAgent implements Agent {
       submit: deps.submit,
       ...(deps.log === undefined ? {} : { log: deps.log }),
       ...(deps.searchYahoo === undefined ? {} : { searchYahoo: deps.searchYahoo }),
-      ...(deps.activity === undefined ? {} : { activity: deps.activity }),
       ...(deps.activity === undefined ? {} : { activity: deps.activity }),
       state,
     };

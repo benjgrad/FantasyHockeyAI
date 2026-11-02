@@ -262,7 +262,7 @@ describe('category strength', () => {
   });
 });
 
-describe('the season strategy is the targets everywhere (D-041, ticket "Inconsistent targets")', () => {
+describe('the season strategy is the targets everywhere (D-042, ticket "Inconsistent targets")', () => {
   // The Team page said "buy SOG, A, PPP · trade from HIT, PIM" while every card said
   // "Our targets: SOG, W, A, G": the cards read code's weights, not the stored strategy.
   const strategy = {

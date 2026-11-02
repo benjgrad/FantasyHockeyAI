@@ -21,6 +21,7 @@ import { lensShadowRepo, type LensShadowRepo } from './repos/lensShadow.js';
 import { watchListRepo, type WatchListRepo } from './repos/watchList.js';
 import { seasonStrategyRepo, type SeasonStrategyRepo } from './repos/seasonStrategy.js';
 import { matchupArchiveRepo, type MatchupArchiveRepo } from './repos/matchupArchive.js';
+import { guidanceRepo, type GuidanceRepo } from './repos/guidance.js';
 import { chatTurnsRepo, type ChatTurnsRepo } from './repos/chatTurns.js';
 import { conversationsRepo, type ConversationsRepo } from './repos/conversations.js';
 import { eventsRepo, type EventsRepo } from './repos/events.js';
@@ -75,6 +76,8 @@ export interface Store {
   seasonStrategy: SeasonStrategyRepo;
   // Finished weeks as Yahoo reported them (migration 012).
   matchupArchive: MatchupArchiveRepo;
+  // Ben's standing guidance, read by every agent and chat (migration 013).
+  guidance: GuidanceRepo;
   /** Migration versions this open applied; empty when the file was already current. */
   readonly migrationsApplied: readonly number[];
   /**
@@ -116,6 +119,7 @@ export function openStore(path: string, opts: StoreOptions = {}): Store {
     watchList: watchListRepo(db, now),
     seasonStrategy: seasonStrategyRepo(db, now),
     matchupArchive: matchupArchiveRepo(db, now),
+    guidance: guidanceRepo(db, now),
     strategy: strategyRepo(db, now),
     kv: kvRepo(db, now),
     users: usersRepo(db, now),

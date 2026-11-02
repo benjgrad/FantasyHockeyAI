@@ -988,7 +988,7 @@ starters counted: every free agent who did not crack the starting seats added th
 - **Where they are used.** Our typical-week starters and releases in CWA / ΔWin%
   (`starterWeights`: `value + Σ (w_c − 1)·z_c`; the field keeps plain value), and the in-season
   `fit` on player surfaces.
-- **Fit** (`libs/tools/src/fit.ts`, D-040; weights from the category policy, D-041):
+- **Fit** (`libs/tools/src/fit.ts`, D-040; weights from the category policy, D-042):
   `fit = Σ (w_c − 1)·z_c` over his position's scored
   categories, `score = adjusted VOLS + fit`. The player's z and VORP come from the
   rest-of-season lens (`fitLens` → `rosLensView`), as do the category-strength panel's team
@@ -1013,7 +1013,7 @@ starters counted: every free agent who did not crack the starting seats added th
   thing on the Team page's **Season strategy** card (`GET /api/strategy`): the current version,
   earlier ones folded away with what changed, code's audit now, and which objective is live.
   The card is read-only; a change goes through chat (`proposeStrategy`).
-- **The category policy** (`libs/tools/src/categoryPolicy.ts`, D-041): the one owner of what
+- **The category policy** (`libs/tools/src/categoryPolicy.ts`, D-042): the one owner of what
   we want from each category. `categoryPolicy(view, store)` returns the source (the current
   strategy version, or `audit` when none is recorded), targets, surplus, punts, each category's
   role, code's weights and the effective weights, and where the strategy and today's audit
@@ -1048,6 +1048,7 @@ starters counted: every free agent who did not crack the starting seats added th
 ## 13. Agents [D]
 
 *Form and forecast tools (D-025): `getPlayerGames` (raw game log), `getPlayerForm` (windows, trends, in-season vs preseason per game), `getForecast` (matchup, players' next days, season). Every number is computed in code; prompts say which lens a forecast uses.*
+*Reasoning and memory (D-041): every agent's league context ends with the glossary and a static hockey-concepts primer (`conceptsText()`, `libs/core/src/concepts.ts`: games volume, the bench seat a third goalie costs, ice time and PP role as leading indicators, partner acceptance in trades, lock timing [U-49]). After the season strategy comes a `<ben_guidance>` block (`guidanceBlock`, `libs/tools/src/tools/guidance.ts`): Ben's standing lessons, newest 20, ranked with the strategy and below permissions. Every agent that reads the strategy holds `getGuidance`; only the chat assistant holds `rememberGuidance`/`forgetGuidance`. The assistant and the waivers, trades, matchup and strategy prompts carry a reasoning method (a tool's top row is a candidate; check it against the goal; weigh two options; re-check on pushback; try another route before giving up; labelled judgement on thin data; a retro that splits a lost week into causes). A chat replays the tool results of its last three answers, stamped with when they were read.*
 
 Each agent is one class implementing `Agent`, a prompt entry in `libs/prompts/prompts/<agent>.yaml`, and a
 tool allow-list. The math happens in tools, and the LLM chooses and explains.
@@ -1127,6 +1128,7 @@ its propose tool, or by answering `noop` with a reason.
 *Agents' watch list (D-028): migration 009 `watch_list (user_id, player_key, reason, added_by, added_at, expires_at)`, repo `store.watchList`; written by the `watchPlayers`/`stopWatching` tools, Ben's "Stop following", and a Players-page name search that missed the pool and found the player on Yahoo (`added_by = 'search'`, 3 days, D-032). Every watched player is read into the league snapshot alongside the rostered players, the top FAs by preseason rank, last week's top 50 FAs by actual rank, and the waiver list.*
 *Mid-season values (D-026): migration 007 `valuation_history (league_key, date, player_key, lens, value, vols, adjusted, vofa, cwa, week_cwa, gp_current, low_conf)` written after each refresh, repo `store.valuations`, plus an index on skater games by season and team; migration 008 `lens_shadow` (one row per decision, subject and day where the other value lens would have decided differently), repo `store.lensShadow`.*
 
+*Ben's standing guidance (D-041): migration 013 `guidance (id, league_key, text, why, source 'chat'|'ben', conversation_id, created_at, retired_at)`, repo `store.guidance` (`add`, `retire`, `active` newest first, capped at 20). Rows are never edited; forgetting sets `retired_at`.*
 *Matchup history (D-038): migration 012 `matchup_archive (league_key, kind, week, ref, body, recorded_at)`, kinds `week`, `teamWeek`, `teamDay` and `projection`, written once per record by the `archive` job; repo `store.matchupArchive`; bodies validated on read against `libs/core/src/history.ts`.*
 *Game-level history (D-025, migration 006): `nhl_skater_games` and `nhl_goalie_games` keyed `(nhl_id, game_id)`, `nhl_players`, `ingest_state(season, last_date)`; repo `store.nhlGames`. Proposals refused before recording (D-022, migration 005): `proposal_attempts`.*
 Migrations are numbered SQL files applied at startup. The core schema:
