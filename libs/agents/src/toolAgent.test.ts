@@ -58,6 +58,25 @@ describe('lineup agent', () => {
     expect(JSON.stringify(first?.messages[0])).toContain('Job: lineup');
   });
 
+  it("starts from Ben's standing guidance and the hockey concepts; no guidance, no block (D-041)", async () => {
+    const empty = agentHarness('lineup', [say('Nothing to change.')]);
+    await createAgent('lineup', empty.deps).handle(empty.request());
+    const bare = (empty.fake.bodies[0]?.system as { text: string }[])[0]?.text ?? '';
+    expect(bare).not.toContain('<ben_guidance>');
+    expect(bare).toContain('Hockey concepts to reason with:');
+
+    const h = agentHarness('waivers', [say('No add clears the bar.')]);
+    h.store.guidance.add({
+      leagueKey: h.deps.view.snap.leagueKey,
+      text: 'Weigh games played this week before calling a matchup close.',
+      source: 'chat',
+    });
+    await createAgent('waivers', h.deps).handle(h.request());
+    const system = (h.fake.bodies[0]?.system as { text: string }[])[0]?.text ?? '';
+    expect(system).toContain('<ben_guidance>');
+    expect(system).toContain('Weigh games played this week');
+  });
+
   it('abstain is a noop carrying the reason', async () => {
     const h = agentHarness('lineup', [
       call('abstain', { reason: 'roster unreadable' }),

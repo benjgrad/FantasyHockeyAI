@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-10-27**
+Last updated: **2026-11-02**
 
 ---
 
@@ -76,6 +76,15 @@ while MacKinnon's C seat sat idle.
 - **Still Ben's:** switch auto-grab's lens to rest-of-season in Settings, his row still says
   preseason; and restart `fha-app` to make all this live.
 
+**Thinking deeper (D-041, 2026-11-02):** a review of Ben's chats (09-30..11-02) found the
+assistant taking a tool's top row as the answer, giving in on pushback, stopping after one
+failed lookup and never raising games played, ice time or a partner's needs on its own. Every
+agent now gets a hockey-concepts primer and a reasoning method in its prompt. The chat records
+Ben's lasting lessons (`rememberGuidance`), and every agent starts from them. Follow-up turns
+keep the tool results of the last three answers. Waivers and trades get more tool rounds.
+- **Still Ben's:** whether chat should think harder or run on Opus (Q-011); restart `fha-app`
+  to load the new prompts and migration 013.
+
 **Blocking on Ben:** a Yahoo network capture of one add+drop, pure drop and claim (U-12; a
 plain add was captured 2026-09-29, a lineup edit 2026-10-01); a domain and sudo for nginx; approval to add an OIDC client to personal-os; a dedicated
 Anthropic key for the agents.
@@ -140,7 +149,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-APP** | Chat-centred app: Sign in with Personal OS, Connect Yahoo, permissions editor, chat assistant, decisions, push (`apps/app`) | `done` 2026-09-29 — **live at https://hockey.gradyserver.com** (nginx + Let's Encrypt, `fha-app` user service with the daemon). Registered itself with personal-os via DCR on first login. Chat turns made durable (D-014; deployed). Rebrand to **Hockey GM** (D-019: Rink look, light/dark themes, mobile navigation and scrolling) built 2026-10-01, deployed. Yahoo connection hardened by D-033 (full cookie jar, keepalive) | Sign-in round trip; approve from a decision card; push on the phone | §15 |
 | **M-PWA** | Installable PWA (offline shell + cached reads, update flow), durable chat turns, player cards / compare / free-agent browser / category strength | `done` 2026-09-30, deployed | Works offline with last data; a chat reply survives a disconnect; draft-board-style cards and comparisons in the app | §15 |
 | **M-LC** | League comparison: every team's category strength and rank (heatmap), head to head vs us (typical-week and this-week expected categories won, swing categories, cheapest to flip, top contributors), trade complementarity, our profile with the cheapest fix per weakness (FA vs trade), per-partner trade ideas; `getLeagueComparison` read tool for the trades agent and chat | `done` 2026-09-30, deployed by 2026-10-09. `GET /api/league/compare[/:teamKey]`, Team → League. Core in `libs/tools/src/leagueCompare.ts`; `findTradeTargets` gained `only`/`maxPerSide` (a scoped search keeps the whole league as the field). Typical week is an assumption (U-24) | Our ranks match the strength panel; H2H expected cats = Σ win probs; trade ideas limited to the partner | §12.6, §12.7 |
-| **M9** | Season strategy, weekly retro, evals in CI | `wip` — season strategy, audit and weekly retro job built 2026-10-13 (D-034); objective **switched to `winWeek` 2026-10-24** (D-035); eval runner not built, so the 10-21..24 bad decisions are scenario tests on recorded data (`libs/tools/src/scenarios-2026-10-24.test.ts`) until it is | `eval:smoke` runs on every PR | §12.6, §12.9, §19.3, §20 |
+| **M9** | Season strategy, weekly retro, evals in CI | `wip` — season strategy, audit and weekly retro job built 2026-10-13 (D-034); objective **switched to `winWeek` 2026-10-24** (D-035); eval runner not built, so the 10-21..24 bad decisions are scenario tests on recorded data (`libs/tools/src/scenarios-2026-10-24.test.ts`) until it is; the 09-30..11-02 chat-reasoning failures (D-041) are recorded as 17 judge cases in `tools/eval/scenarios/assistant/chat-reasoning-2026-11.yaml`, checked for form only until the runner scores them | `eval:smoke` runs on every PR | §12.6, §12.9, §19.3, §20 |
 
 ### Deferred from tonight
 
@@ -176,6 +185,7 @@ Owner **Ben** means it needs his decision or his account; **us** means we can se
 | **Q-003** | Model spend: deep tier (Opus) for trades and the draft, or standard tier throughout? | Ben | Cost, and TradeAnalyst quality | **ANSWERED 17:00 — `claude-opus-5` for every agent**, adaptive thinking. Supersedes §18.2's per-agent tiers. **Superseded 2026-10-01 by D-023** (a model per agent) |
 | **Q-004** | Is n8n wanted at all, given the built-in scheduler plus systemd? | Ben | M8 | OPEN — leaning no; scheduler + systemd is sufficient |
 | **Q-005** | Where does ADP come from? | us | §12.5 scarcity, §12.2 step 8 sanity check | **ANSWERED 14:45.** A public consensus board with ADP and multi-position eligibility, in `libs/market`; 252 players joined. Yahoo's own `draft_analysis` is also reachable via the website API if we want it |
+| **Q-011** | Should the chat assistant think harder: effort `xhigh` on Sonnet 5.5 (about 1.5–2× chat's token cost), Opus 5.5 (about 3×), or unchanged? | Ben | Chat reasoning depth (D-041); `config/models.yaml` | OPEN — D-041 shipped the prompt, memory and budget changes without touching the model. Chat cost $8.08 over 142 turns from 10-02 to 11-02 |
 | **Q-006** | What are the actual league settings? | — | Everything | **ANSWERED 15:20.** 8 teams, H2H categories, 17 rounds, 90 s/pick. Skaters: G A +/- PIM PPP SHP GWG SOG HIT. Goalies: W GAA SV% SHO. Roster C2 LW2 RW2 D4 Util1 G2 BN4 IR2. Intraday lock, rolling waivers, no FAAB, max 3 adds/week |
 
 ---
@@ -187,6 +197,7 @@ first use and update the row.
 
 | ID | Claim | Spec | How to verify | Status |
 |---|---|---|---|---|
+| **U-49** | Whether a lineup seat can be reused on the same day after its player's game ends (bench him once his game is over, start a later player in that seat, and both count) | D-041, U-09 | Try it once on a light day with a player whose game is final, then read the day's counted lines in the archive (`getMatchupHistory` with the week) | UNVERIFIED — Ben asked on 10-25 and 10-26; the concepts primer tells the agents to say it is unverified. Yahoo locks each player at his own game start (U-09) |
 | **U-33** | The variance model's σ per category is right for a whole week (Poisson counts, PIM dispersion 2, +/- 1 per skater-game, independent players) | D-034, §12.6 | Fit the (us − them) spread per category from the season's scoreboards; set `sdOverride` | UNVERIFIED — nothing learns σ yet. The marginal weights (D-034) and every P(win) depend on it: too small a σ makes a category look decided too early |
 | **U-34** | One starter's worth (a counting category's weekly total over its seats; .010 SV% / 0.25 GAA for one goalie) is the right step for the marginal weights | D-034 | Compare the weights' ranking with what actually moved weekly outcomes (retro) | UNVERIFIED — a design choice; the ranking matters more than the scale, and the weights are renormalised to average 1 |
 | **U-35** | A trade the model scores as helping the partner (`winThem ≥ 0`) is one a human manager would accept | D-034, §12.7 | Track proposed trades' accept/reject against `winThem` | UNVERIFIED — doubtful for stars: the search offers Zadorov + Coleman for Makar because the partner's typical week improves, which no manager would take |
@@ -287,6 +298,77 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-041 — 2026-11-02 — The agents reason before they recommend, know the hockey ideas Ben keeps raising, and remember what he teaches
+
+**Why.** Ben asked whether the agents could think more deeply and grasp more concepts. A
+review of every chat from 09-30 to 11-02 (the `messages` table, read-only) found:
+- **The tool's top row became the answer.**
+  - Coleman was proposed for help with assists. Ben: "Are you sure? He doesn't help our
+    assists". Reply: "You're right".
+  - A trade was filed that "nobody would accept".
+  - Ben: "Don't we want to target specific categories?" and "What do you mean nothing clears
+    the bar?"
+  - The partner team's needs were read only after Ben asked ("Does that team need bench
+    depth or a goalie?").
+- **It gave in on pushback and stopped early.**
+  - Ben had to say "Look again", "Check again", "Try again" and "One more time" (Hoglander
+    took three tries).
+  - "The lookup failed on his key, so I haven't checked it myself."
+  - It described the lineup from memory, wrongly ("Look again. I still have Batherson on the
+    bench").
+- **It never raised the ideas Ben raised.**
+  - Games played came up at least four times ("38 vs 45", "Wouldn't we have more games if we
+    had fewer goalies?").
+  - Others: positions a player can fill ("Jarvis could go LW"), Ovechkin's ice time, one hat
+    trick against form, lock timing, and the NHL's Hellebuyck trade.
+- **No judgement on thin data.** Ben: "I know we don't have enough data, so I'm asking for
+  some judgement calls". The prompt's "don't calculate values yourself" read as "no opinion
+  without a projection".
+- **No memory.** The same corrections recurred across chats, and a replayed turn kept only
+  tool names, so "why Hischier?" had lost the numbers.
+- **Not a budget problem for chat.** Over 10-02..11-02, 0 of 142 chat turns reached the 10-round
+  cap (highest 8, mean 2.4) and none hit `max_tokens`. Elsewhere, 1 of 27 waivers runs and 1 of
+  4 trades runs used their whole budget.
+
+**Decided:**
+- **A reasoning method in the prompts.**
+  - assistant 1.7.0, waivers 1.7.0, trades 1.8.0, matchup 1.8.0, strategy 1.2.0.
+  - A tool's top row is a candidate: check it against Ben's goal (per-category CWA, games
+    this week, would the partner accept), weigh two options and name the runner-up.
+  - On pushback, re-check the point with a tool, then agree or hold with the number.
+  - Try another route before reporting a failure.
+  - Read the current state before asserting it.
+  - Dictated names and team names are read by sound, with the assumption stated.
+  - When asked, give labelled judgement on thin data.
+  - A retro splits a lost week into causes: projection miss, opponent outlier, missed starts,
+    games played, luck, injuries.
+- **The softened calculation rule.** Comparing and adding numbers tools returned is allowed and
+  said; inventing a stat or projection is not. P1 is unchanged: a proposal's values come from
+  code.
+- **A hockey-concepts primer** (`conceptsText()`, `libs/core/src/concepts.ts`).
+  - Static and under 3k characters, after the glossary in every league context, so it stays
+    cached.
+  - Covers: games volume, the bench seat a third goalie costs, positions a player can fill,
+    ice time and PP role as leading indicators, one game as noise, goalie timeshares, partner
+    acceptance, lock timing (U-49) and labelled general knowledge.
+- **Ben's standing guidance** (migration 013 `guidance`, repo `store.guidance`).
+  - The chat assistant alone holds `rememberGuidance` and `forgetGuidance`, which are
+    `propose`-risk and can be switched off in Settings.
+  - Every agent that reads the strategy holds `getGuidance`.
+  - A `<ben_guidance>` block (newest 20) follows the season strategy in every run and chat.
+    It ranks with the strategy and below permissions; an agent that disagrees says so.
+  - Nothing is seeded: Ben teaches it in chat.
+- **Follow-ups keep their numbers.** A chat replays the tool results (each ≤ 240 characters) of
+  its last three answers, stamped "as of … re-read before acting". Older turns keep tool names
+  only.
+- **Budgets.** Waivers 10 → 12 rounds, trades 12 → 14. Chat is unchanged at 10, because the
+  measurement shows its early stops are behaviour, not budget.
+- **Not done (Q-011).** No model or effort change for chat. That is Ben's call on spend.
+- **Evals.** 17 cases from these chats, one per failure, in
+  `tools/eval/scenarios/assistant/chat-reasoning-2026-11.yaml`, with anchored rubrics for the
+  §20.7 judge. `libs/prompts/src/scenarios.test.ts` checks their form; they are scored once
+  the runner exists (M9).
 
 ### D-040 — 2026-10-27 — Fit and category strength read the rest-of-season lens
 

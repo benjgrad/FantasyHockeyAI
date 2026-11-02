@@ -1,6 +1,7 @@
 import {
   TOOL_FOR_KIND,
   askTimeoutMinutes,
+  conceptsText,
   glossaryText,
   type LeagueSettings,
   type Permissions,
@@ -12,8 +13,8 @@ import { asOfLine, waiverRulesText, type LeagueView } from '@fha/tools';
  * and Ben's standing permissions, as plain text.
  *
  * It sits in `system`, behind the cache breakpoint, so it holds only what is stable for a day:
- * settings, categories, slots, limits, today's date, the permission summary and the glossary
- * of what every number means, plus the snapshot's as-of line (it changes with each hourly pull,
+ * settings, categories, slots, limits, today's date, the permission summary, the glossary
+ * of what every number means and the hockey-concepts primer (D-041), plus the snapshot's as-of line (it changes with each hourly pull,
  * which costs one cache write an hour; telling the model how old its data is is worth that). Rosters,
  * candidates and Ben's note go in the user message. The permission line is informational — the
  * gate enforces it in code (P2) — but telling the model up front saves it proposing moves that
@@ -44,6 +45,8 @@ export function buildLeagueContext(
     permissionsLine(permissions, view),
     // The same definitions the app's explainers show Ben (D-026): quote numbers by these names.
     glossaryText(),
+    // The hockey ideas Ben kept raising and the agents never did (D-041); static, so cached.
+    conceptsText(),
   ].join('\n');
 }
 

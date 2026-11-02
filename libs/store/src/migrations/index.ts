@@ -10,6 +10,7 @@ import { sql as watchList009 } from './009_watch_list.js';
 import { sql as yahooSiteHealth010 } from './010_yahoo_site_health.js';
 import { sql as seasonStrategy011 } from './011_season_strategy.js';
 import { sql as matchupArchive012 } from './012_matchup_archive.js';
+import { sql as guidance013 } from './013_guidance.js';
 
 export interface Migration {
   /** Strictly increasing; the applied set is tracked by this number, never by name. */
@@ -35,4 +36,5 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 10, name: 'yahoo_site_health', sql: yahooSiteHealth010 },
   { version: 11, name: 'season_strategy', sql: seasonStrategy011 },
   { version: 12, name: 'matchup_archive', sql: matchupArchive012 },
+  { version: 13, name: 'guidance', sql: guidance013 },
 ];

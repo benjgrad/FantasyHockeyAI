@@ -38,6 +38,8 @@ export interface RunContext {
    * not in the view yet, so tools name them but never hand out their keys (P3).
    */
   searchYahoo?: (name: string) => Promise<YahooSearchResult>;
+  /** The chat this run answers, when it is a chat turn: guidance written from it names it. */
+  conversationId?: string;
   state: RunState;
 }
 
