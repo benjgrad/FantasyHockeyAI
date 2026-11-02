@@ -45,27 +45,34 @@ export function auditSeason(view: LeagueView, store: Store): LeagueAudit {
   };
 }
 
-const weightCache = new WeakMap<LeagueView, Record<string, number>>();
+const auditCache = new WeakMap<LeagueView, StrategyAudit>();
 
 /**
- * The season's marginal category weights on a lens view: what our starters and releases are
- * chosen by (D-034). Computed once per view; equal weights if the audit cannot be built (P9).
+ * Our typical week against the field on a lens view, cached per view; undefined when it cannot
+ * be built (P9). The measurement the season strategy is derived from: nothing here reads it.
  */
-export function seasonWeights(lens: LeagueView): Record<string, number> | undefined {
-  const hit = weightCache.get(lens);
+export function seasonAuditOn(lens: LeagueView): StrategyAudit | undefined {
+  const hit = auditCache.get(lens);
   if (hit !== undefined) return hit;
   try {
-    const cats = scoringCategories(lens.settings);
     const audit = strategyAudit(
       typicalWeekLine(lens, lens.teamKey),
       lens.otherTeams().map((t) => typicalWeekLine(lens, t.teamKey)),
-      cats,
+      scoringCategories(lens.settings),
       starterCounts(lens.settings),
     );
-    const w = marginalWeights(audit);
-    weightCache.set(lens, w);
-    return w;
+    auditCache.set(lens, audit);
+    return audit;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * The season's marginal category weights on a lens view: what our starters and releases are
+ * chosen by (D-034). Computed once per view; undefined if the audit cannot be built (P9).
+ */
+export function seasonWeights(lens: LeagueView): Record<string, number> | undefined {
+  const audit = seasonAuditOn(lens);
+  return audit === undefined ? undefined : marginalWeights(audit);
 }

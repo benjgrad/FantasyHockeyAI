@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PlayerCard } from '@fha/api';
+import { CategoryStrength, PlayerCard } from '@fha/api';
 import type { LeagueSnapshot, Player } from '@fha/core';
 import { LeagueView, MOCK_SETTINGS } from '@fha/tools';
 import { HttpError } from './http.js';
@@ -10,9 +10,9 @@ import {
   discountedRoster,
   labelFor,
   seasonShare,
-  targetsFor,
   type StrengthRow,
 } from './playersStrength.js';
+import { strategyView } from './strategyView.js';
 import { openStore } from '@fha/store';
 import { FIXTURE, START } from './testing.js';
 
@@ -260,19 +260,102 @@ describe('category strength', () => {
     expect(labelFor(0, 4, 8)).toBe('average');
     expect(labelFor(-2, 7, 8)).toBe('weak');
   });
+});
 
-  it('targets the two worst categories when no weight stands out', () => {
-    const row = (cat: string, weight: number): StrengthRow => ({
-      cat,
-      z: 0,
-      rank: 1,
-      of: 8,
-      label: 'average',
-      winProb: null,
-      weight,
-      lowerIsBetter: false,
-    });
-    expect(targetsFor([row('A', 1), row('G', 1), row('HIT', 1)])).toEqual(['A', 'G']);
-    expect(targetsFor([row('A', 1.1), row('G', 1.5), row('HIT', 1.3)])).toEqual(['G', 'HIT']);
+describe('the season strategy is the targets everywhere (D-042, ticket "Inconsistent targets")', () => {
+  // The Team page said "buy SOG, A, PPP · trade from HIT, PIM" while every card said
+  // "Our targets: SOG, W, A, G": the cards read code's weights, not the stored strategy.
+  const strategy = {
+    leagueKey: base.snap.leagueKey,
+    author: 'strategy',
+    stance: 'contend' as const,
+    targets: ['SOG', 'A', 'PPP'],
+    surplus: ['HIT', 'PIM'],
+    punts: ['SHP'],
+    principles: ['Trade from HIT/PIM surplus for SOG'],
+    rationale: 'test',
+    reviewBy: undefined,
+  };
+
+  it('the panel, the card and the Team page show the same targets, from the strategy', () => {
+    const store = openStore(':memory:');
+    const v = store.seasonStrategy.add(strategy);
+    const view = edited(() => undefined);
+    const strength = categoryStrength(view, store);
+    expect(strength.targets).toEqual(['SOG', 'A', 'PPP']);
+    expect(strength.surplus).toEqual(['HIT', 'PIM']);
+    expect(strength.punts).toEqual(['SHP']);
+    expect(strength.source).toMatchObject({ kind: 'strategy', id: v.id });
+    const fa = view.snap.players.find(
+      (p) => view.isFreeAgent(p.playerKey) && view.valuation(p.playerKey) && p.positionType === 'P',
+    ) as Player;
+    const card = PlayerCard.parse(buildCard(cardContext(view, START, store), fa));
+    expect(card.fit.targets).toEqual(['SOG', 'A', 'PPP']);
+    expect(card.fit.surplus).toEqual(['HIT', 'PIM']);
+    expect(card.fit.source).toMatchObject({ kind: 'strategy', id: v.id });
+    expect(strategyView(view, store).versions[0]?.targets).toEqual(card.fit.targets);
+  });
+
+  it('weights fit by the strategy: punts count nothing, targets at least 1.2, surplus at most 1', () => {
+    const store = openStore(':memory:');
+    store.seasonStrategy.add(strategy);
+    const strength = categoryStrength(
+      edited(() => undefined),
+      store,
+    );
+    const row = (cat: string) => strength.categories.find((r) => r.cat === cat) as StrengthRow;
+    expect(row('SHP')).toMatchObject({ role: 'punt', weight: 0 });
+    expect(row('SOG').role).toBe('target');
+    expect(row('SOG').weight).toBeGreaterThanOrEqual(1.2);
+    expect(row('HIT').role).toBe('surplus');
+    expect(row('HIT').weight).toBeLessThanOrEqual(1);
+    expect(strength.weights['SHP']).toBe(0);
+  });
+
+  it('shows a new strategy version at once on the same view (cache keyed on the version)', () => {
+    const store = openStore(':memory:');
+    store.seasonStrategy.add(strategy);
+    const view = edited(() => undefined);
+    expect(categoryStrength(view, store).targets).toEqual(['SOG', 'A', 'PPP']);
+    store.seasonStrategy.add({ ...strategy, author: 'ben (chat)', targets: ['G', 'PPP'] });
+    expect(categoryStrength(view, store).targets).toEqual(['G', 'PPP']);
+  });
+
+  it("names code's audit as the source when no strategy is recorded", () => {
+    const store = openStore(':memory:');
+    const strength = categoryStrength(
+      edited(() => undefined),
+      store,
+    );
+    expect(strength.source).toEqual({ kind: 'audit' });
+    expect(strength.punts).toEqual([]);
+    expect(strength.disagreements).toEqual([]);
+    expect(strength.weights).toEqual(
+      Object.fromEntries(strength.categories.map((r) => [r.cat, expect.any(Number)])),
+    );
+    for (const r of strength.categories) expect(r.weight).toBeCloseTo(r.codeWeight, 3);
+  });
+
+  it('round-trips the panel through the contract', () => {
+    const store = openStore(':memory:');
+    store.seasonStrategy.add(strategy);
+    const s = categoryStrength(
+      edited(() => undefined),
+      store,
+    );
+    const body = {
+      asOf: 'x',
+      week: 1,
+      categories: s.categories,
+      weights: s.weights,
+      targets: s.targets,
+      surplus: s.surplus,
+      punts: s.punts,
+      source: s.source,
+      disagreements: s.disagreements,
+      weekWeights: null,
+      weekWeightsSource: null,
+    };
+    expect(CategoryStrength.parse(JSON.parse(JSON.stringify(body)))).toEqual(body);
   });
 });
