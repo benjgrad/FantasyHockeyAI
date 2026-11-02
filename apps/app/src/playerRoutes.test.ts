@@ -239,6 +239,32 @@ describe('player routes over HTTP', () => {
       await (await call(h, '/api/team/categories', { cookie })).json(),
     );
     expect(stored).toMatchObject({ weekWeightsSource: 'stored', weekWeights: { A: 1.5 } });
+    expect(stored.source).toEqual({ kind: 'audit' });
+    // D-041: a recorded strategy is what the panel targets, trades from and punts.
+    const v = h.store.seasonStrategy.add({
+      leagueKey: view.snap.leagueKey,
+      author: 'ben (chat)',
+      stance: 'contend',
+      targets: ['SOG', 'A', 'PPP'],
+      surplus: ['HIT', 'PIM'],
+      punts: ['SHP'],
+      principles: ['x'],
+      rationale: 'x',
+      reviewBy: undefined,
+    });
+    const planned = CategoryStrength.parse(
+      await (await call(h, '/api/team/categories', { cookie })).json(),
+    );
+    expect(planned).toMatchObject({
+      targets: ['SOG', 'A', 'PPP'],
+      surplus: ['HIT', 'PIM'],
+      punts: ['SHP'],
+      source: { kind: 'strategy', id: v.id },
+    });
+    expect(planned.categories.find((c) => c.cat === 'SHP')).toMatchObject({
+      role: 'punt',
+      weight: 0,
+    });
   });
 });
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api, type StrategyViewT } from '../api/endpoints';
 import { ErrorNote } from '../components/ErrorNote';
+import { ROLE_TONE, RolePills } from '../components/CategoryRoles';
 
 /**
  * The season strategy (D-034): the plan every agent run and chat starts from, as last recorded
@@ -68,9 +69,9 @@ function Plan({ v }: { v: Version }) {
     <div className="flex flex-col gap-1.5 px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center gap-1">
         <span className="pill border-acc/70 font-semibold text-acc">{v.stance}</span>
-        <Pills label="buy" cats={v.targets} tone="border-good/50 text-good" />
-        <Pills label="trade from" cats={v.surplus} tone="border-acc/70 text-acc" />
-        <Pills label="punt" cats={v.punts} tone="border-bad/60 text-bad" />
+        <RolePills label="buy" cats={v.targets} tone={ROLE_TONE.target} />
+        <RolePills label="trade from" cats={v.surplus} tone={ROLE_TONE.surplus} />
+        <RolePills label="punt" cats={v.punts} tone={ROLE_TONE.punt} />
       </div>
       {v.principles.length > 0 ? (
         <ul className="list-disc pl-5 text-soft">
@@ -86,20 +87,6 @@ function Plan({ v }: { v: Version }) {
         {v.changes.length > 0 ? ` · changed: ${v.changes.join('; ')}` : ''}
       </div>
     </div>
-  );
-}
-
-function Pills({ label, cats, tone }: { label: string; cats: string[]; tone: string }) {
-  if (cats.length === 0) return null;
-  return (
-    <>
-      <span className="ml-1 text-xs text-mut">{label}:</span>
-      {cats.map((c) => (
-        <span key={c} className={`pill ${tone}`}>
-          {c}
-        </span>
-      ))}
-    </>
   );
 }
 

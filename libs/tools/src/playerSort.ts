@@ -10,7 +10,8 @@ import {
 } from '@fha/model';
 import type { Store } from '@fha/store';
 import { scoringCategories } from './derive.js';
-import { fitLens, needWeights, playerFit } from './fit.js';
+import { needWeights } from './categoryPolicy.js';
+import { fitLens, playerFit } from './fit.js';
 import { historyFor, seasonsAround } from './history.js';
 import { rosLensView } from './valuationLens.js';
 import type { PlayerValueNow } from './valueNow.js';

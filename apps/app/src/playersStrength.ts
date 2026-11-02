@@ -2,11 +2,12 @@ import type { Player, Valuation } from '@fha/core';
 import { CATEGORY_SATURATION, availabilityAdjustedVorp, lowerIsBetter } from '@fha/model';
 import type { Store } from '@fha/store';
 import {
+  categoryPolicy,
   currentMatchup,
   discountedRoster,
-  fitLens,
-  needWeights,
+  type CategoryRole,
   type FitLensName,
+  type PolicySource,
   playerSeasonShare,
   scoringCategories,
   seasonHorizonGames,
@@ -20,8 +21,9 @@ import {
  * Each team's strength in a category is its roster's summed z, every player's z scaled by the
  * share of the rest of the season he is expected to be available for: a player out four months
  * is not holding up our SHP. Ranking every team the same way turns the sum into something
- * readable ("7th of 8 in A"), and the same sums feed `categoryNeedWeights`, the weights every
- * card's `fit` is computed with, so the panel and the cards cannot disagree.
+ * readable ("7th of 8 in A"). Targets, surplus, punts and the weights every card's `fit` is
+ * computed with all come from the category policy (D-041: the season strategy over code's
+ * weights), so the panel, the cards and the Team page's strategy cannot disagree.
  */
 export type StrengthLabel = 'weak' | 'average' | 'strong' | 'saturated';
 
@@ -32,7 +34,11 @@ export interface StrengthRow {
   of: number;
   label: StrengthLabel;
   winProb: number | null;
+  /** The effective weight fit uses: code's, with the season strategy over it. */
   weight: number;
+  /** Code's weight before the strategy. */
+  codeWeight: number;
+  role: CategoryRole;
   lowerIsBetter: boolean;
 }
 
@@ -40,14 +46,14 @@ export interface Strength {
   categories: StrengthRow[];
   weights: Record<string, number>;
   targets: string[];
+  surplus: string[];
+  punts: string[];
+  /** Where targets, surplus and punts came from: the stored strategy, or code's audit. */
+  source: PolicySource;
+  disagreements: string[];
   /** The lens the sums and every card's fit read players from (D-040). */
   lens: { view: LeagueView; name: FitLensName };
 }
-
-/** Most categories named as targets at once: "targeting everything" targets nothing. */
-export const MAX_TARGETS = 4;
-/** A need weight at or above this is a target (1 is neutral). */
-export const TARGET_WEIGHT = 1.2;
 
 const round = (n: number, dp = 2): number => Math.round(n * 10 ** dp) / 10 ** dp;
 
@@ -95,16 +101,6 @@ export function labelFor(z: number, rank: number, of: number): StrengthLabel {
   return 'average';
 }
 
-/** Targets: the categories we need most by weight; when none stands out, the two worst ranked. */
-export function targetsFor(rows: readonly StrengthRow[]): string[] {
-  const byWeight = rows
-    .filter((r) => r.weight >= TARGET_WEIGHT)
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, MAX_TARGETS)
-    .map((r) => r.cat);
-  return byWeight.length > 0 ? byWeight : rows.slice(0, 2).map((r) => r.cat);
-}
-
 function winProbs(view: LeagueView): Record<string, number> {
   try {
     return currentMatchup(view)?.plan.probabilities ?? {};
@@ -113,28 +109,26 @@ function winProbs(view: LeagueView): Record<string, number> {
   }
 }
 
-const cache = new WeakMap<LeagueView, Strength>();
+const cache = new WeakMap<LeagueView, { strategyId: number | null; strength: Strength }>();
 
 /**
- * Our strength per scored category, weakest first, cached per view. Each roster's z comes from
- * the rest-of-season lens when the store is given (D-040), so a team's rank moves with the
- * season's games; without it, the preseason values. With the store, the need
- * weights `fit` uses are the season's marginal ΔP(win a week) weights against the league
- * (D-034), so a category we already win stops pulling players up the list; without it (or if
- * the audit cannot be built) they fall back to the roster-only need weights of the draft.
+ * Our strength per scored category, weakest first. Each roster's z comes from the
+ * rest-of-season lens when the store is given (D-040), so a team's rank moves with the season's
+ * games; without it, the preseason values. Weights, targets, surplus and punts are the category
+ * policy's (D-041). Cached per view and strategy version, so a new version shows at once.
  */
 export function categoryStrength(view: LeagueView, store?: Store): Strength {
+  const policy = categoryPolicy(view, store);
+  const strategyId = policy.source.kind === 'strategy' ? policy.source.id : null;
   const hit = cache.get(view);
-  if (hit !== undefined) return hit;
+  if (hit !== undefined && hit.strategyId === strategyId) return hit.strength;
   const cats = scoringCategories(view.settings);
-  const lens = fitLens(view, store);
-  const ours = discountedRoster(lens.view, view.teamKey);
+  const lens = policy.lens;
   const league = view.snap.teams.map((t) => ({
     teamKey: t.teamKey,
     sums: sums(discountedRoster(lens.view, t.teamKey), cats),
   }));
-  const mine = sums(ours, cats);
-  const weights = needWeights(view, store);
+  const mine = sums(discountedRoster(lens.view, view.teamKey), cats);
   const probs = winProbs(view);
   const of = Math.max(1, league.length);
   const rows = cats
@@ -149,14 +143,25 @@ export function categoryStrength(view: LeagueView, store?: Store): Strength {
         of,
         label: labelFor(z, rank, of),
         winProb: probs[cat] ?? null,
-        weight: round(weights[cat] ?? 1, 3),
+        weight: round(policy.weights[cat] ?? 1, 3),
+        codeWeight: round(policy.codeWeights[cat] ?? 1, 3),
+        role: policy.roles[cat] ?? 'neutral',
         lowerIsBetter: lowerIsBetter(cat),
       };
     })
     .sort((a, b) => b.rank - a.rank || a.z - b.z);
-  const out = { categories: rows, weights, targets: targetsFor(rows), lens };
-  cache.set(view, out);
-  return out;
+  const strength: Strength = {
+    categories: rows,
+    weights: policy.weights,
+    targets: policy.targets,
+    surplus: policy.surplus,
+    punts: policy.punts,
+    source: policy.source,
+    disagreements: policy.disagreements,
+    lens,
+  };
+  cache.set(view, { strategyId, strength });
+  return strength;
 }
 
 /** This week's category weights: the matchup agent's stored ones, else the matchup's suggestion. */

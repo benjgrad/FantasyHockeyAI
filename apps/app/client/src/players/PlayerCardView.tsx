@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import type { PlayerCardT } from './api';
 import { FormSection } from './FormSection';
 import { NowSection } from './NowSection';
+import { PolicySourceTag, ROLE_TONE, RolePills } from '../components/CategoryRoles';
 import { StatTip } from '../components/StatTip';
 import { AvailabilityBadge, CatTile, OwnerBadge, Stat } from './parts';
 import { CHAT_PREFILL } from './sheet';
@@ -132,7 +133,7 @@ function ValueRow({ card }: { card: PlayerCardT }) {
 }
 
 function FitLine({ card }: { card: PlayerCardT }) {
-  const { fit, score, targets, targetHits } = card.fit;
+  const { fit, score, targets, targetHits, surplus, punts, source } = card.fit;
   return (
     <div className="rounded-lg bg-well px-2 py-1.5 text-sm">
       <span className="text-mut">
@@ -158,6 +159,9 @@ function FitLine({ card }: { card: PlayerCardT }) {
             {targetHits.includes(t) ? ' ✓' : ''}
           </span>
         ))}
+        <RolePills label="trade from" cats={surplus} tone={ROLE_TONE.surplus} />
+        <RolePills label="punt" cats={punts} tone={ROLE_TONE.punt} />
+        <PolicySourceTag source={source} />
       </div>
     </div>
   );

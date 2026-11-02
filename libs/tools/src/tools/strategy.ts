@@ -101,7 +101,7 @@ const Category = z.string().min(1);
 export const proposeStrategy = defineTool({
   name: 'proposeStrategy',
   description:
-    "Record a new version of the season strategy, which every later agent run and chat starts from. It changes no roster: it is the plan. Ground it in getStrategyAudit: targets are contested categories worth buying, surplus are saturated ones we could trade from, punts are categories we stop competing in (weight 0). principles: 1 to 5 short rules agents should follow (e.g. 'Trade HIT/PIM surplus for SOG; no adds for HIT or PIM'). Use it when the evidence says the current version is wrong, not to restate it.",
+    "Record a new version of the season strategy, which every later agent run and chat starts from. It changes no roster: it is the plan. Ground it in getStrategyAudit: targets are contested categories worth buying, surplus are saturated ones we could trade from, punts are categories we stop competing in. These lists steer fit across the app and every agent (D-041): a target's weight is at least 1.2, a surplus category's at most 1, a punt's 0. principles: 1 to 5 short rules agents should follow (e.g. 'Trade HIT/PIM surplus for SOG; no adds for HIT or PIM'). Use it when the evidence says the current version is wrong, not to restate it.",
   input: z.object({
     stance: z.enum(['contend', 'hold', 'sell']),
     targets: z.array(Category).max(6),

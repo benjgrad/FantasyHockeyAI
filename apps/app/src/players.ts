@@ -114,12 +114,22 @@ function categoriesOf(c: CardContext, p: Player, gp: number | null): PlayerCard[
   });
 }
 
-/** His fit to our needs, from the same lens and weights as the category-strength panel. */
+/** His fit to our needs: the category policy's lens, weights and targets, as the strength panel's (D-041). */
 export function fitOf(c: CardContext, p: Player): PlayerCard['fit'] {
-  const { weights, targets, lens } = c.strength;
+  const { weights, targets, surplus, punts, source, lens } = c.strength;
   const f = playerFit(lens, weights, p);
   const targetHits = targets.filter((t) => (f.z[t] ?? 0) >= 0.5);
-  return { fit: f.fit, score: f.score, weights, targets, targetHits, lens: f.lens };
+  return {
+    fit: f.fit,
+    score: f.score,
+    weights,
+    targets,
+    surplus,
+    punts,
+    source,
+    targetHits,
+    lens: f.lens,
+  };
 }
 
 function valueOf(c: CardContext, p: Player, gp: number | null): PlayerCard['value'] {

@@ -608,6 +608,23 @@ export const PlayerCategory = z.object({
   /** The raw number is better when lower (GAA): colour a delta by `better`, not by sign. */
   lowerIsBetter: z.boolean(),
 });
+/**
+ * Where our targets, surplus and punts came from (D-041): the stored season strategy version, or,
+ * with none recorded, code's own audit (named so, P9).
+ */
+export const PolicySource = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('strategy'),
+    id: z.number(),
+    author: z.string(),
+    createdAt: z.string(),
+    reviewBy: z.string().nullable(),
+  }),
+  z.object({ kind: z.literal('audit') }),
+]);
+export type PolicySource = z.infer<typeof PolicySource>;
+export const CategoryRole = z.enum(['target', 'surplus', 'punt', 'neutral']);
+
 export const PlayerFit = z.object({
   /**
    * In VORP units: positive when his strengths land where our needs are. Read from the
@@ -621,10 +638,13 @@ export const PlayerFit = z.object({
   score: z.number().nullable(),
   /** The values fit was read from: rest of season, or preseason when that lens was unavailable. */
   lens: z.enum(['rest-of-season', 'preseason']),
-  /** The need weights `fit` was computed with (1 is neutral), by category. */
+  /** The need weights `fit` was computed with (1 is neutral): code's, with the strategy over them. */
   weights: z.record(z.string(), z.number()),
   /** Our target categories (see CategoryStrength.targets). */
   targets: z.array(z.string()),
+  surplus: z.array(z.string()),
+  punts: z.array(z.string()),
+  source: PolicySource,
   /** Which of our targets he is clearly good at (z ≥ 0.5). */
   targetHits: z.array(z.string()),
 });
@@ -809,8 +829,11 @@ export const CategoryStrengthRow = z.object({
   label: z.enum(['weak', 'average', 'strong', 'saturated']),
   /** This week's matchup win probability, when the matchup can be projected. */
   winProb: z.number().nullable(),
-  /** The need weight `fit` uses for this category (1 neutral). */
+  /** The need weight `fit` uses for this category (1 neutral), the strategy applied (D-041). */
   weight: z.number(),
+  /** Code's weight before the strategy. */
+  codeWeight: z.number(),
+  role: CategoryRole,
   lowerIsBetter: z.boolean(),
 });
 export const CategoryStrength = z.object({
@@ -820,8 +843,14 @@ export const CategoryStrength = z.object({
   categories: z.array(CategoryStrengthRow),
   /** The need weights behind every card's `fit`. */
   weights: z.record(z.string(), z.number()),
-  /** What to target: "targeting: A, PPP". */
+  /** What to buy: the season strategy's targets, or code's when none is recorded (`source`). */
   targets: z.array(z.string()),
+  /** What to trade from, and what we have stopped competing in. */
+  surplus: z.array(z.string()),
+  punts: z.array(z.string()),
+  source: PolicySource,
+  /** Where the strategy and today's audit disagree. */
+  disagreements: z.array(z.string()),
   /** This week's weights: stored by the matchup agent, else the matchup's suggestion. */
   weekWeights: z.record(z.string(), z.number()).nullable(),
   weekWeightsSource: z.enum(['stored', 'suggested']).nullable(),

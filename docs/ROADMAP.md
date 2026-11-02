@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-10-27**
+Last updated: **2026-11-02**
 
 ---
 
@@ -66,6 +66,12 @@ order; there is no default.
 **Fit is current (D-040, 2026-10-27):** Fit, the category-strength panel, targets and the
 Players page's per-category sort now read the rest-of-season lens (this season's games), not
 the 09-29 preseason values. Only the columns labelled preseason still are.
+
+**One category policy (D-041, 2026-11-02):** the Team page's strategy said "buy SOG, A, PPP ·
+trade from HIT, PIM" while every player card said "Our targets: SOG, W, A, G". The cards read
+code's weights, not the stored strategy, and fit ignored its punts. Now one module
+(`categoryPolicy`) lays the strategy over code's weights, and fit, the strength panel, the
+cards and the fit sorts all read it, each saying whether its targets are the strategy's or code's.
 
 **Matchup history (D-038, 2026-10-25):** the agents can now look back. A daily `archive` job
 keeps every finished week as Yahoo scored it, and `getMatchupHistory` reads it: standings, each
@@ -287,6 +293,35 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-041 — 2026-11-02 — The season strategy steers every preference surface, through one category policy
+
+**Why.** Ben (ticket "Inconsistent targets"): the Season strategy card said buy SOG, A, PPP and
+trade from HIT, PIM, but the player card's "Our targets" said SOG, W, A, G. There were two
+sources of targets. The stored strategy (D-034) reached only the prompts and the Team page.
+Code's `targetsFor` over the need weights fed the strength panel, the cards and Compare.
+`proposeStrategy` promised punts "weight 0", but only the week's matchup weights applied them.
+
+**Decided:**
+- **One owner** (`libs/tools/src/categoryPolicy.ts`): `categoryPolicy(view, store)` gives the
+  source (strategy version, or `audit` when none is recorded), targets, surplus, punts, roles,
+  code's weights, the effective weights and the disagreements with today's audit.
+- **One rule** (`applyStrategy`, pure): punt → 0, target → max(w, 1.2), surplus → min(w, 1),
+  others unchanged; no renormalisation (fit is in VORP units). [D]
+- **Read from it:** fit and its score (`needWeights` is now the policy's weights), the strength
+  panel's targets, roles and weights, the cards' targets, surplus, punts and target hits, the
+  Players fit sort, `searchPlayers`' fit. The week's code weights take the punts only
+  (`weekOverlay`; unchanged output). Each surface names the source ("strategy v3" with "review
+  overdue" past its review date, or "code's audit").
+- **Boundary (Ben approved, 2026-11-02):** the audit, `seasonWeights`, `getStrategyAudit`,
+  ΔWin%, CWA, `findPickups`, auto-grab and `findTradeTargets` stay strategy-free. They are the
+  measurement the strategy is derived from, and feeding it back would let it grade itself.
+- **No stale cache:** the policy is not cached (its inputs are); the strength panel's cache
+  is keyed on the strategy version, so a version recorded in chat shows at once.
+- **Without a strategy**, targets are code's (`codeTargets`: weights ≥ 1.2, at most four; else
+  the two heaviest, where `targetsFor` took the two worst-ranked) and surplus the audit's
+  saturated categories.
+- Supersedes D-040's code-only targets.
 
 ### D-040 — 2026-10-27 — Fit and category strength read the rest-of-season lens
 

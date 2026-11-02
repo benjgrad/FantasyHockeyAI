@@ -988,7 +988,8 @@ starters counted: every free agent who did not crack the starting seats added th
 - **Where they are used.** Our typical-week starters and releases in CWA / ΔWin%
   (`starterWeights`: `value + Σ (w_c − 1)·z_c`; the field keeps plain value), and the in-season
   `fit` on player surfaces.
-- **Fit** (`libs/tools/src/fit.ts`, D-040): `fit = Σ (w_c − 1)·z_c` over his position's scored
+- **Fit** (`libs/tools/src/fit.ts`, D-040; weights from the category policy, D-041):
+  `fit = Σ (w_c − 1)·z_c` over his position's scored
   categories, `score = adjusted VOLS + fit`. The player's z and VORP come from the
   rest-of-season lens (`fitLens` → `rosLensView`), as do the category-strength panel's team
   sums, the targets, the Players page's `cat:<CAT>` sort and key categories, and the card's
@@ -1012,6 +1013,18 @@ starters counted: every free agent who did not crack the starting seats added th
   thing on the Team page's **Season strategy** card (`GET /api/strategy`): the current version,
   earlier ones folded away with what changed, code's audit now, and which objective is live.
   The card is read-only; a change goes through chat (`proposeStrategy`).
+- **The category policy** (`libs/tools/src/categoryPolicy.ts`, D-041): the one owner of what
+  we want from each category. `categoryPolicy(view, store)` returns the source (the current
+  strategy version, or `audit` when none is recorded), targets, surplus, punts, each category's
+  role, code's weights and the effective weights, and where the strategy and today's audit
+  disagree. The effective weights are code's under one pure rule, `applyStrategy`: punt → 0,
+  target → at least 1.2, surplus → at most 1, the rest unchanged. Without a strategy, targets
+  are code's (`codeTargets`: weights ≥ 1.2, at most four; else the two heaviest) and surplus
+  the audit's saturated categories. `needWeights` is the policy's weights, so fit, the
+  strength panel, the cards' targets and target hits, the Players fit sort and `searchPlayers`
+  all follow the strategy; the week's code weights take its punts only (`weekOverlay`). The
+  audit, ΔWin%, CWA, pickups, auto-grab and the trade search do **not** read it: they are the
+  measurement the strategy is derived from.
 
 ### 12.10 Matchup history and retrospectives (D-038)
 
