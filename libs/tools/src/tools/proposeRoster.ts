@@ -5,6 +5,7 @@ import { DATE_RE, dateProblem, nameKeys } from '../derive.js';
 import { solveOurLineup, type LineupOverride } from '../lineupSolve.js';
 import { lensesFor, recordShadow } from '../lensSwitch.js';
 import { goalieStartsFor } from '../goalieStarts.js';
+import { lineupInputProblems } from '../lineupCheck.js';
 import { claimText } from '../claims.js';
 import { coveredText, lineupCoveredBy } from '../openDecisions.js';
 import { resolvePlayers } from '../resolve.js';
@@ -50,6 +51,16 @@ export const proposeLineup = defineTool({
     if (problem !== undefined) return rejectAttempt(ctx, 'lineup', [problem]);
     const known = resolvePlayers(view, overrides.map((o) => o.playerKey), 'Use playerKeys from getRoster.');
     if (!known.ok) return rejectAttempt(ctx, 'lineup', [known.error]);
+    // A date whose games cannot be verified is not solved at all (D-044, P5).
+    const unsafe = lineupInputProblems(view, input.date);
+    if (unsafe.length > 0) {
+      return rejectAttempt(
+        ctx,
+        'lineup',
+        [`The lineup for ${input.date} cannot be verified: ${unsafe.join(' ')} Abstain and tell Ben.`],
+        { terminal: true },
+      );
+    }
 
     // The lens Ben chose for lineups (D-026); the other runs in shadow.
     const lenses = lensesFor(view, ctx.store, ctx.permissions, 'lineup');
@@ -81,6 +92,10 @@ export const proposeLineup = defineTool({
       kind: 'lineup',
       date: input.date,
       moves: moves.map((m) => ({ playerKey: m.playerKey, slot: m.to })),
+      // The solver's inputs, so validation audits the lineup on the same news (D-044).
+      ...(overrides.length === 0
+        ? {}
+        : { overrides: overrides.map((o) => ({ playerKey: o.playerKey, bench: o.bench })) }),
     });
     const name = (k: string) => view.player(k)?.name ?? k;
     const movesText = moves.map((m) => `${name(m.playerKey)} ${m.from}→${m.to}`).join(', ');

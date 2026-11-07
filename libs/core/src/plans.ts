@@ -33,11 +33,20 @@ export type AgentName = z.infer<typeof AgentName>;
 export const LineupMove = z.object({ playerKey: PlayerKey, slot: z.string().min(1) });
 export type LineupMove = z.infer<typeof LineupMove>;
 
+/**
+ * News the solver could not know, as a change to its inputs (D-044): `bench` = he will not play
+ * (late scratch), `!bench` = he plays despite his status. Carried on the plan so validation
+ * audits the lineup on the same inputs the solver used.
+ */
+export const LineupOverrideInput = z.object({ playerKey: PlayerKey, bench: z.boolean() });
+export type LineupOverrideInput = z.infer<typeof LineupOverrideInput>;
+
 export const PlanPayload = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('lineup'),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     moves: z.array(LineupMove).min(1),
+    overrides: z.array(LineupOverrideInput).optional(),
   }),
   z.object({
     kind: z.literal('addDrop'),

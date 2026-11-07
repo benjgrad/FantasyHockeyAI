@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RosterSlot } from '@fha/core';
 import { slot } from './fixtures.js';
 import { solveLineup, type LineupInput, type LineupPlayer } from './lineup.js';
+import { auditLineup } from './lineupAudit.js';
 import { mulberry32, pl } from './lineupFixtures.js';
 import {
   activeSlotsFor,
@@ -136,6 +137,22 @@ describe('solveLineup properties (500 seeded random rosters)', () => {
         currentSlot: r.assignments.find((a) => a.playerKey === e.playerKey)!.slot,
       }));
       expect(solveLineup({ ...input, entries: next }).moves).toEqual([]);
+    }
+  });
+
+  it("should audit the solver's lineup clean, and count lost starts as the brute-force gap", () => {
+    for (const input of cases) {
+      const solved = auditLineup(input, solveLineup(input).assignments);
+      expect(solved.lostStarts).toBe(0);
+      expect(solved.findings.filter((f) => f.kind === 'lostStart')).toEqual([]);
+      const current = auditLineup(input);
+      expect(current.lostStarts).toBeGreaterThanOrEqual(0);
+      // The current lineup is a legal one; its gap is the exhaustive best minus its own starts.
+      const best = bruteForceBest(input);
+      const own = score(input, (e) => e.currentSlot);
+      if (input.entries.every((e) => legalSlot(e, e.currentSlot))) {
+        expect(current.lostStarts).toBe(best[0] - own[0]);
+      }
     }
   });
 });

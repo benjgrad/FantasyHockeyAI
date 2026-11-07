@@ -5,7 +5,7 @@ import { getPrompt } from '@fha/prompts';
 import { AGENT_TOOLS } from '@fha/tools';
 import { userPermissions } from './permissions.js';
 import { existingActivityConversation } from './activity.js';
-import { FIXED_SLOTS, PREGAME_LEAD_MS } from './daemon/schedule.js';
+import { FIXED_SLOTS, GUARD_LEAD_MS, PREGAME_LEAD_MS } from './daemon/schedule.js';
 import { WATCHERS, loadWatcherRuns, loadWatching, type WatcherName } from './daemon/watchers.js';
 import type { Services } from './services.js';
 
@@ -75,6 +75,11 @@ export function activityView(s: Services, userId: string): ActivityView {
       when: `${x.days === undefined ? 'daily' : x.days.map((d) => DAY[d]).join(', ')} ${x.time}`,
     })),
     { job: 'lineup', when: `${Math.round(PREGAME_LEAD_MS / 60_000)} min before our first game` },
+    // Code, not a model (D-044): checks that the lineup starts everyone who plays, and fixes it.
+    {
+      job: 'lineupGuard',
+      when: `${Math.round(GUARD_LEAD_MS / 60_000)} min before each window of our games, and after every lineup run`,
+    },
   ];
   return {
     conversationId: existingActivityConversation(s.store, userId) ?? null,

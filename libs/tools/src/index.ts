@@ -5,6 +5,7 @@ export * from './resolve.js';
 export * from './modelInputs.js';
 export * from './leagueCompare.js';
 export * from './lineupSolve.js';
+export * from './lineupCheck.js';
 export * from './submit.js';
 export * from './registry.js';
 export * from './validationContext.js';

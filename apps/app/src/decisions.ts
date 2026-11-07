@@ -73,7 +73,7 @@ export function pipelineFor(
     store: w.store,
     // Fresh per plan, so a pause or a lock set in Settings bites mid-run (§18.3).
     permissions,
-    validation: validationContextFor(view, w.store, now),
+    validation: validationContextFor(view, w.store, now, userId),
     gateState: () => gateStateFor(view, w.store, permissions()),
     adapter,
     ...(live === undefined ? {} : { verify: (plan: Plan) => live.verify(plan) }),

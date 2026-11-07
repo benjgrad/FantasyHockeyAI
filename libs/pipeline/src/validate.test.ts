@@ -185,6 +185,75 @@ describe('validatePlan', () => {
     });
   });
 
+  describe('lineup audit (D-044)', () => {
+    // Who plays on 2026-10-13: everyone but 477.p.2 (no game) and 477.p.3 (IR).
+    const noGame = new Set(['477.p.2']);
+    const auditCtx = (
+      extra: { locked?: string[]; problems?: string[] } = {},
+    ): Partial<ValidationContext> => ({
+      lineupInput: (_date, overrides) => {
+        if (extra.problems !== undefined) return { ok: false, problems: extra.problems };
+        const benched = new Set(overrides.filter((o) => o.bench).map((o) => o.playerKey));
+        return {
+          ok: true,
+          input: {
+            slots,
+            entries: [...ours].map(([k, slot]) => {
+              const p = players.find((x) => x.playerKey === k)!;
+              return {
+                playerKey: k,
+                eligible: p.eligible,
+                status: p.status,
+                hasGame: !noGame.has(k) && !benched.has(k),
+                locked: extra.locked?.includes(k) ?? false,
+                currentSlot: slot,
+                value: 1,
+              };
+            }),
+          },
+        };
+      },
+      nameKeys: (t) => t.replace(/477\.p\.(\d+)/g, 'P$1'),
+    });
+
+    it('refuses a plan that leaves a player who plays benched behind an idle starter', () => {
+      // Util is empty and benched 477.p.7 plays; the plan also benches the C who plays.
+      const r = validatePlan(plan(lineup([[1, 'BN']])), ctx(auditCtx()));
+      expect(errs(r).join()).toMatch(/loses a start: P7 sits at BN but plays/);
+      expect(r.ok ? undefined : r.terminal).toBe(false);
+    });
+
+    it('accepts the plan that starts him', () => {
+      expect(validatePlan(plan(lineup([[7, 'Util']])), ctx(auditCtx())).ok).toBe(true);
+    });
+
+    it('honours a scratch carried on the plan', () => {
+      const scratched: PlanPayload = {
+        ...lineup([[1, 'BN']]),
+        overrides: [
+          { playerKey: '477.p.1', bench: true },
+          { playerKey: '477.p.7', bench: true },
+        ],
+      };
+      expect(validatePlan(plan(scratched), ctx(auditCtx())).ok).toBe(true);
+    });
+
+    it('does not blame a plan for a locked idle starter', () => {
+      // 477.p.2 has no game but is locked at LW; nothing benched could start.
+      const r = validatePlan(plan(lineup([[7, 'Util']])), ctx(auditCtx({ locked: ['477.p.2'] })));
+      expect(r.ok).toBe(true);
+    });
+
+    it('is terminal when the date cannot be verified', () => {
+      const r = validatePlan(
+        plan(lineup([[7, 'Util']])),
+        ctx(auditCtx({ problems: ['The NHL schedule for 2026-10-13 is not loaded.'] })),
+      );
+      expect(errs(r).join()).toMatch(/cannot be verified: The NHL schedule/);
+      expect(r.ok ? undefined : r.terminal).toBe(true);
+    });
+  });
+
   describe('add/drop', () => {
     it('accepts adding a free agent for one of ours', () => {
       expect(

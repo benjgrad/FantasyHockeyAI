@@ -7,7 +7,7 @@ import {
   type TeamKey,
   type Transaction,
 } from '@fha/core';
-import { DEFAULT_RESERVE_STATUSES, reserveAllows } from '@fha/model';
+import { auditLineup, DEFAULT_RESERVE_STATUSES, reserveAllows, type LineupInput } from '@fha/model';
 
 /**
  * Deterministic plan validation (§9.1), applied to every plan before the gate.
@@ -45,6 +45,16 @@ export interface ValidationContext {
   pendingTradesTouching?(playerKeys: string[]): string[];
   /** The league's trade deadline (YYYY-MM-DD, from Yahoo's settings, D-029); absent → none known. */
   tradeDeadline?: string;
+  /**
+   * The lineup solver's input for our team on `date` with these overrides (D-044), or the
+   * problems that make the date unverifiable. Absent → lineups are checked for structure only.
+   */
+  lineupInput?(
+    date: string,
+    overrides: readonly { playerKey: string; bench: boolean }[],
+  ): { ok: true; input: LineupInput } | { ok: false; problems: string[] };
+  /** Name every playerKey in a message (the audit speaks in keys). */
+  nameKeys?(text: string): string;
 }
 
 export type ValidationResult = { ok: true } | { ok: false; errors: string[]; terminal: boolean };
@@ -96,14 +106,29 @@ export function validatePlan(plan: Plan, ctx: ValidationContext): ValidationResu
       terminal = true;
     }
   }
-  errors.push(...kindErrors(p, ctx));
+  const kind = kindErrors(p, ctx);
+  errors.push(...kind.errors);
+  terminal ||= kind.terminal;
   return errors.length === 0 ? { ok: true } : { ok: false, errors, terminal };
 }
 
-function kindErrors(p: PlanPayload, ctx: ValidationContext): string[] {
+function kindErrors(
+  p: PlanPayload,
+  ctx: ValidationContext,
+): { errors: string[]; terminal: boolean } {
+  if (p.kind === 'lineup') {
+    const structural = lineupErrors(p, ctx);
+    if (structural.length > 0) return { errors: structural, terminal: false };
+    return lineupAuditErrors(p, ctx);
+  }
+  return { errors: otherKindErrors(p, ctx), terminal: false };
+}
+
+function otherKindErrors(
+  p: Exclude<PlanPayload, { kind: 'lineup' }>,
+  ctx: ValidationContext,
+): string[] {
   switch (p.kind) {
-    case 'lineup':
-      return lineupErrors(p, ctx);
     case 'addDrop':
       return [...addDropErrors(p.add, p.drop, ctx), ...waiverErrors(p.add, ctx)];
     case 'waiverClaim':
@@ -129,6 +154,37 @@ export function slotAccepts(slot: string, player: Player): boolean {
   }
   if (slot === 'Util') return player.positionType === 'P';
   return player.eligible.includes(slot);
+}
+
+/**
+ * §9.1, enforced (D-044): the lineup after the plan's moves must start every player who plays.
+ * Only lost starts block, never a lower value: another value lens may rank players differently.
+ * An unverifiable date (no schedule, a team in no game) is terminal: no edit can fix it.
+ */
+function lineupAuditErrors(
+  p: Extract<PlanPayload, { kind: 'lineup' }>,
+  ctx: ValidationContext,
+): { errors: string[]; terminal: boolean } {
+  const built = ctx.lineupInput?.(p.date, p.overrides ?? []);
+  if (built === undefined) return { errors: [], terminal: false };
+  if (!built.ok) {
+    return {
+      errors: [
+        `The lineup for ${p.date} cannot be verified: ${built.problems.join(' ')} Do not propose a lineup; abstain and tell Ben.`,
+      ],
+      terminal: true,
+    };
+  }
+  const name = ctx.nameKeys ?? ((t: string) => t);
+  const audit = auditLineup(built.input, p.moves);
+  const errors = audit.findings
+    .filter((f) => f.severity === 'error')
+    .map((f) =>
+      f.kind === 'lostStart'
+        ? `This lineup loses a start: ${name(f.text)}. Call proposeLineup without overriding him; the solver starts every player who plays.`
+        : `This lineup is not legal: ${name(f.text)}.`,
+    );
+  return { errors, terminal: false };
 }
 
 function lineupErrors(

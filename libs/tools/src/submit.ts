@@ -109,7 +109,7 @@ export async function submitProposal(
     return exhausted(sourceTool, ctx.state.invalidAttempts.get(payload.kind) ?? 0, []);
   }
   // Checked before the pipeline records anything: an invalid attempt leaves no trace Ben sees.
-  const checked = validatePlan(plan, validationContextFor(ctx.view, ctx.store, ctx.now));
+  const checked = validatePlan(plan, validationContextFor(ctx.view, ctx.store, ctx.now, ctx.userId));
   if (!checked.ok) {
     return rejectAttempt(ctx, payload.kind, checked.errors, { terminal: checked.terminal });
   }

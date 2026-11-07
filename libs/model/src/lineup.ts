@@ -31,7 +31,7 @@ export interface LineupPlayer {
 }
 
 /** May `e` sit in reserve seat `slot`? Yahoo's own list wins over the status table (U-10). */
-function fitsReserve(
+export function fitsReserve(
   table: Readonly<Record<string, readonly string[]>>,
   slot: string,
   e: Pick<LineupPlayer, 'status' | 'reserveSlots'>,

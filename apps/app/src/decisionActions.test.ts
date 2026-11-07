@@ -190,6 +190,8 @@ describe('a dry-run proposal is actionable', () => {
       kind: 'lineup',
       date: '2026-10-01',
       moves: [{ playerKey: MACKINNON, slot: 'C' }],
+      // Scratched, so the lineup audit (D-044) accepts this hand-made plan: the test is the write.
+      overrides: [{ playerKey: '477.p.7516', bench: true }],
     });
     expect((await card(cookie, planId)).actions).toEqual(['execute', 'dismiss', 'openInYahoo']);
     const result = DecisionActionResult.parse(

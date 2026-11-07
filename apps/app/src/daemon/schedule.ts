@@ -19,7 +19,8 @@ export type DaemonJob =
   | 'strategy'
   | 'pull'
   | 'reseed'
-  | 'archive';
+  | 'archive'
+  | 'lineupGuard';
 
 export interface Slot {
   job: DaemonJob;
@@ -156,6 +157,43 @@ export function firstGameFor(
     .map((g) => Date.parse(g.startTimeUtc))
     .filter((t) => Number.isFinite(t));
   return starts.length === 0 ? undefined : new Date(Math.min(...starts));
+}
+
+/** Distinct start instants of `date`'s games involving any of `teams`, earliest first. */
+export function gameStartsFor(
+  schedule: Parameters<typeof firstGameFor>[0],
+  date: string,
+  teams: ReadonlySet<string>,
+): Date[] {
+  const starts = (schedule.find((d) => d.date === date)?.games ?? [])
+    .filter((g) => teams.has(g.home) || teams.has(g.away))
+    .map((g) => Date.parse(g.startTimeUtc))
+    .filter((t) => Number.isFinite(t));
+  return [...new Set(starts)].sort((a, b) => a - b).map((t) => new Date(t));
+}
+
+/** The lineup guard (D-044) runs this long before each window of puck drops. */
+export const GUARD_LEAD_MS = 25 * 60 * 1000;
+/** Puck drops this close to a window's first one share its guard run. */
+export const GUARD_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * One lineup-guard slot per window of our players' puck drops on `date` (a matinee and an
+ * evening window each get one), keyed by the window's first start in New York time.
+ */
+export function guardSlots(date: string, starts: readonly Date[]): Slot[] {
+  const windows: Date[] = [];
+  for (const t of [...starts].sort((a, b) => a.getTime() - b.getTime())) {
+    const first = windows.at(-1);
+    if (first === undefined || t.getTime() - first.getTime() > GUARD_WINDOW_MS) windows.push(t);
+  }
+  return windows.flatMap((w) => {
+    const at = new Date(w.getTime() - GUARD_LEAD_MS);
+    if (nyDate(at) !== date) return [];
+    const w0 = wall(w);
+    const hhmm = `${String(w0.hour).padStart(2, '0')}${String(w0.minute).padStart(2, '0')}`;
+    return [{ job: 'lineupGuard' as const, at, key: `lineupGuard@${date}#${hhmm}` }];
+  });
 }
 
 /** Every slot on `date`, in time order. `firstGame` adds the pre-game lineup run. */

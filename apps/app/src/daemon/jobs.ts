@@ -16,6 +16,7 @@ import { digestText, gatherDigest } from './digest.js';
 import { pull as pullSnapshot } from './pulls.js';
 import { reseed } from './reseedJob.js';
 import { archive } from './archiveJob.js';
+import { lineupGuard } from './lineupGuard.js';
 import type { DaemonJob } from './schedule.js';
 
 /**
@@ -40,14 +41,14 @@ export interface JobEnv {
   now: () => Date;
 }
 
-type Body = () => Promise<{ status: Exclude<RunStatus, 'running'>; summary: string }>;
+type Body = (runId: string) => Promise<{ status: Exclude<RunStatus, 'running'>; summary: string }>;
 
 /** Open a run, do the work, close the run. The error is returned, not thrown. */
 async function recorded(env: JobEnv, job: DaemonJob, body: Body): Promise<JobOutcome> {
   let runId = '';
   try {
     runId = env.s.store.runs.start(job);
-    const r = await body();
+    const r = await body(runId);
     env.s.store.runs.finish(runId, r.status, r.summary);
     return { job, runId, ...r };
   } catch (error) {
@@ -255,6 +256,7 @@ export function executeJob(
   if (job === 'pull') return recorded(env, job, () => pullSnapshot(env, userId, why));
   if (job === 'reseed') return recorded(env, job, () => reseed(env, userId));
   if (job === 'archive') return recorded(env, job, () => archive(env, userId));
+  if (job === 'lineupGuard') return recorded(env, job, (runId) => lineupGuard(env, userId, runId));
   return agentJob(env, userId, job, signal, why);
 }
 

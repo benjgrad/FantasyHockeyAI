@@ -3,6 +3,8 @@ import {
   addDays,
   dueSlots,
   firstGameFor,
+  gameStartsFor,
+  guardSlots,
   nextSlot,
   nyAt,
   nyDate,
@@ -103,5 +105,47 @@ describe('season schedule (§14.2)', () => {
     const next = nextSlot(slots, new Date('2026-10-31T23:00:00Z'));
     expect(next?.key).toBe('stats@2026-11-01#daily');
     expect(iso(next?.at)).toBe('2026-11-01T10:30:00.000Z');
+  });
+});
+
+describe('lineup guard slots (D-044)', () => {
+  const teams = new Set(['CAR', 'TOR', 'EDM']);
+  const day = (games: [string, string, string][]) => [
+    {
+      date: '2026-11-07',
+      games: games.map(([home, away, startTimeUtc]) => ({ home, away, startTimeUtc })),
+    },
+  ];
+
+  it('one guard run 25 minutes before each window of our puck drops', () => {
+    const schedule = day([
+      ['CAR', 'NYR', '2026-11-07T18:00:00Z'], // 13:00 ET matinee
+      ['TOR', 'MTL', '2026-11-08T00:00:00Z'], // 19:00 ET
+      ['EDM', 'VAN', '2026-11-08T00:10:00Z'], // 19:10 ET: same window
+      ['BOS', 'NYI', '2026-11-07T23:00:00Z'], // none of ours
+    ]);
+    const starts = gameStartsFor(schedule, '2026-11-07', teams);
+    expect(starts.map((d) => d.toISOString())).toEqual([
+      '2026-11-07T18:00:00.000Z',
+      '2026-11-08T00:00:00.000Z',
+      '2026-11-08T00:10:00.000Z',
+    ]);
+    expect(guardSlots('2026-11-07', starts).map((s) => [s.key, s.at.toISOString()])).toEqual([
+      ['lineupGuard@2026-11-07#1300', '2026-11-07T17:35:00.000Z'],
+      ['lineupGuard@2026-11-07#1900', '2026-11-07T23:35:00.000Z'],
+    ]);
+  });
+
+  it('starts more than the window apart get their own runs; no games, no runs', () => {
+    const starts = gameStartsFor(
+      day([
+        ['CAR', 'NYR', '2026-11-08T00:00:00Z'],
+        ['TOR', 'MTL', '2026-11-08T00:30:00Z'],
+      ]),
+      '2026-11-07',
+      teams,
+    );
+    expect(guardSlots('2026-11-07', starts)).toHaveLength(2);
+    expect(guardSlots('2026-11-07', [])).toEqual([]);
   });
 });

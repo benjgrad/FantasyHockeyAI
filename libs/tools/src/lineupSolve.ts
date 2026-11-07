@@ -21,6 +21,50 @@ export type SolveOutcome =
   | { ok: true; entries: LineupPlayer[]; result: LineupResult }
   | { ok: false; error: string };
 
+export type EntriesOutcome = { ok: true; entries: LineupPlayer[] } | { ok: false; error: string };
+
+/**
+ * Our roster as the solver's input for `date`, with goalie starts and overrides applied. The one
+ * builder the solver, plan validation and the lineup guard share (D-044), so they cannot
+ * disagree about who plays.
+ */
+export function ourLineupEntries(
+  view: LeagueView,
+  date: string,
+  now: string,
+  overrides: readonly Pick<LineupOverride, 'playerKey' | 'bench'>[] = [],
+  goalieStarts: readonly GoalieStartSignal[] = [],
+): EntriesOutcome {
+  const starts = new Map(goalieStarts.map((g) => [g.playerKey, g.pStart]));
+  const entries = lineupEntries(view, date, now, (k) => starts.get(k));
+  const error = applyOverrides(view, entries, date, overrides);
+  return error === undefined ? { ok: true, entries } : { ok: false, error };
+}
+
+/** Apply overrides to the entries in place; the first problem, if any, as an instruction. */
+export function applyOverrides(
+  view: LeagueView,
+  entries: LineupPlayer[],
+  date: string,
+  overrides: readonly Pick<LineupOverride, 'playerKey' | 'bench'>[],
+): string | undefined {
+  const byKey = new Map(entries.map((e) => [e.playerKey, e]));
+  for (const o of overrides) {
+    const e = byKey.get(o.playerKey);
+    const name = view.player(o.playerKey)?.name ?? o.playerKey;
+    if (e === undefined) {
+      return `${name} (${o.playerKey}) is not on our roster, so he cannot be overridden. Call getRoster and use its playerKeys.`;
+    }
+    if (e.locked) return `${name}'s game on ${date} has started, so he is locked. Remove his override.`;
+    if (!o.bench && !e.hasGame) {
+      return `${name} has no game on ${date}, so he cannot be started. Remove his override.`;
+    }
+    if (o.bench) e.hasGame = false;
+    else e.status = undefined;
+  }
+  return undefined;
+}
+
 export function solveOurLineup(
   view: LeagueView,
   date: string,
@@ -28,32 +72,8 @@ export function solveOurLineup(
   overrides: readonly LineupOverride[] = [],
   opts: { goalieStarts?: readonly GoalieStartSignal[] } = {},
 ): SolveOutcome {
-  const starts = new Map((opts.goalieStarts ?? []).map((g) => [g.playerKey, g.pStart]));
-  const entries = lineupEntries(view, date, now, (k) => starts.get(k));
-  const byKey = new Map(entries.map((e) => [e.playerKey, e]));
-  for (const o of overrides) {
-    const e = byKey.get(o.playerKey);
-    const name = view.player(o.playerKey)?.name ?? o.playerKey;
-    if (e === undefined) {
-      return {
-        ok: false,
-        error: `${name} (${o.playerKey}) is not on our roster, so he cannot be overridden. Call getRoster and use its playerKeys.`,
-      };
-    }
-    if (e.locked) {
-      return {
-        ok: false,
-        error: `${name}'s game on ${date} has started, so he is locked. Remove his override.`,
-      };
-    }
-    if (!o.bench && !e.hasGame) {
-      return {
-        ok: false,
-        error: `${name} has no game on ${date}, so he cannot be started. Remove his override.`,
-      };
-    }
-    if (o.bench) e.hasGame = false;
-    else e.status = undefined;
-  }
+  const built = ourLineupEntries(view, date, now, overrides, opts.goalieStarts);
+  if (!built.ok) return built;
+  const { entries } = built;
   return { ok: true, entries, result: solveLineup({ slots: view.settings.rosterSlots, entries }) };
 }
