@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-11-02**
+Last updated: **2026-11-07**
 
 ---
 
@@ -91,6 +91,21 @@ keep the tool results of the last three answers. Waivers and trades get more too
 - **Still Ben's:** whether chat should think harder or run on Opus (Q-011); restart `fha-app`
   to load the new prompts and migration 013.
 
+**Lineup validations (D-044, 2026-11-07):** Tom Wilson sat on our bench on 11-07, a day he
+played, and it probably cost the week. Why is not yet known (U-51). The code had no check that a
+lineup starts everyone who plays, and every lineup write hung on the LLM's lineup run.
+- **An audit** (`auditLineup`) counts the starts a lineup loses against the solver's, with the
+  same locks.
+- **Every lineup plan must pass it** (§9.1, now enforced). That includes one approved hours
+  later. A date whose games can't be verified (no schedule, a team in no game) is refused
+  outright.
+- **The lineup guard** is code, with no model. It runs 25 min before each window of our games
+  and after every lineup agent run. It re-reads Yahoo and audits the live lineup. When starts
+  are lost, it files the solver's lineup through the normal gate and retires any earlier
+  lineup plan still waiting.
+- **Still Ben's:** restart `fha-app` to make it live. With dry run on, the guard's fix is a
+  card and a push, not a write.
+
 **CI/CD (D-043, 2026-11-02):** every PR runs `scripts/ci.sh` on GitHub's machines. Every merge to
 `main` runs it again and then deploys itself to gradyserver: production's `main` fast-forwards,
 the app rebuilds and restarts, `/api/health` must name the new sha, and a failure rolls back with
@@ -163,7 +178,7 @@ Status values: `todo` · `wip` · `done` · `deferred` · `cut`
 | **M-S** | Prompting skill: research (background, tonight) → build `.claude/skills/fha-prompting/` | `wip` | Skill layers project conventions on the existing `claude-api` skill without restating it | §13, §17 |
 | **M0c** | Deferred foundations: `libs/store` (SQLite + migrations), `libs/obs` logger, config loader | `wip` — store done (migrations 001 core, 002 app, 003 chat_turns, 004 auto_approve); logger not started | Migrations apply at startup; JSON caches migrated | §16, §19 |
 | **M4b** | `libs/llm` + `libs/tools` + `libs/prompts` + `libs/pipeline` + `libs/agents` | `done`, merged 2026-09-29 — permission gate, 23 tools, 5 agents + assistant, GM router, CLI. **Not yet run against the live API** (needs a dedicated key) | Tool loop covers every stop reason; gate matrix tested | §7–§9 |
-| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013). **Lineup write built 2026-10-01** (U-12, D-020; deployed by 2026-10-09): **Do it** on a lineup card saves it in Yahoo, and the daemon's lineup job executes on its own under `allow` with dry run off. Waits on a live LLM run | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
+| **M5** | Lineup job — **3 days dry-run, then `allow`** | `wip` — solver + availability + roster health run on live data; the daemon schedules it (D-013). **Lineup write built 2026-10-01** (U-12, D-020; deployed by 2026-10-09): **Do it** on a lineup card saves it in Yahoo, and the daemon's lineup job executes on its own under `allow` with dry run off. Waits on a live LLM run. **2026-11-07 (D-044):** a code-only lineup guard audits and fixes the live lineup before each window of games, LLM or not, and validation refuses any lineup that loses a start | Solver passes §12.3 tests; 3 days of diffs Ben agrees with | §12.3, §14.2 |
 | **M6** | Waivers and free agency (**`allow` within caps**, D-008) | `wip` — availability-aware scoring incl. IR stashes; add/drop write adapter built (U-12 partly verified). Agents stay dry-run (`dryRun: true`), but **every proposal is now actionable** (D-015; deployed by 2026-10-09): **Do it** executes an add/drop through the Yahoo website adapter even in dry run, **Open in Yahoo** / **I did it** (confirmed by a fresh read) for everything else, **Dismiss**; dry-run proposals push; **auto-grab** (D-016; deployed by 2026-10-09): a free agent back from out or a healthy player another team dropped who clears `autoGrab.minGain` is proposed at once (urgent push) or, with `ignoreDryRun`/dry run off, added through the same gate ; **2026-10-24** (D-035..D-037): ranked on ΔP(win a week) with daily-lineup weekly lines, every legal drop scored, IR-seat drops and out adds excluded, waiver priority and our filed Yahoo claims known to the agents, hourly Yahoo pulls, every player valued | Proposals carry evidence; nothing writes without approval | §12.8 |
 | **M7** | Trades (`ask`, plus per-player lock/ask and tool switches, D-008) | `wip` — §12.7 evaluation + target search done on `agents` | Marginal-value evaluation; incoming offers get a rationale | §12.7 |
 | **M8** | ~~Discord~~ **Web push** digest + approval deep links; systemd unit (D-010) | `wip` — push, prefs, quiet hours, the daemon (D-013), digest and injury/reconnect pushes done in `apps/app`; **ask with timeout** (D-018; deployed by 2026-10-09): a plan kind can be queued for Ben *and* done on its own unless he rejects it in time, with a per-minute sweeper, countdown cards and reminder pushes | Only allow-listed users can approve; every approve re-validated and re-gated | §15 |
@@ -221,6 +236,7 @@ first use and update the row.
 
 | ID | Claim | Spec | How to verify | Status |
 |---|---|---|---|---|
+| **U-51** | Why Tom Wilson was benched on 2026-11-07, a day he played (agent run failed or abstained, a lineup plan left waiting, a schedule gap, a manual edit, Yahoo's carry-over) | D-044 | Read production `runs`, `decisions` and `proposal_attempts` for 2026-11-07, and the archived day (`getMatchupHistory` with that week) | UNVERIFIED. Every failure mode found in the code is now covered by D-044; if the cause is something else, it needs its own scenario |
 | **U-50** | ~~GitHub can't protect `main` or limit an environment to it on this private repo (free plan)~~ **FALSIFIED 2026-11-02:** the repo is public, so GitHub can protect `main`, require the `gates` check and limit the `gradyserver` environment to `main`; none of it is set yet | D-043, `docs/setup/deploy.md` | `gh api repos/benjgrad/FantasyHockeyAI` → `visibility: public`; `…/branches/main/protection` → `404 Branch not protected` (not the free plan's `403 Upgrade to GitHub Pro`); fork-PR approval is `first_time_contributors` | [V] 2026-11-02. The job-started hook stays the gate; the settings are Ben's to add (runbook §Why the runner can't be used from a branch) |
 | **U-49** | Whether a lineup seat can be reused on the same day after its player's game ends (bench him once his game is over, start a later player in that seat, and both count) | D-041, U-09 | Try it once on a light day with a player whose game is final, then read the day's counted lines in the archive (`getMatchupHistory` with the week) | UNVERIFIED — Ben asked on 10-25 and 10-26; the concepts primer tells the agents to say it is unverified. Yahoo locks each player at his own game start (U-09) |
 | **U-33** | The variance model's σ per category is right for a whole week (Poisson counts, PIM dispersion 2, +/- 1 per skater-game, independent players) | D-034, §12.6 | Fit the (us − them) spread per category from the season's scoreboards; set `sdOverride` | UNVERIFIED — nothing learns σ yet. The marginal weights (D-034) and every P(win) depend on it: too small a σ makes a category look decided too early |
@@ -323,6 +339,47 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-044 — 2026-11-07 — Lineups are verified by code: an audit, enforced validation, and a pre-lock guard
+
+**Why.** Ben (ticket "Lineup validations"): Wilson was benched on 11-07 and it probably cost the
+week. The cause is U-51. The code allowed it several ways:
+- Every lineup write depended on the lineup agent. No model, a failed run, an abstain or a plan
+  left pending meant nothing set the lineup.
+- `validatePlan` checked only the structure: §9.1's "no starter without a game while a benched
+  alternative plays" was never enforced.
+- An open lineup plan blocked every later one for the date as a "duplicate".
+- A missing schedule day or a mismatched team abbreviation reads as "no game", which the solver
+  then rationally benches (the TB/TBL bug).
+
+**Decided:**
+- **The audit** (`libs/model/src/lineupAudit.ts`, pure):
+  - A *start* is a player in an active seat with P(plays) > 0, the solver's first tier.
+  - `lostStarts` is the solver's starts minus the lineup's, with the same locks.
+  - Errors: lost starts, illegal seats, over-full slots. Warnings: an out starter or an empty
+    seat when no one who plays could fill it. Info: a locked loss, and a value gap.
+  - A value gap never blocks: another value lens may rank players differently.
+- **Input integrity** (`lineupInputProblems`, `libs/tools/src/lineupCheck.ts`): the date must be
+  in the loaded schedule, and every rostered player's team must play somewhere in it. If not,
+  nothing is solved, validated or written (P5).
+- **Validation enforces it** (`ValidationContext.lineupInput`, built from the solver's own
+  inputs, goalie starts included):
+  - a lineup plan that loses a start is refused with an instruction;
+  - an unverifiable date is terminal.
+  - Re-validation at approve/execute time therefore refuses a stale plan.
+- **The plan carries its overrides** (lineup payload `overrides`, additive), so validation
+  audits a late scratch the way the solver did.
+- **The lineup guard** (`apps/app/src/daemon/lineupGuard.ts`, job `lineupGuard`):
+  - It runs 25 min before each window of our puck drops (starts within 15 min share one) and
+    after every lineup agent run, whatever that run did. It goes to the front of the queue.
+  - It re-reads Yahoo; a stale read fails the run, and the daemon's failure push says so.
+  - It audits the live lineup. When starts are lost, it retires today's unlanded lineup plans
+    for the date (settled `rejected`, "superseded by the lineup guard") and files the solver's
+    lineup through the real pipeline and gate (P2), with no new permission:
+    `plans.lineup: allow` with dry run off executes it; otherwise it is a card. One push per
+    date per finding set.
+- **Not done:** respecting a lineup Ben set by hand on purpose. The guard treats a manual edit
+  like any other lineup. If he wants his own edits left alone, that is a follow-up setting.
 
 ### D-043 — 2026-11-02 — CI/CD: gates on every PR, and main deploys itself to gradyserver
 

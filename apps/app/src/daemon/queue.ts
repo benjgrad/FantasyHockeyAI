@@ -21,10 +21,15 @@ export class SerialQueue {
 
   constructor(private readonly onError: (key: string, err: unknown) => void) {}
 
-  /** False when stopped, or when a job with this key is already waiting. */
-  enqueue(job: QueuedJob): boolean {
+  /**
+   * False when stopped, or when a job with this key is already waiting. `front` puts it ahead of
+   * the waiting jobs (never ahead of the running one): the lineup guard must not wait behind a
+   * long agent run while puck drop nears (D-044).
+   */
+  enqueue(job: QueuedJob, opts: { front?: boolean } = {}): boolean {
     if (this.stopped || this.waiting.some((j) => j.key === job.key)) return false;
-    this.waiting.push(job);
+    if (opts.front === true) this.waiting.unshift(job);
+    else this.waiting.push(job);
     if (this.current === undefined) void this.next();
     return true;
   }

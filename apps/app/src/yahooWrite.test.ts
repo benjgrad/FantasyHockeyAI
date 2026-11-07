@@ -168,6 +168,11 @@ describe('Yahoo add/drop through the pipeline', () => {
           { playerKey: '477.p.4471', slot: 'BN' },
           { playerKey: '477.p.8653', slot: 'Util' },
         ],
+        // Scratched, so the lineup audit (D-044) accepts this hand-made plan: the test is the write.
+        overrides: [
+          { playerKey: '477.p.4471', bench: true },
+          { playerKey: '477.p.7516', bench: true },
+        ],
       }),
       pipeline,
     );

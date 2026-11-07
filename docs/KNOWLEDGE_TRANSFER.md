@@ -458,7 +458,7 @@ Checks by plan kind:
 
 | Kind | Checks |
 |---|---|
-| `lineup` | Each active slot has an eligible player; slot counts equal the settings. No starter without a game that date, unless no benched alternative plays (log a warning). IR/IR+ holds only players whose status allows it. Moves only for players whose game hasn't started (lock, §12.4). |
+| `lineup` | Each active slot has an eligible player; slot counts equal the settings. No starter without a game that date, unless no benched alternative plays (log a warning): **enforced since D-044** by `auditLineup` on the solver's own inputs (goalie starts, the plan's `overrides`); a plan that starts fewer players who play than the solver would is refused, and a lower-value lineup is not. A date whose games can't be verified (absent from the loaded schedule, or a rostered team in no game) is refused as terminal. IR/IR+ holds only players whose status allows it. Moves only for players whose game hasn't started (lock, §12.4). |
 | `addDrop` / `waiverClaim` | Weekly and season add limits not exceeded (count adds in `transactions` this week plus pending plans). FAAB bid ≤ remaining budget and an integer ≥ 0. Dropped player not in `protected` (§18.3: the top-N by VORP plus a named list). Roster size stays within limits. |
 | `tradePropose` | Partner team exists and isn't us. All `give` keys are on our roster and all `get` keys on theirs. Before the trade deadline. `evaluateTrade` gain for us > `minTradeGain` (§18.3). |
 | `tradeRespond` | The `transactionKey` is a pending trade in which we are the tradee. |
@@ -885,6 +885,7 @@ and the agents live in one glossary, `libs/core/src/glossary.ts`.*
 - **Tie-break:** prefer the current slot. This keeps the number of moves small.
 - **Output:** the full target lineup plus the diff (moves). **An empty diff means no plan.**
 - **Tests:** every slot type; off nights; a goalie back-to-back; IR handling; locked players; a multi-position player filling the scarce slot; no empty active slot while an eligible benched player plays.
+- **Audit (D-044):** `auditLineup(input, assignments?)` judges any lineup against the solver's. A *start* is a player in an active seat with P(plays) > 0. `lostStarts` = the solver's starts − the lineup's, with the same locks. Errors are lost starts (each naming the benched player who plays and the idle seat), illegal seats and over-full slots. Warnings are an out starter, or an empty seat no one who plays can fill. Info is a locked loss and a value gap. Plan validation and the lineup guard (§14.2) use it.
 
 ### 12.4 Lineup lock
 - **The setting:** Yahoo NHL leagues lock either **by game time** or **daily**. Read the raw setting (§10.3) **[U: the field name and values]**.
@@ -1102,6 +1103,7 @@ its propose tool, or by answering `noop` with a reason.
 | `refreshData` | 06:00 daily | NHL stats (incremental), settings, rosters, player map |
 | `archive` | 06:10 daily | Finished weeks from Yahoo into `matchup_archive`, only what is missing, ≤ 60 reads (D-038, §12.10) |
 | `lineup` | 10:00 daily, then 45 min before the first game, then 16:30 | the later runs pick up goalie confirmations; each run is idempotent (an empty diff means no plan) |
+| `lineupGuard` | 25 min before each window of our games (starts within 15 min share one), and after every `lineup` run | code, no model (D-044): re-reads Yahoo, audits the live lineup (§12.3), and when starts are lost files the solver's lineup through the gate, retiring earlier unlanded lineup plans for the date; front of the queue |
 | `waivers` | 08:00 daily | proposals go to approvals and expire at the waiver run or lock time |
 | `matchup` | Monday 06:30, Thursday 06:30 | writes `strategy` weights |
 | `trades` | Wednesday 12:00, plus when a new pending trade appears | `transactions;type=pending_trade` is polled every 30 min |

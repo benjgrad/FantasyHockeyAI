@@ -18,6 +18,8 @@ import {
   addDays,
   dueSlots,
   firstGameFor,
+  gameStartsFor,
+  guardSlots,
   nextSlot,
   nyDate,
   pullSlots,
@@ -153,13 +155,18 @@ export class Daemon {
       .map((c) => c.userId);
   }
 
-  /** A user's slots for `date`: the pre-game lineup from the cached schedule, and the pulls. */
+  /**
+   * A user's slots for `date`: the pre-game lineup and the lineup guard's windows (D-044) from
+   * the cached schedule, and the pulls.
+   */
   slotsFor(userId: string, date: string): Slot[] {
     const view = this.s.league.peek(userId)?.view;
     const teams = new Set(view?.roster().entries.map((e) => e.player.nhlTeam) ?? []);
     const first = view === undefined ? undefined : firstGameFor(view.snap.schedule, date, teams);
+    const guards =
+      view === undefined ? [] : guardSlots(date, gameStartsFor(view.snap.schedule, date, teams));
     // A pull at a job's own minute sorts first, so the job reads the fresh snapshot.
-    return [...pullSlots(date), ...slotsForDay(date, first)].sort(
+    return [...pullSlots(date), ...slotsForDay(date, first), ...guards].sort(
       (a, b) => a.at.getTime() - b.at.getTime(),
     );
   }
@@ -180,19 +187,25 @@ export class Daemon {
     return due;
   }
 
-  /** Queue a job for a user; a copy already waiting is not queued twice. */
+  /**
+   * Queue a job for a user; a copy already waiting is not queued twice. The lineup guard goes
+   * to the front, and follows every lineup agent run, whatever it did (D-044): code, not the
+   * model, is the floor under the day's lineup.
+   */
   enqueue(userId: string, job: DaemonJob, why: string): boolean {
-    return this.queue.enqueue({
-      key: `${job}:${userId}`,
-      run: async (signal) => {
-        if (!this.users().includes(userId)) return; // Disconnected or expired since queued.
-        this.s.log(`daemon: ${job} for ${userId} (${why})`);
-        await this.afterJob(
-          userId,
-          await executeJob({ s: this.s, now: this.now }, userId, job, signal, why),
-        );
+    return this.queue.enqueue(
+      {
+        key: `${job}:${userId}`,
+        run: async (signal) => {
+          if (!this.users().includes(userId)) return; // Disconnected or expired since queued.
+          this.s.log(`daemon: ${job} for ${userId} (${why})`);
+          const outcome = await executeJob({ s: this.s, now: this.now }, userId, job, signal, why);
+          await this.afterJob(userId, outcome);
+          if (job === 'lineup') this.enqueue(userId, 'lineupGuard', `after lineup (${why})`);
+        },
       },
-    });
+      { front: job === 'lineupGuard' },
+    );
   }
 
   private async afterJob(userId: string, o: JobOutcome): Promise<void> {

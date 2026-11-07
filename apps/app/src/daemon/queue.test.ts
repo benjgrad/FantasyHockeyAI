@@ -34,6 +34,22 @@ describe('SerialQueue', () => {
     expect(log).toEqual(['a start', 'a end', 'b']);
   });
 
+  it('puts a front job ahead of the waiting ones, never ahead of the running one (D-044)', async () => {
+    const q = new SerialQueue(() => {});
+    const log: string[] = [];
+    const a = deferred();
+    q.enqueue({ key: 'a', run: async () => void (await a.promise, log.push('a')) });
+    q.enqueue({ key: 'b', run: () => Promise.resolve(void log.push('b')) });
+    q.enqueue(
+      { key: 'guard', run: () => Promise.resolve(void log.push('guard')) },
+      { front: true },
+    );
+    expect(q.pending()).toEqual(['guard', 'b']);
+    a.resolve();
+    await q.idle();
+    expect(log).toEqual(['a', 'guard', 'b']);
+  });
+
   it('does not queue a key twice while it waits, but does once it is running', async () => {
     const q = new SerialQueue(() => {});
     const gate = deferred();
