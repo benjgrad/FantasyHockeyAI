@@ -56,6 +56,33 @@ describe('proposeLineup', () => {
   });
 });
 
+describe('proposeLineup (D-044)', () => {
+  it('carries its overrides on the plan, so validation audits the same inputs', async () => {
+    const { ctx, store } = testRun();
+    const roster = ctx.view.roster().entries;
+    const starter = roster.find(
+      (e) => ['C', 'LW', 'RW'].includes(e.slot) && ctx.view.gameOn('2026-10-13', e.player.nhlTeam),
+    );
+    if (starter === undefined) throw new Error('fixture has no forward playing on 10-13');
+    const key = starter.player.playerKey;
+    const r = await proposeLineup.execute(
+      { date: '2026-10-13', overrides: [{ playerKey: key, bench: true, reason: 'late scratch' }], reason: REASON },
+      ctx,
+    );
+    if (!r.ok) throw new Error(r.error);
+    const plan = store.decisions.get(r.data.planId ?? '')?.plan;
+    expect(plan?.payload).toMatchObject({ kind: 'lineup', overrides: [{ playerKey: key, bench: true }] });
+  });
+
+  it('refuses at once, without solving, a date whose schedule is not loaded', async () => {
+    const { ctx, store } = testRun({ edit: (s) => { s.schedule = s.schedule.filter((d) => d.date !== '2026-10-14'); } });
+    const r = await proposeLineup.execute({ date: '2026-10-14', reason: REASON }, ctx);
+    expect(r).toMatchObject({ ok: false, retryable: false });
+    expect(!r.ok && r.error).toMatch(/cannot be verified: The NHL schedule for 2026-10-14 is not loaded/);
+    expect(store.decisions.listByStatus('dry_run', 'proposed')).toHaveLength(0);
+  });
+});
+
 describe('propose tools and the pipeline', () => {
   it('an unknown playerKey is an instruction error and nothing is submitted (P3)', async () => {
     const { ctx, store } = testRun({ agent: 'waivers' });

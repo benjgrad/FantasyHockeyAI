@@ -100,3 +100,43 @@ describe('validationContextFor.pendingTradesTouching', () => {
     expect(ctx.pendingTradesTouching?.(keys)).toEqual([]);
   });
 });
+
+describe('validationContextFor.lineupInput (D-044)', () => {
+  it("reads the user's goalie-start signals, as the solver does", () => {
+    const view = mockView();
+    const store = openStore(':memory:');
+    const userId = store.users.upsertBySub('ben').id;
+    const date = newYorkDate(MOCK_NOW);
+    const goalie = view
+      .roster()
+      .entries.find((e) => e.player.positionType === 'G' && view.gameOn(date, e.player.nhlTeam) !== undefined && e.player.status === undefined);
+    const key = goalie?.player.playerKey ?? '';
+    store.events.record({
+      userId,
+      kind: 'goalie.starting',
+      subject: key,
+      payload: { playerKey: key, name: 'G', date, isStarting: false },
+    });
+    const pStart = (ctx: ReturnType<typeof validationContextFor>) => {
+      const r = ctx.lineupInput?.(date, []);
+      return r?.ok === true ? r.input.entries.find((e) => e.playerKey === key)?.pStart : undefined;
+    };
+    expect(pStart(validationContextFor(view, store, MOCK_NOW, userId))).toBe(0);
+    expect(pStart(validationContextFor(view, store, MOCK_NOW))).toBeGreaterThan(0);
+  });
+
+  it('applies a scratch override: he no longer plays', () => {
+    const view = mockView();
+    const ctx = validationContextFor(view, openStore(':memory:'), MOCK_NOW);
+    const date = newYorkDate(MOCK_NOW);
+    const key = view.roster().entries.find((e) => e.slot === 'C')?.player.playerKey ?? '';
+    const r = ctx.lineupInput?.(date, [{ playerKey: key, bench: true }]);
+    expect(r?.ok === true && r.input.entries.find((e) => e.playerKey === key)?.hasGame).toBe(false);
+  });
+
+  it('reports a date the schedule does not cover', () => {
+    const ctx = validationContextFor(mockView(), openStore(':memory:'), MOCK_NOW);
+    const r = ctx.lineupInput?.('2099-01-01', []);
+    expect(r?.ok === false && r.problems.join()).toMatch(/schedule for 2099-01-01 is not loaded/);
+  });
+});

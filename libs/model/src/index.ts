@@ -13,6 +13,7 @@ export * from './lineupRules.js';
 export * from './availability.js';
 export * from './rosterHealth.js';
 export * from './lineup.js';
+export * from './lineupAudit.js';
 export * from './lock.js';
 export * from './matchup.js';
 export * from './starters.js';

@@ -1,7 +1,8 @@
 import { playersTouched, type Plan, type Transaction } from '@fha/core';
 import type { ValidationContext } from '@fha/pipeline';
 import type { DecisionRecord, Store } from '@fha/store';
-import { dayStatus } from './derive.js';
+import { dayStatus, nameKeys } from './derive.js';
+import { ourLineupInput } from './lineupCheck.js';
 import type { LeagueView } from './view.js';
 
 /**
@@ -9,7 +10,13 @@ import type { LeagueView } from './view.js';
  * The propose tools run it before recording anything (`submitProposal`) and the pipeline runs
  * it again, so the two can never disagree about what is valid.
  */
-export function validationContextFor(view: LeagueView, store: Store, now: string): ValidationContext {
+export function validationContextFor(
+  view: LeagueView,
+  store: Store,
+  now: string,
+  /** Whose goalie-start signals to read (D-029); without it goalies start with P = 1 unless out. */
+  userId?: string,
+): ValidationContext {
   const since = newYorkDayStart(now);
   const today = newYorkDate(now);
   return {
@@ -38,6 +45,9 @@ export function validationContextFor(view: LeagueView, store: Store, now: string
         .filter((t) => t.players.some((x) => wanted.has(x.playerKey)))
         .map((t) => t.transactionKey);
     },
+    // The solver's own inputs (D-044): validation audits a lineup on what the solver saw.
+    lineupInput: (date, overrides) => ourLineupInput(view, store, userId, date, now, overrides),
+    nameKeys: (text) => nameKeys(view, text),
     conflicting: (keys, excludePlanId, plan) =>
       [...store.decisions.conflicting(keys, since, excludePlanId), ...dryRunToday(store, keys, since)]
         .filter((d) => d.plan.planId !== excludePlanId && collides(d, plan, today))
