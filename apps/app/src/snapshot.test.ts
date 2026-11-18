@@ -68,3 +68,18 @@ describe('the snapshot player pool (D-032)', () => {
     expect(down.warnings.join('\n')).toMatch(/watched players unavailable/);
   });
 });
+
+describe("Yahoo's reserve seats (U-10)", () => {
+  it('keeps an empty list: Yahoo offering no IR seat is an answer, not "unknown" (MacKinnon, 2026-11)', async () => {
+    const ours = snap.rosters[snap.teamKey] ?? [];
+    const [none, ir] = ours.map((e) => e.playerKey);
+    const yahoo = fakeYahoo(snap);
+    yahoo.details.set(none ?? '', { reserveEligible: [] });
+    yahoo.details.set(ir ?? '', { reserveEligible: ['IR'] });
+    const source = yahoo.reader({ T: 't', Y: 'y' }, snap.leagueKey, snap.teamKey);
+    const { snapshot } = await build(source).built;
+    const player = (k: string | undefined) => snapshot.players.find((p) => p.playerKey === k);
+    expect(player(none)?.reserveEligible).toEqual([]);
+    expect(player(ir)?.reserveEligible).toEqual(['IR']);
+  });
+});

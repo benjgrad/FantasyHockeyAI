@@ -302,13 +302,18 @@ export class Daemon {
     const fresh = this.rosterStatuses.get(userId);
     const { view } = league;
     const h = rosterHealth({
-      entries: view.roster().entries.map(({ player: p, slot }) => ({
-        playerKey: p.playerKey,
-        eligible: p.eligible,
-        status: fresh?.has(p.playerKey) === true ? fresh.get(p.playerKey) : p.status,
-        slot,
-        value: view.valuation(p.playerKey)?.perGameValue ?? 0,
-      })),
+      entries: view.roster().entries.map(({ player: p, slot }) => {
+        const status = fresh?.has(p.playerKey) === true ? fresh.get(p.playerKey) : p.status;
+        return {
+          playerKey: p.playerKey,
+          eligible: p.eligible,
+          status,
+          // Yahoo's reserve seats belong to the snapshot's status; a newer one uses the table.
+          reserveSlots: status === p.status ? p.reserveEligible : undefined,
+          slot,
+          value: view.valuation(p.playerKey)?.perGameValue ?? 0,
+        };
+      }),
       slots: view.settings.rosterSlots,
     });
     return h.thinPositions.length > 0 || h.irMovesAvailable.length > 0;

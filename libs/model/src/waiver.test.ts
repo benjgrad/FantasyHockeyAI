@@ -262,7 +262,7 @@ describe('scoreWaivers — availability (draft-night flaw 4)', () => {
     const m = scoreWaiverPair(
       val('D', { vorp: 1.8 }),
       injured,
-      base({ availability: { [injured.nhlId]: hurt('O') }, openReserveSlots: ['IR'] }),
+      base({ availability: { [injured.nhlId]: hurt('IR') }, openReserveSlots: ['IR'] }),
     );
     expect(m.reasons.join(' ')).toContain('IR seat is open');
     expect(t.roster).toHaveLength(4);

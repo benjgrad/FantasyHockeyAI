@@ -30,11 +30,11 @@ describe('availability — status defaults', () => {
     expect(a.label).toBe('DTD, 80% to play next game');
   });
 
-  it('should put O out ~10 days: 10 × 82/186 = 4.41 games, IR-eligible', () => {
+  it('should put O out ~10 days: 10 × 82/186 = 4.41 games, IR+ but not IR (MacKinnon, 2026-11)', () => {
     const a = availability({ status: 'O', now: NOW });
     expect(a.playProb).toBe(0);
     expect(a.expectedGamesMissed).toBeCloseTo((10 * 82) / 186, 10);
-    expect(a.irEligible).toEqual(['IR', 'IR+']);
+    expect(a.irEligible).toEqual(['IR+']);
     expect(a.expectedReturn).toBe('2026-10-09');
     expect(a.source).toBe('default');
     expect(a.label).toContain('default estimate');

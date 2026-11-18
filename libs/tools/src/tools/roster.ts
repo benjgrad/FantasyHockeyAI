@@ -130,6 +130,7 @@ export const getRosterHealth = defineTool({
       name: player.name,
       eligible: player.eligible,
       status: player.status,
+      reserveSlots: player.reserveEligible,
       slot,
       value: ctx.view.valuation(player.playerKey)?.perGameValue ?? 0,
       hasGame: dayStatus(ctx.view, player, date, ctx.now).opponent !== undefined,

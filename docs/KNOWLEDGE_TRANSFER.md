@@ -458,7 +458,7 @@ Checks by plan kind:
 
 | Kind | Checks |
 |---|---|
-| `lineup` | Each active slot has an eligible player; slot counts equal the settings. No starter without a game that date, unless no benched alternative plays (log a warning). IR/IR+ holds only players whose status allows it. Moves only for players whose game hasn't started (lock, §12.4). |
+| `lineup` | Each active slot has an eligible player; slot counts equal the settings. No starter without a game that date, unless no benched alternative plays (log a warning). IR/IR+/NA holds only players Yahoo lists the seat for (their `reserveEligible`; an empty list means none); the status table (IR takes IR, IR-LT, IR-NR, not O) is the fallback only when the snapshot has no Yahoo detail. Moves only for players whose game hasn't started (lock, §12.4). |
 | `addDrop` / `waiverClaim` | Weekly and season add limits not exceeded (count adds in `transactions` this week plus pending plans). FAAB bid ≤ remaining budget and an integer ≥ 0. Dropped player not in `protected` (§18.3: the top-N by VORP plus a named list). Roster size stays within limits. |
 | `tradePropose` | Partner team exists and isn't us. All `give` keys are on our roster and all `get` keys on theirs. Before the trade deadline. `evaluateTrade` gain for us > `minTradeGain` (§18.3). |
 | `tradeRespond` | The `transactionKey` is a pending trade in which we are the tradee. |
@@ -880,7 +880,7 @@ and the agents live in one glossary, `libs/core/src/glossary.ts`.*
 - **Method:** maximum-weight bipartite assignment between the players and the expanded active slots (a slot with count *k* becomes *k* columns), plus
   `|players|` bench columns worth 0. Solve it with the **Hungarian algorithm** (implemented in `libs/model/src/hungarian.ts`; n ≤ 30,
   so O(n³) is trivial).
-- **IR:** players whose status allows it go to IR/IR+ **first** (that frees roster spots); the rest are then solved.
+- **IR:** players Yahoo lists the seat for (`reserveEligible`, else the status table, as in §9.1) go to IR/IR+ **first** (that frees roster spots); the rest are then solved.
 - **Locked players** (game started) stay fixed, and their slots are removed from the problem.
 - **Tie-break:** prefer the current slot. This keeps the number of moves small.
 - **Output:** the full target lineup plus the diff (moves). **An empty diff means no plan.**

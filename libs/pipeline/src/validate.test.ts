@@ -180,7 +180,7 @@ describe('validatePlan', () => {
     it('lets an injured player into IR, but not a healthy one', () => {
       expect(validatePlan(plan(lineup([[3, 'IR']])), ctx()).ok).toBe(true);
       expect(errs(validatePlan(plan(lineup([[1, 'IR']])), ctx())).join()).toMatch(
-        /not eligible for IR/,
+        /Yahoo does not offer .* IR seat \(status healthy does not allow IR\)/,
       );
     });
   });
@@ -332,5 +332,22 @@ describe('league rules from Yahoo (D-029)', () => {
   it("Yahoo's own reserve list wins over the status table (U-10)", () => {
     expect(slotAccepts('IR', mk(9, ['C'], { status: 'DTD', reserveEligible: ['IR'] }))).toBe(true);
     expect(slotAccepts('IR', mk(9, ['C'], { status: 'O', reserveEligible: [] }))).toBe(false);
+    expect(slotAccepts('IR', mk(9, ['C'], { status: 'O', reserveEligible: ['IR'] }))).toBe(true);
+  });
+
+  it('refuses an O player for IR when Yahoo says nothing about him: IR takes no O (2026-11)', () => {
+    expect(slotAccepts('IR', mk(9, ['C'], { status: 'O' }))).toBe(false);
+    expect(slotAccepts('IR', mk(9, ['C'], { status: 'IR-LT' }))).toBe(true);
+  });
+
+  it("says why a reserve seat is refused, naming Yahoo's reserve seats for him", () => {
+    const mack = mk(1, ['C', 'Util'], { status: 'O', reserveEligible: [] });
+    const r = validatePlan(
+      plan(lineup([[1, 'IR']])),
+      ctx({ player: (k) => (k === '477.p.1' ? mack : players.find((p) => p.playerKey === k)) }),
+    );
+    expect(errs(r).join()).toMatch(
+      /Yahoo does not offer .* an IR seat \(status O; Yahoo's reserve seats for him: none\)\. Do not move him to IR/,
+    );
   });
 });

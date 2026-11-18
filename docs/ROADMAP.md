@@ -8,7 +8,7 @@ when they disagree about how something should be built, the spec wins.*
 unknown verified or falsified, a question answered, a decision made. If a session ends and this
 file doesn't reflect reality, that's a defect.
 
-Last updated: **2026-11-02**
+Last updated: **2026-11-18**
 
 ---
 
@@ -90,6 +90,13 @@ Ben's lasting lessons (`rememberGuidance`), and every agent starts from them. Fo
 keep the tool results of the last three answers. Waivers and trades get more tool rounds.
 - **Still Ben's:** whether chat should think harder or run on Opus (Q-011); restart `fha-app`
   to load the new prompts and migration 013.
+
+**Reserve seats are Yahoo's call (D-044, 2026-11-18):** the lineup agent kept moving MacKinnon (O)
+to IR, a seat Yahoo does not offer an O player; each try loaded Yahoo's lineup page before the
+writer refused, and Ben suspects the repeats got the session flagged. Validation, the solver and
+roster health now share one rule that reads Yahoo's own list of a player's reserve seats (an empty
+list means none), so the move is refused before any Yahoo call. Scenario:
+`libs/tools/src/scenarios-2026-11-ir.test.ts`.
 
 **CI/CD (D-043, 2026-11-02):** every PR runs `scripts/ci.sh` on GitHub's machines. Every merge to
 `main` runs it again and then deploys itself to gradyserver: production's `main` fast-forwards,
@@ -248,7 +255,7 @@ first use and update the row.
 | **U-07** | Whether SHP and GWG appear in the NHL skater summary endpoint | §11.3 | Inspect the field list | **VERIFIED 12:42** — yes: `shPoints` and `gameWinningGoals`. `penaltyMinutes` is also on summary, so the `/skater/penalties` call is unnecessary |
 | **U-08** | DailyFaceoff (or equivalent) starting-goalie page structure, and its terms | §11.4 | Fetch and inspect; read the terms | UNVERIFIED — not needed before M5 |
 | **U-09** | Yahoo NHL lineup lock: by game time or daily, and the field name/values | §12.4 | Read raw settings | **VERIFIED 14:15 (PC session)**: "Daily - Today" (`intraday`). Per Yahoo's usual meaning, each player locks at his own game start [not yet observed with a live roster]. The safe default above matches |
-| **U-10** | Which injury statuses each reserve slot accepts | §12.3 | Read Yahoo's roster page with an injured player on the roster | **PARTLY VERIFIED 2026-09-29**: Yahoo lists `IR` in a player's eligible positions for IR and IR-NR, not for DTD or NA (live roster). O and IR-LT not yet seen. Prefer Yahoo's `reserveEligible` over the fixed table |
+| **U-10** | Which injury statuses each reserve slot accepts | §12.3 | Read Yahoo's roster page with an injured player on the roster | **PARTLY VERIFIED 2026-09-29**: Yahoo lists `IR` in a player's eligible positions for IR and IR-NR, not for DTD or NA (live roster). **2026-11: not for O** (MacKinnon, O, could not be moved to IR in Yahoo's UI; D-044). IR-LT not yet seen. Yahoo's `reserveEligible` drives every reserve decision; an empty list is kept and means none. The fixed table (IR: IR, IR-LT, IR-NR) is only the fallback for a player with no Yahoo detail |
 | **U-11** | Weekly category variance model for win probabilities (Poisson counts, PIM ×2, …) | §12.6 | Fit against real weekly scoreboards after 3–4 weeks | UNVERIFIED — `sdOverride` in `libs/model/src/matchup.ts` replaces it |
 | **U-12** | Yahoo write endpoints for a custom lineup, add/drop and trades | §10.4, Q-007 | Capture them from the website with a real post-draft roster | **PARTLY VERIFIED 2026-09-29:** add (no drop) observed via Ben's HAR — website form POST `/hockey/{league}/{team}/addplayer` with a per-page crumb; T+Y suffice. Add+drop inferred ([U]: same body plus `dpid`); pure drop, waiver claims and trades still unobserved → `needsHuman`. **Lineup observed 2026-10-01** (Ben's HAR): XHR `POST /hockey/{league}/{team}/editroster`, form-encoded, *every* editable player as `{playerId}={slot}` plus hidden `date, stat1, stat2, crumb, jsubmit`; answer 200 JSON `{content, hash, js, objects, errors: []}`. The form with its crumb comes from the team page `GET …/{team}?date=YYYY-MM-DD` [V: read-only GET for 2026-10-02 returned that date's form]. Implemented (`libs/yahoo/src/web/lineup.ts`): post Yahoo's own form with only our players' selects changed; refuse before sending if Yahoo serves another date, a player has no select, or a slot isn't among his options; `verify` re-reads that date's roster. **[V] live 2026-10-01 18:16Z:** Ben's **Do it** on plan `e085d398` (Aho→BN, Hischier→C) → POST 200 `errors: []` → a fresh roster read confirmed it → `executed`. Still [U]: how a player locked by a started game appears on the form (assumed: no select, so moving him is refused), the shape of a non-empty `errors`, and whether an IR move through this form behaves like any other slot. Also [U]: the failure alert shapes (non-zero `status` in `_global_alerts`) and whether adding a player on waivers through this form files a claim. Implemented as `YahooWebAdapter` (`libs/yahoo/src/web/`), used by apps/app only when dry run is off; the gm CLI and MCP stay on Manual |
 | **U-13** | Default outage durations by status (DTD short, O ~1–2 wk, IR ~3–4 wk, IR-LT 8+ wk, NA indefinite) | §12.1 | Compare against actual returns over the first month | UNVERIFIED — one table in `libs/model/src/availability.ts`; notes and return dates override it |
@@ -323,6 +330,33 @@ PP/+−/GP present; `/skater/realtime` has hits and blockedShots;
 ## Decisions log
 
 Newest first. Each entry says what was decided, why, and what it supersedes.
+
+### D-044 — 2026-11-18 — Reserve seats come from Yahoo; an empty list means none
+
+**Why.** Ben (ticket "Check IR status"): the agent tried several times to move Nathan MacKinnon,
+who was out (O), to IR, which Yahoo's UI does not allow. Each try loaded Yahoo's lineup page before
+the writer refused the slot, and the next lineup run tried again (a failed plan blocks nothing).
+Ben suspects the repeats looked suspicious and got the Yahoo session terminated. Three faults let it
+through:
+- the snapshot kept Yahoo's list of a player's reserve seats only when it was non-empty, so "Yahoo
+  offers him none" became "unknown";
+- with "unknown", validation and the solver fell back to the status table, which let O into IR;
+- roster health (`getRosterHealth`, the Team page, the daemon's waiver check) never read Yahoo's
+  list at all, so it told the agents "MacKinnon can move C → IR".
+
+**Decided:**
+- **One rule** (`fitsReserve`, `libs/model/src/lineupRules.ts`): Yahoo's list wins when the
+  snapshot has it, empty included; the status table only otherwise. Plan validation, the lineup
+  solver and roster health all use it, so a move Yahoo cannot make is refused before any Yahoo call
+  (P2), with an error telling the agent to leave him where he is.
+- **The snapshot keeps an empty `reserveEligible`.**
+- **The table's IR takes IR, IR-LT and IR-NR, not O** (U-10). IR+ still takes O and DTD [U: no IR+
+  in this league]. This also stops counting O free agents as free IR stashes in waivers and
+  auto-grab, and the daemon's "X can go to IR" push now fires on a real move to an IR status.
+- The daemon's waiver check uses Yahoo's list only while a player's status is still the snapshot's;
+  a newer status uses the table.
+- **Not done:** remembering a lineup move the writer refused today, so a stale snapshot cannot
+  repeat it (proposed as its own ticket). The writer's own check still refuses it without a POST.
 
 ### D-043 — 2026-11-02 — CI/CD: gates on every PR, and main deploys itself to gradyserver
 
