@@ -188,12 +188,12 @@ describe('read tools over the mock league', () => {
     expect(!wrong.ok && wrong.error).toContain("not on Mock Team 2's roster");
   });
 
-  it('getLineupSuggestion moves the out starter to the free IR seat, not the bench', async () => {
-    // Both IR seats are empty in the mock roster and O is IR-eligible, so the solver's
-    // IR-first rule frees his roster spot (previously this accepted BN as well).
+  it('getLineupSuggestion benches the O starter: IR takes no O (the MacKinnon case, D-044)', async () => {
+    // Both IR seats are empty in the mock roster, but Yahoo offers an O player no IR seat.
     const { ctx } = testRun();
     const s = summary(await getLineupSuggestion.execute({ date: '2026-10-13' }, ctx));
-    expect(s).toMatch(/Cale Makar D→IR/);
+    expect(s).toMatch(/Cale Makar D→BN/);
+    expect(s).not.toMatch(/→IR/);
   });
 });
 
@@ -218,15 +218,15 @@ describe('availability in the read tools (draft-night flaw 4)', () => {
     expect(n).toContain('availability: O, out ~10 days');
   });
 
-  it('getRosterHealth flags the out starters and the IR moves that free their spots', async () => {
+  it('getRosterHealth flags the out starters, offering no IR seat to an O player (D-044)', async () => {
     const { ctx } = testRun();
     const r = await getRosterHealth.execute({ date: '2026-10-13' }, ctx);
     if (!r.ok) throw new Error(r.error);
     const out = r.data.unplayableStarters.filter((u) => u.reason.startsWith('O'));
     expect(out.map((u) => u.playerKey).sort()).toEqual(['477.p.3637', MAKAR].sort());
-    expect(r.data.irMovesAvailable.map((m) => m.to)).toEqual(['IR', 'IR']);
+    expect(r.data.irMovesAvailable).toEqual([]);
     expect(r.summary).toContain('Cale Makar (477.p.7519) starts at D but will not play');
-    expect(r.summary).toContain('can move D → IR');
+    expect(r.summary).not.toContain('→ IR');
   });
 
   it('getRosterHealth refuses a date outside the schedule', async () => {

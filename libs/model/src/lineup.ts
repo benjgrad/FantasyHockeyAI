@@ -3,9 +3,9 @@ import { maxWeightAssignment } from './hungarian.js';
 import {
   activeSlotsFor,
   DEFAULT_RESERVE_STATUSES,
+  fitsReserve,
   isOut,
   playProbability,
-  reserveAllows,
   slotKind,
   type SlotKind,
 } from './lineupRules.js';
@@ -28,17 +28,6 @@ export interface LineupPlayer {
   pStart?: number | undefined;
   /** Reserve seats Yahoo lists for him (U-10); when present, they replace the status table. */
   reserveSlots?: readonly string[] | undefined;
-}
-
-/** May `e` sit in reserve seat `slot`? Yahoo's own list wins over the status table (U-10). */
-function fitsReserve(
-  table: Readonly<Record<string, readonly string[]>>,
-  slot: string,
-  e: Pick<LineupPlayer, 'status' | 'reserveSlots'>,
-): boolean {
-  return e.reserveSlots !== undefined
-    ? e.reserveSlots.includes(slot)
-    : reserveAllows(table, slot, e.status);
 }
 
 export interface LineupInput {

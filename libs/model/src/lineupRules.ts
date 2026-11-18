@@ -2,14 +2,15 @@ import type { RosterSlot } from '@fha/core';
 import { eligibleSlots, type NhlPosition } from './positions.js';
 
 /**
- * Which Yahoo statuses each reserve slot accepts.
+ * Which Yahoo statuses each reserve slot accepts: the fallback when Yahoo's own list of a
+ * player's reserve seats (`reserveEligible`, U-10) is not known.
  *
- * [U] Yahoo's exact per-slot lists are not verified for this league. The defaults follow the
- * brief (IR takes O, IR, IR-LT, IR-NR; IR+ additionally DTD; NA takes NA). Callers pass the
- * verified table through `LineupInput.reserveStatuses` once it is known.
+ * IR takes IR, IR-LT and IR-NR. It does **not** take O: Yahoo would not seat MacKinnon (O) in
+ * IR (2026-11), and lists IR for IR and IR-NR players only (2026-09-29). IR+ additionally takes
+ * O and DTD [U: no IR+ in this league]; NA takes NA.
  */
 export const DEFAULT_RESERVE_STATUSES: Readonly<Record<string, readonly string[]>> = {
-  IR: ['O', 'IR', 'IR-LT', 'IR-NR'],
+  IR: ['IR', 'IR-LT', 'IR-NR'],
   'IR+': ['O', 'IR', 'IR-LT', 'IR-NR', 'DTD'],
   NA: ['NA'],
 };
@@ -59,6 +60,21 @@ export function reserveAllows(
   status: string | undefined,
 ): boolean {
   return status !== undefined && (table[position] ?? []).includes(status);
+}
+
+/**
+ * May this player sit in reserve seat `slot`? Yahoo's own list for him wins over the status
+ * table (U-10): an empty list means Yahoo offers him no reserve seat. The one rule the solver,
+ * roster health and plan validation share, so they cannot disagree about who fits IR.
+ */
+export function fitsReserve(
+  table: Readonly<Record<string, readonly string[]>>,
+  slot: string,
+  p: { status?: string | undefined; reserveSlots?: readonly string[] | undefined },
+): boolean {
+  return p.reserveSlots !== undefined
+    ? p.reserveSlots.includes(slot)
+    : reserveAllows(table, slot, p.status);
 }
 
 const TO_NHL: Record<string, NhlPosition> = { C: 'C', LW: 'L', RW: 'R', D: 'D', G: 'G' };

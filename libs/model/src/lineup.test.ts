@@ -361,11 +361,11 @@ describe('solveLineup: season-opening injuries (draft-night flaw 4)', () => {
     expect(slotOf(r, 'backup')).toBe('C');
   });
 
-  it('should move an O starter straight to a free IR seat, not the bench', () => {
+  it('should move an IR-NR starter straight to a free IR seat, not the bench', () => {
     const r = solveLineup({
       slots: LEAGUE_SLOTS,
       entries: [
-        pl('jarvis', ['C'], 'C', 9, { status: 'O' }),
+        pl('jarvis', ['C'], 'C', 9, { status: 'IR-NR' }),
         pl('c2', ['C'], 'C', 3),
         pl('benchC', ['C'], 'BN', 2),
       ],
@@ -376,17 +376,41 @@ describe('solveLineup: season-opening injuries (draft-night flaw 4)', () => {
     ]);
   });
 
-  it('should move IR-eligible bench players (O, IR-LT) into free IR seats, freeing roster spots', () => {
+  it('should move IR-eligible bench players (IR, IR-LT) into free IR seats, freeing roster spots', () => {
     const r = solveLineup({
       slots: LEAGUE_SLOTS,
       entries: [
-        pl('gus', ['G'], 'BN', 4, { status: 'O' }),
+        pl('gus', ['G'], 'BN', 4, { status: 'IR' }),
         pl('nikishin', ['D'], 'BN', 3, { status: 'IR-LT' }),
         pl('g', ['G'], 'G', 2),
       ],
     });
     expect(slotOf(r, 'gus')).toBe('IR');
     expect(slotOf(r, 'nikishin')).toBe('IR');
+  });
+
+  it('should bench an O starter, not seat him in IR: Yahoo offers O no IR seat (MacKinnon, 2026-11)', () => {
+    const entries = [
+      pl('mack', ['C'], 'C', 9, { status: 'O' }),
+      pl('c2', ['C'], 'C', 3),
+      pl('benchC', ['C'], 'BN', 2),
+    ];
+    const r = solveLineup({ slots: LEAGUE_SLOTS, entries });
+    expect(slotOf(r, 'mack')).toBe('BN');
+    expect(slotOf(r, 'benchC')).toBe('C');
+    // Yahoo's own list wins both ways: [] keeps him out even of a table that would take him.
+    const listed = solveLineup({
+      slots: LEAGUE_SLOTS,
+      entries: entries.map((e) => (e.playerKey === 'mack' ? { ...e, reserveSlots: ['IR'] } : e)),
+    });
+    expect(slotOf(listed, 'mack')).toBe('IR');
+    const refused = solveLineup({
+      slots: LEAGUE_SLOTS,
+      entries: entries.map((e) =>
+        e.playerKey === 'mack' ? { ...e, status: 'IR', reserveSlots: [] } : e,
+      ),
+    });
+    expect(slotOf(refused, 'mack')).toBe('BN');
   });
 
   it('should leave an NA player out of IR (IR does not take NA) and never start him', () => {

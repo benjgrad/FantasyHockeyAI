@@ -2,8 +2,8 @@ import type { RosterSlot } from '@fha/core';
 import {
   DEFAULT_RESERVE_STATUSES,
   activeSlotsFor,
+  fitsReserve,
   isOut,
-  reserveAllows,
   slotKind,
 } from './lineupRules.js';
 
@@ -27,6 +27,11 @@ export interface HealthEntry {
   hasGame?: boolean;
   /** Availability label, e.g. "O, out ~10 days, back ~2026-10-09 (default estimate)". */
   label?: string;
+  /**
+   * Reserve seats Yahoo lists for him (U-10). When present they replace the status table; an
+   * empty list means Yahoo offers him none (MacKinnon, O, 2026-11).
+   */
+  reserveSlots?: readonly string[] | undefined;
 }
 
 export interface RosterHealthInput {
@@ -38,14 +43,14 @@ export interface RosterHealthInput {
 export interface RosterHealth {
   /** In an active slot but out (or, when the schedule is known, without a game today). */
   unplayableStarters: { playerKey: string; slot: string; reason: string }[];
-  /** A player his status allows into an open reserve seat: moving him frees a roster spot. */
+  /** A player Yahoo allows into an open reserve seat: moving him frees a roster spot. */
   irMovesAvailable: { playerKey: string; from: string; to: string }[];
   /**
    * Out players on the bench with no reserve seat to go to: dead roster spots. The natural
    * drop (or trade) candidates, and the reason an IR seat is worth freeing.
    */
   idleInjured: { playerKey: string; slot: string; reason: string }[];
-  /** In a reserve slot his status no longer allows: he must be activated or dropped. */
+  /** In a reserve slot Yahoo (or his status) no longer allows: he must be activated or dropped. */
   mustActivate: { playerKey: string; slot: string }[];
   /** Active seats nobody occupies, one entry per seat. */
   emptyActiveSlots: string[];
@@ -88,7 +93,7 @@ function irMoves(
     .sort((a, b) => Number(active.has(b.slot)) - Number(active.has(a.slot)) || b.value - a.value);
   const moves: RosterHealth['irMovesAvailable'] = [];
   for (const e of candidates) {
-    const i = open.findIndex((seat) => reserveAllows(table, seat, e.status));
+    const i = open.findIndex((seat) => fitsReserve(table, seat, e));
     const seat = open[i];
     if (seat === undefined) continue;
     open.splice(i, 1);
@@ -128,7 +133,7 @@ export function rosterHealth(input: RosterHealthInput): RosterHealth {
       reason: isOut(e.status) ? (e.label ?? `status ${e.status ?? '?'}`) : 'no game today',
     }));
   const mustActivate = input.entries
-    .filter((e) => isReserve(e.slot) && !reserveAllows(table, e.slot, e.status))
+    .filter((e) => isReserve(e.slot) && !fitsReserve(table, e.slot, e))
     .map((e) => ({ playerKey: e.playerKey, slot: e.slot }));
   const emptyActiveSlots = input.slots
     .filter((s) => s.isStarting)
@@ -180,12 +185,12 @@ function healthSummary(
   }
   for (const i of h.idleInjured) {
     out.push(
-      `${name(i.playerKey)} (${i.playerKey}) is out on the ${i.slot} with no reserve seat free: ${i.reason}. A dead roster spot.`,
+      `${name(i.playerKey)} (${i.playerKey}) is out on the ${i.slot} with no reserve seat open to him: ${i.reason}. A dead roster spot.`,
     );
   }
   for (const m of h.mustActivate) {
     out.push(
-      `${name(m.playerKey)} (${m.playerKey}) is in ${m.slot} but his status no longer allows it: activate or drop him.`,
+      `${name(m.playerKey)} (${m.playerKey}) is in ${m.slot} but Yahoo no longer allows him there: activate or drop him.`,
     );
   }
   if (h.emptyActiveSlots.length > 0)

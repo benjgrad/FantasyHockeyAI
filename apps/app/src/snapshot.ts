@@ -130,7 +130,8 @@ function playerExtras(d: PlayerDetail | undefined): Partial<Player> {
       ? { waiverDate: d.ownership.waiverDate }
       : {}),
     ...(d.undroppable ? { undroppable: true } : {}),
-    ...(d.reserveEligible.length > 0 ? { reserveEligible: d.reserveEligible } : {}),
+    // Kept when empty: Yahoo offering him no reserve seat is an answer, not "unknown" (U-10).
+    reserveEligible: d.reserveEligible,
     ...(d.injuryNote === undefined ? {} : { injuryNote: d.injuryNote }),
   };
 }

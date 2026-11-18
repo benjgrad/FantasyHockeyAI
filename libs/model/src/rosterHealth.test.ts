@@ -26,21 +26,57 @@ describe('rosterHealth', () => {
     expect(h.summary).toEqual(['Roster healthy: nothing needs attention.']);
   });
 
-  it('should flag an O starter and offer his move to the open IR seat (the Jarvis case)', () => {
+  it('should flag an IR-NR starter and offer his move to the open IR seat (the Jarvis case)', () => {
     const h = rosterHealth({
       slots: SMALL,
       entries: [
-        e('jarvis', ['C'], 'C', 5, { status: 'O', name: 'Jarvis', label: 'O, out ~10 days' }),
+        e('jarvis', ['C'], 'C', 5, {
+          status: 'IR-NR',
+          name: 'Jarvis',
+          label: 'IR-NR, out ~3 weeks',
+        }),
         e('d', ['D'], 'D', 2),
         e('b', ['C'], 'BN', 1),
       ],
     });
     expect(h.unplayableStarters).toEqual([
-      { playerKey: 'jarvis', slot: 'C', reason: 'O, out ~10 days' },
+      { playerKey: 'jarvis', slot: 'C', reason: 'IR-NR, out ~3 weeks' },
     ]);
     expect(h.irMovesAvailable).toEqual([{ playerKey: 'jarvis', from: 'C', to: 'IR' }]);
     expect(h.thinPositions).toEqual([]); // the bench C covers
-    expect(h.summary[0]).toBe('Jarvis (jarvis) starts at C but will not play: O, out ~10 days.');
+    expect(h.summary[0]).toBe(
+      'Jarvis (jarvis) starts at C but will not play: IR-NR, out ~3 weeks.',
+    );
+  });
+
+  it('should not offer IR to an O player: Yahoo offers him none (MacKinnon, 2026-11)', () => {
+    const entries = [
+      e('mack', ['C'], 'C', 9, { status: 'O', name: 'MacKinnon', reserveSlots: [] }),
+      e('b', ['C'], 'BN', 1),
+    ];
+    const h = rosterHealth({ slots: SMALL, entries });
+    expect(h.irMovesAvailable).toEqual([]);
+    expect(h.unplayableStarters.map((u) => u.playerKey)).toEqual(['mack']);
+    // Without Yahoo's list the status table says the same: IR takes no O.
+    const table = rosterHealth({
+      slots: SMALL,
+      entries: entries.map((x) => ({ ...x, reserveSlots: undefined })),
+    });
+    expect(table.irMovesAvailable).toEqual([]);
+    // Yahoo's list wins over the table when it does offer the seat.
+    const listed = rosterHealth({
+      slots: SMALL,
+      entries: entries.map((x) => (x.playerKey === 'mack' ? { ...x, reserveSlots: ['IR'] } : x)),
+    });
+    expect(listed.irMovesAvailable).toEqual([{ playerKey: 'mack', from: 'C', to: 'IR' }]);
+  });
+
+  it('should say a player in IR must be activated when Yahoo no longer offers him the seat', () => {
+    const h = rosterHealth({
+      slots: SMALL,
+      entries: [e('back', ['D'], 'IR', 3, { status: 'IR', reserveSlots: [] })],
+    });
+    expect(h.mustActivate).toEqual([{ playerKey: 'back', slot: 'IR' }]);
   });
 
   it('should move the starter before a more valuable bench player when one seat is open', () => {
@@ -86,7 +122,7 @@ describe('rosterHealth', () => {
     expect(h.irMovesAvailable).toEqual([]);
     expect(h.idleInjured.map((i) => i.playerKey)).toEqual(['jarvis', 'nikishin']);
     expect(h.summary).toContain(
-      'Jarvis (jarvis) is out on the BN with no reserve seat free: status IR-NR. A dead roster spot.',
+      'Jarvis (jarvis) is out on the BN with no reserve seat open to him: status IR-NR. A dead roster spot.',
     );
     // With a seat open the IR-eligible one moves instead; the NA one stays idle (IR takes no NA).
     const open = rosterHealth({

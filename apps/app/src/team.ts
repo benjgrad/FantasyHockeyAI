@@ -102,6 +102,7 @@ export function teamView(league: LeagueState, now: Date, store?: Store): TeamVie
       name: p.name,
       eligible: p.eligible,
       status: p.status,
+      reserveSlots: p.reserveEligible,
       slot,
       value: view.valuation(p.playerKey)?.perGameValue ?? 0,
       // Unknown without a schedule for the day: never read as "no game" (see rosterHealth).

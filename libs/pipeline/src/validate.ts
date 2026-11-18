@@ -7,7 +7,7 @@ import {
   type TeamKey,
   type Transaction,
 } from '@fha/core';
-import { DEFAULT_RESERVE_STATUSES, reserveAllows } from '@fha/model';
+import { DEFAULT_RESERVE_STATUSES, fitsReserve } from '@fha/model';
 
 /**
  * Deterministic plan validation (§9.1), applied to every plan before the gate.
@@ -119,16 +119,37 @@ function kindErrors(p: PlanPayload, ctx: ValidationContext): string[] {
 
 export function slotAccepts(slot: string, player: Player): boolean {
   if (slot === 'BN') return true;
-  // Yahoo's own list of reserve seats for him, when the snapshot has it (U-10).
-  if (slot in DEFAULT_RESERVE_STATUSES && player.reserveEligible !== undefined) {
-    return player.reserveEligible.includes(slot);
-  }
-  // One table for the solver and the validator, so they cannot disagree about who fits IR.
-  if (slot in DEFAULT_RESERVE_STATUSES) {
-    return reserveAllows(DEFAULT_RESERVE_STATUSES, slot, player.status);
+  // Yahoo's own list of reserve seats for him when the snapshot has it (U-10), else the status
+  // table: the solver's rule, so the two cannot disagree about who fits IR.
+  if (isReserveSlot(slot)) {
+    return fitsReserve(DEFAULT_RESERVE_STATUSES, slot, {
+      status: player.status,
+      reserveSlots: player.reserveEligible,
+    });
   }
   if (slot === 'Util') return player.positionType === 'P';
   return player.eligible.includes(slot);
+}
+
+function isReserveSlot(slot: string): boolean {
+  return slot in DEFAULT_RESERVE_STATUSES;
+}
+
+/**
+ * Why a slot is refused, as an instruction. A reserve seat is Yahoo's call, not his positions':
+ * proposing one Yahoo does not offer is a move the website cannot make (MacKinnon, O, was sent
+ * to IR again and again, 2026-11).
+ */
+function slotRefusal(slot: string, player: Player): string {
+  if (!isReserveSlot(slot)) {
+    return `${player.name} is not eligible for ${slot} (eligible: ${player.eligible.join('/')}).`;
+  }
+  const status = player.status ?? 'healthy';
+  const seats =
+    player.reserveEligible === undefined
+      ? `status ${status} does not allow ${slot}`
+      : `status ${status}; Yahoo's reserve seats for him: ${player.reserveEligible.join(', ') || 'none'}`;
+  return `Yahoo does not offer ${player.name} an ${slot} seat (${seats}). Do not move him to ${slot}: leave him where he is, or bench him.`;
 }
 
 function lineupErrors(
@@ -150,11 +171,7 @@ function lineupErrors(
       continue;
     }
     if (!known.has(m.slot)) errors.push(`Slot ${m.slot} does not exist in this league.`);
-    else if (!slotAccepts(m.slot, player)) {
-      errors.push(
-        `${player.name} is not eligible for ${m.slot} (eligible: ${player.eligible.join('/')}).`,
-      );
-    }
+    else if (!slotAccepts(m.slot, player)) errors.push(slotRefusal(m.slot, player));
     if (current.get(m.playerKey) !== m.slot && ctx.isLocked(m.playerKey, p.date)) {
       errors.push(
         `${player.name}'s game has started, so he is locked and cannot move. Leave him where he is.`,
